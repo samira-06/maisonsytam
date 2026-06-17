@@ -764,3 +764,18 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 }
 .modal-thumbs img:hover { opacity: 0.8; }
 .modal-thumbs img.active { opacity: 1; border-color: var(--accent); }
+
+/* --- Suivi de commande --- */
+.track-timeline { list-style: none; padding: 0; margin: 20px 0; position: relative; }
+.track-timeline::before { content: ''; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.track-step { position: relative; padding: 0 0 24px 44px; }
+.track-step:last-child { padding-bottom: 0; }
+.track-step .dot { position: absolute; left: 8px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--border); border: 2px solid var(--white); z-index: 1; }
+.track-step.done .dot { background: #2e7d32; }
+.track-step.active .dot { background: var(--accent); box-shadow: 0 0 0 3px rgba(201,169,110,0.3); }
+.track-step.cancelled .dot { background: #c62828; }
+.track-step .step-label { font-weight: 600; font-size: .9rem; }
+.track-step .step-date { font-size: .78rem; color: var(--text-lighter); }
+.track-order-card { background: var(--bg-light); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.track-order-card .row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: .85rem; }
+.track-order-card .row .label { color: var(--text-lighter); }

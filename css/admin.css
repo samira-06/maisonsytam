@@ -229,6 +229,8 @@ select.form-input { cursor: pointer; }
 .order-status { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: .7rem; font-weight: 600; }
 .status-en_attente { background: #fff3e0; color: #e65100; }
 .status-confirmee { background: #e3f2fd; color: #1565c0; }
+.status-preparation { background: #f3e5f5; color: #7b1fa2; }
+.status-livraison { background: #e0f7fa; color: #00695c; }
 .status-livree { background: #e8f5e9; color: #2e7d32; }
 .status-annulee { background: #ffebee; color: #c62828; }
 

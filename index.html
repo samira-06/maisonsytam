@@ -17,6 +17,7 @@
       <a href="#home" class="active" data-page="home" onclick="SytamApp.navigate('home')">Accueil</a>
       <a href="#shop" data-page="shop" onclick="SytamApp.navigate('shop')">Boutique</a>
       <a href="#contact" data-page="contact" onclick="SytamApp.navigate('contact')">Contact</a>
+      <a href="#track" data-page="track" onclick="SytamApp.navigate('track')">Suivre</a>
     </nav>
     <div class="header-actions">
       <button class="menu-btn" id="menu-btn" onclick="SytamApp.toggleMenu()" aria-label="Menu">☰</button>
@@ -155,6 +156,20 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ==================== SUIVRE MA COMMANDE ==================== -->
+<section class="page" id="page-track">
+  <div class="container" style="max-width:600px">
+    <h2 style="font-family:var(--font-serif);font-size:1.8rem;margin-bottom:8px;text-align:center">Suivre ma commande</h2>
+    <p style="text-align:center;color:var(--text-lighter);margin-bottom:28px">Entrez votre numéro de téléphone et le numéro de commande pour voir son statut.</p>
+    <div class="track-form" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+      <input class="form-input" id="track-phone" placeholder="Téléphone (77 xxx xx xx)" style="padding:12px 14px;border:1px solid var(--border);border-radius:4px">
+      <input class="form-input" id="track-id" placeholder="Numéro de commande (CMD...)" style="padding:12px 14px;border:1px solid var(--border);border-radius:4px">
+      <button class="btn btn-primary btn-block" onclick="SytamApp.trackOrder()">Rechercher</button>
+    </div>
+    <div id="track-result" style="display:none"></div>
   </div>
 </section>
 

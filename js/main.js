@@ -813,12 +813,76 @@
   }
   setInterval(_periodicSync, 60000);
 
+  // --- Suivi de commande ---
+  function trackOrder() {
+    var phone = document.getElementById('track-phone').value.trim();
+    var orderId = document.getElementById('track-id').value.trim().toUpperCase();
+    var resultDiv = document.getElementById('track-result');
+    if (!phone || !orderId) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Veuillez remplir les deux champs.</p>'; return; }
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    // Check Supabase if not found locally
+    function showOrder(ordersList) {
+      var found = null;
+      for (var i = 0; i < ordersList.length; i++) {
+        var o = ordersList[i];
+        var cleanPhone = (o.telephone || '').replace(/[^0-9]/g, '');
+        var searchPhone = phone.replace(/[^0-9]/g, '');
+        if (o.id.toUpperCase() === orderId && cleanPhone.indexOf(searchPhone) !== -1) { found = o; break; }
+      }
+      if (!found) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée. Vérifiez le numéro et l\'ID.</p>'; return; }
+      var steps = [
+        { key: 'en_attente', label: 'Commande reçue' },
+        { key: 'confirmee', label: 'Confirmée (paiement reçu)' },
+        { key: 'preparation', label: 'En cours de traitement' },
+        { key: 'livraison', label: 'En route pour livraison' },
+        { key: 'livree', label: 'Livrée' },
+      ];
+      var statusIdx = -1;
+      if (found.statut === 'annulee') {
+        steps = [{ key: 'annulee', label: 'Commande annulée' }];
+        statusIdx = 0;
+      } else {
+        for (var si = 0; si < steps.length; si++) { if (steps[si].key === found.statut) { statusIdx = si; break; } }
+        if (statusIdx === -1) { steps = [{ key: found.statut, label: found.statut }]; statusIdx = 0; }
+      }
+      var itemsHtml = (found.items || []).map(function(it) { return '<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0"><span>' + it.nom + ' ' + (it.variantLabel ? '(' + it.variantLabel + ')' : '') + ' x' + (it.qte||1) + '</span><span>' + fmt(it.prix) + ' FCFA</span></div>'; }).join('');
+      var timelineHtml = '<ul class="track-timeline">' + steps.map(function(s, si) {
+        var cls = found.statut === 'annulee' ? 'cancelled' : (si < statusIdx ? 'done' : (si === statusIdx ? 'active' : ''));
+        return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
+      }).join('') + '</ul>';
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML =
+        '<div class="track-order-card">' +
+          '<div class="row"><span class="label">Commande</span><span>' + found.id + '</span></div>' +
+          '<div class="row"><span class="label">Client</span><span>' + (found.client || '—') + '</span></div>' +
+          '<div class="row"><span class="label">Total</span><span><strong>' + fmt(found.total) + ' FCFA</strong></span></div>' +
+          (found.mode_paiement ? '<div class="row"><span class="label">Paiement</span><span>' + found.mode_paiement + '</span></div>' : '') +
+          (found.adresse ? '<div class="row"><span class="label">Adresse</span><span style="text-align:right;max-width:200px">' + found.adresse + '</span></div>' : '') +
+          '<div style="border-top:1px solid var(--border);margin:10px 0 6px;padding-top:8px">' + itemsHtml + '</div>' +
+        '</div>' +
+        timelineHtml +
+        (found.statut === 'annulee' ? '' : '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>');
+    }
+    if (orders.length) { showOrder(orders); return; }
+    // Fallback: try Supabase
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
+        .then(function(result) {
+          if (result && result.length && result[0].value) { showOrder(result[0].value); }
+          else { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>'; }
+        })
+        .catch(function() { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Erreur de connexion.</p>'; });
+    } else {
+      resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
+    }
+  }
+
   window.SytamApp = {
     init, navigate, navigateToCategory, renderShop, quickView, closeQuickView,
     selectVariantAttr, changeQty, addFromModal,
     toggleCart, toggleMenu, renderCart, cartQty, cartRemove,
     showCheckout, closeCheckout, submitOrder, closeOrderSuccess, renderCheckoutSummary,
-    applyPromo, heroSlide,
+    applyPromo, heroSlide, trackOrder,
     scrollHoriz: function (id, dir) {
       var el = document.getElementById(id);
       if (!el) return;

@@ -500,7 +500,7 @@
       : '<tr><td colspan="5" class="empty-row">Aucune commande</td></tr>';
   }
 
-  function labelStatut(s) { var m = { en_attente: 'En attente', confirmee: 'Confirmée', livree: 'Livrée', annulee: 'Annulée' }; return m[s] || s; }
+  function labelStatut(s) { var m = { en_attente: 'En attente', confirmee: 'Confirmée', preparation: 'En cours', livraison: 'En route', livree: 'Livrée', annulee: 'Annulée' }; return m[s] || s; }
 
   // PRODUCTS
   function loadProducts() {
@@ -820,7 +820,7 @@
             '<td><span class="order-status status-' + o.statut + '">' + labelStatut(o.statut) + '</span></td>' +
             '<td style="font-size:.78rem;color:var(--tl)">' + dateStr + '</td>' +
             '<td class="actions-cell"><button class="btn-add btn-sm" onclick="SytamAdmin.viewOrder(\'' + o.id + '\')">Détail</button><select class="form-input" style="width:auto;padding:3px 6px;font-size:.72rem" onchange="SytamAdmin.updateStatus(\'' + o.id + '\',this.value)">' +
-            ['en_attente', 'confirmee', 'livree', 'annulee'].map(function (s) { return '<option value="' + s + '"' + (o.statut === s ? ' selected' : '') + '>' + labelStatut(s) + '</option>'; }).join('') +
+            ['en_attente', 'confirmee', 'preparation', 'livraison', 'livree', 'annulee'].map(function (s) { return '<option value="' + s + '"' + (o.statut === s ? ' selected' : '') + '>' + labelStatut(s) + '</option>'; }).join('') +
           '</select><button class="btn-del btn-sm" onclick="SytamAdmin.deleteOrder(\'' + o.id + '\')" title="Supprimer">✕</button></td></tr>';
         }).join('')
       : '<tr><td colspan="8" class="empty-row">Aucune commande</td></tr>';
