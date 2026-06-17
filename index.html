@@ -89,7 +89,7 @@
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Est-ce possible d'annuler ma commande ?<span class="icon">+</span></div>
-        <div class="faq-a">Oui, sous 1h après la commande. Passé ce délai, la commande est automatiquement annulée si aucun paiement n'est confirmé. Une fois confirmée, il n'est plus possible d'annuler. Envoyez un message WhatsApp ou appelez au 77 478 98 75 pour toute question.</div>
+        <div class="faq-a">Oui, vous pouvez annuler sous 24h après avoir payé. Passé 24h, la commande ne peut plus être annulée. <br><br><strong>Important :</strong> Si vous ne confirmez pas le paiement sous 1h après la commande, celle-ci est automatiquement annulée. Envoyez un message WhatsApp ou appelez au 77 478 98 75 pour toute question.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Quels moyens de paiement acceptez-vous ?<span class="icon">+</span></div>
@@ -272,6 +272,7 @@
     <h2>Commande confirmée !</h2>
     <p>Merci pour votre commande <span class="order-ref">N° <span id="order-ref"></span></span></p>
     <p style="font-size:.85rem;color:var(--text-light);margin-bottom:16px">Envoyez votre paiement au <strong>77 478 98 75</strong> et transférez la capture sur WhatsApp pour finaliser votre commande.</p>
+    <p style="font-size:.78rem;color:var(--danger);margin-bottom:16px;padding:10px;background:#fff5f5;border-radius:6px">⏳ Vous avez <strong>1h</strong> pour confirmer votre paiement. Passé ce délai, la commande est automatiquement annulée.</p>
     <p style="font-size:.82rem;color:var(--text-lighter);margin-bottom:16px;padding:10px;background:var(--bg-light);border-radius:6px">📦 Suivez votre commande à tout moment : <a href="#track" onclick="SytamApp.closeOrderSuccess();SytamApp.navigate('track')" style="color:var(--accent);font-weight:600">Cliquez ici</a> ou dans le menu <strong>Suivre</strong> (numéro commande : <span id="order-ref2"></span>)</p>
     <button class="btn btn-primary btn-block" onclick="SytamApp.closeOrderSuccess()">Continuer mes achats</button>
   </div>
