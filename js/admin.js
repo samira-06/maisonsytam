@@ -57,6 +57,7 @@
 
   // ---- NOTIFICATIONS NAVIGATEUR ----
   var _notifLastCount = 0;
+  var _currentTab = 'dashboard';
   function initNotifications() {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted' || Notification.permission === 'default') {
@@ -65,25 +66,47 @@
     pollOrders();
     setInterval(pollOrders, 30000);
   }
+  function refreshCurrentTab() {
+    if (_currentTab === 'dashboard') loadDashboard();
+    else if (_currentTab === 'orders') loadOrders();
+    else if (_currentTab === 'messages') loadMessages();
+    else if (_currentTab === 'promos') loadReferrals();
+  }
   function pollOrders() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
-    if (pending > _notifLastCount && _notifLastCount > 0) {
-      var diff = pending - _notifLastCount;
-      var o = orders.filter(function(x) { return x.statut === 'en_attente'; });
-      var latest = o.slice(0, diff);
-      latest.forEach(function(order) {
-        var total = fmt(order.total);
-        var items = (order.items || []).length;
-        new Notification('🛍 Nouvelle commande #' + order.id, {
-          body: order.client + ' — ' + total + ' FCFA (' + items + ' art.)',
-          icon: '/favicon.ico',
-          tag: order.id
-        });
-      });
+    // Re-sync from Supabase so orders placed on other devices appear
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
+        .then(function(result) {
+          if (result && result.length && result[0].value) {
+            localStorage.setItem('sytam_orders_v2', JSON.stringify(result[0].value));
+          }
+          refreshCurrentTab();
+          checkNotifications();
+        })
+        .catch(function() { checkNotifications(); });
+    } else {
+      checkNotifications();
     }
-    _notifLastCount = pending;
+    function checkNotifications() {
+      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
+      if (pending > _notifLastCount && _notifLastCount > 0) {
+        var diff = pending - _notifLastCount;
+        var o = orders.filter(function(x) { return x.statut === 'en_attente'; });
+        var latest = o.slice(0, diff);
+        latest.forEach(function(order) {
+          var total = fmt(order.total);
+          var items = (order.items || []).length;
+          new Notification('Nouvelle commande #' + order.id, {
+            body: order.client + ' — ' + total + ' FCFA (' + items + ' art.)',
+            icon: '/favicon.ico',
+            tag: order.id
+          });
+        });
+      }
+      _notifLastCount = pending;
+    }
   }
 
   function login() {
@@ -191,6 +214,7 @@
 
   // NAVIGATION
   function goTab(tab, el) {
+    _currentTab = tab;
     qsa('.tab').forEach(function (t) { t.classList.remove('active'); });
     qsa('.sb-item').forEach(function (s) { s.classList.remove('active'); });
     var t = $('tab-' + tab);

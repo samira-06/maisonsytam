@@ -781,6 +781,22 @@
     _autoScroll('trending-products', -1);
   }
 
+  // Périodiquement, pousse les données locales vers Supabase
+  function _periodicSync() {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
+    var orderKey = 'sytam_orders_v2';
+    var ordData = localStorage.getItem(orderKey);
+    if (ordData) {
+      try { SupabaseAPI.upsert('store_data', { key: orderKey, value: JSON.parse(ordData) }); } catch(e) {}
+    }
+    var loyaltyKey = 'sytam_loyalty_v2';
+    var loyData = localStorage.getItem(loyaltyKey);
+    if (loyData) {
+      try { SupabaseAPI.upsert('store_data', { key: loyaltyKey, value: JSON.parse(loyData) }); } catch(e) {}
+    }
+  }
+  setInterval(_periodicSync, 60000);
+
   window.SytamApp = {
     init, navigate, navigateToCategory, renderShop, quickView, closeQuickView,
     selectVariantAttr, changeQty, addFromModal,
