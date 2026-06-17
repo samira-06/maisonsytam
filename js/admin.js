@@ -61,10 +61,26 @@
     var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
     var done = 0;
     keys.forEach(function(k) {
+      var localData = localStorage.getItem(k);
+      // First, push local data to Supabase (so newer data is never lost)
+      if (localData) {
+        try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
+      }
+      // Then load from Supabase
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
           if (result && result.length && result[0].value) {
-            localStorage.setItem(k, JSON.stringify(result[0].value));
+            var supabaseItems = result[0].value;
+            var localItems = [];
+            try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
+            // Merge: keep all items, deduplicate by ID
+            if (Array.isArray(supabaseItems) && Array.isArray(localItems) && localItems.length > 0) {
+              var seen = {};
+              supabaseItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
+              localItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
+              supabaseItems = Object.values(seen);
+            }
+            localStorage.setItem(k, JSON.stringify(supabaseItems));
           }
           done++; if (done === keys.length && cb) cb();
         })
