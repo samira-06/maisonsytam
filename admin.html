@@ -46,11 +46,11 @@
       </div>
       <div class="sb-item" data-tab="orders" onclick="SytamAdmin.goTab('orders',this)">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-        Commandes<span class="sb-badge" id="sb-badge" style="display:none">0</span>
+        Commandes<span class="sb-badge" id="ord-badge" style="display:none">0</span>
       </div>
       <div class="sb-item" data-tab="messages" onclick="SytamAdmin.goTab('messages',this)">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-        Messages
+        Messages<span class="sb-badge" id="msg-badge" style="display:none">0</span>
       </div>
       <div class="sb-item" data-tab="products" onclick="SytamAdmin.goTab('products',this)">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
@@ -236,9 +236,9 @@
           <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="shop-phone" value="+221 77 478 98 75"></div>
           <button class="btn-add" onclick="SytamAdmin.saveSettings()">Sauvegarder</button>
         </div>
-      </div>
-      <div class="card" style="margin-top:20px">
-        <div class="card-title">🔄 Transfert de données</div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-title">🔄 Transfert de données</div>
         <p style="font-size:.85rem;color:var(--tl);margin-bottom:12px">Sur le fichier local (<em>file:///</em>) clique <strong>Exporter</strong> → sur le site déployé clique <strong>Importer</strong>.</p>
         <button class="btn-add" onclick="SytamAdmin.exportData()" style="margin-bottom:8px">⬇ Exporter (local)</button>
         <button class="btn-add" onclick="SytamAdmin.importData()" style="background:var(--er);margin-bottom:8px">⬆ Importer (déployé)</button>

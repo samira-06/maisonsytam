@@ -20,8 +20,70 @@
     $('adminDate').textContent = 'Bienvenue ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' });
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     DB.onReady(function() {
-      loadDashboard(); loadProducts(); loadOrders(); loadReferrals();
+      syncFromSupabase(function() {
+        loadDashboard(); loadProducts(); loadOrders(); loadReferrals();
+      });
     });
+    initNotifications();
+  }
+
+  // ---- SYNC SUPABASE ----
+  function pushToSupabase(key) {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
+    var val = localStorage.getItem(key);
+    if (val) {
+      try { SupabaseAPI.upsert('store_data', { key: key, value: JSON.parse(val) }); } catch(e) {}
+    }
+  }
+
+  // ---- SYNC DEPUIS SUPABASE ----
+  function syncFromSupabase(cb) {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
+    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2'];
+    var done = 0;
+    keys.forEach(function(k) {
+      SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
+        .then(function(result) {
+          if (result && result.length && result[0].value) {
+            localStorage.setItem(k, JSON.stringify(result[0].value));
+          }
+          done++; if (done === keys.length && cb) cb();
+        })
+        .catch(function() {
+          done++; if (done === keys.length && cb) cb();
+        });
+    });
+  }
+
+  // ---- NOTIFICATIONS NAVIGATEUR ----
+  var _notifLastCount = 0;
+  function initNotifications() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted' || Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    pollOrders();
+    setInterval(pollOrders, 30000);
+  }
+  function pollOrders() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
+    if (pending > _notifLastCount && _notifLastCount > 0) {
+      var diff = pending - _notifLastCount;
+      var o = orders.filter(function(x) { return x.statut === 'en_attente'; });
+      var latest = o.slice(0, diff);
+      latest.forEach(function(order) {
+        var total = fmt(order.total);
+        var items = (order.items || []).length;
+        new Notification('🛍 Nouvelle commande #' + order.id, {
+          body: order.client + ' — ' + total + ' FCFA (' + items + ' art.)',
+          icon: '/favicon.ico',
+          tag: order.id
+        });
+      });
+    }
+    _notifLastCount = pending;
   }
 
   function login() {
@@ -70,6 +132,8 @@
       .then(function() { showToast('✓ Paramètres sauvegardés' + (SupabaseApp.ready ? ' sur Supabase' : ' (local)')); })
       .catch(function() { showToast('Erreur', 'Impossible de sauvegarder'); });
   }
+
+
 
   function restoreDefaults() {
     if (!confirm('Réinitialiser tous les produits ? Les données Supabase seront écrasées.')) return;
@@ -138,6 +202,7 @@
     else if (tab === 'products') loadProducts();
     else if (tab === 'promos') loadReferrals();
     else if (tab === 'loyalty') loadLoyalty();
+
     // Fermer la sidebar sur mobile
     if (window.innerWidth <= 768) {
       qs('.sidebar').classList.remove('open');
@@ -654,8 +719,6 @@
           return '<tr' + cls + ' onclick="SytamAdmin.openMessage(\'' + m.id + '\')"><td style="white-space:nowrap">' + new Date(m.created_at).toLocaleString('fr-FR') + '</td><td>' + esc(m.name) + '</td><td>' + esc(m.email || '') + '</td><td>' + esc(m.phone || '') + '</td><td style="max-width:250px;white-space:normal">' + esc(m.message) + '</td><td class="actions-cell"><button class="btn-del btn-sm" onclick="event.stopPropagation();SytamAdmin.deleteMessage(\'' + m.id + '\')" title="Supprimer">✕</button></td></tr>';
         }).join('')
       : '<tr><td colspan="6" class="empty-row">Aucun message</td></tr>';
-    var docTitle = document.querySelector('.sb-item[data-tab="messages"] .sb-badge');
-    if (docTitle) { docTitle.textContent = unread; docTitle.style.display = unread > 0 ? 'inline' : 'none'; }
   }
 
   function openMessage(id) {
@@ -710,14 +773,14 @@
       : '<tr><td colspan="8" class="empty-row">Aucune commande</td></tr>';
     // Update badge
     var pending = orders.filter(function (o) { return o.statut === 'en_attente'; }).length;
-    var badge = $('sb-badge');
+    var badge = $('ord-badge');
     if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? 'inline' : 'none'; }
   }
 
   function updateStatus(id, status) {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var o = orders.find(function (x) { return x.id === id; });
-    if (o) { o.statut = status; localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); }
+    if (o) { o.statut = status; localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2'); }
     loadOrders(); loadDashboard();
     showToast('✓ Statut mis à jour');
   }
@@ -726,7 +789,7 @@
     if (!confirm('Supprimer cette commande ?')) return;
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders = orders.filter(function(o) { return o.id !== id; });
-    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2');
     loadOrders(); loadDashboard();
     showToast('✓ Commande supprimée');
   }
@@ -855,6 +918,7 @@
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
     loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings,
+
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
   };

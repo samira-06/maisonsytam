@@ -466,13 +466,15 @@
 
   // ---- CHECKOUT ----
   function showCheckout() {
-    // close cart panel
     state.showingCart = false;
     document.body.classList.remove('cart-open');
     document.getElementById('checkout-modal').classList.add('open');
     document.body.style.overflow = 'hidden';
     renderCheckoutSummary();
-    // smooth scroll inputs into view on focus
+    setTimeout(function() {
+      var btn = document.getElementById('checkout-btn');
+      if (btn) btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
     document.querySelectorAll('.checkout-content input, .checkout-content select, .checkout-content textarea').forEach(function(el) {
       el.addEventListener('focus', function() { this.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     });
@@ -591,6 +593,12 @@
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders.unshift(order);
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+
+    // Sync vers Supabase
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
+      SupabaseAPI.upsert('store_data', { key: 'sytam_loyalty_v2', value: JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}') });
+    }
 
     // Loyalty: track orders count + total per phone
     var cleanPhone = (formData.phone || '').replace(/[^0-9]/g, '');

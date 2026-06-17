@@ -163,12 +163,9 @@ const DB = {
     this._data = this._data.map(function(p) {
       var seed = seedMap[p.id];
       if (!seed) return p;
-      var needsFix = !p.tag;
-      if (needsFix) {
+      if (!p.tag && seed.tag) {
         changed = true;
-        var cloned = JSON.parse(JSON.stringify(p));
-        cloned.tag = seed.tag;
-        return Object.assign({}, seed, cloned);
+        p.tag = seed.tag;
       }
       return p;
     });
@@ -215,13 +212,8 @@ const DB = {
       SupabaseAPI.get('store_data?key=eq.' + DB_KEY + '&select=value')
         .then(function(result) {
           clearTimeout(fallbackTimer);
-          if (result && result.length && result[0].value) {
+          if (result && result.length && result[0].value && result[0].value.length) {
             DB._data = result[0].value;
-            var hasNew = DB._data.some(function(p) { return p.categorie === 'cardigan' || p.categorie === 'pantalons' || p.nom === 'Cardigant'; });
-            if (!hasNew) {
-              DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
-              SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data });
-            }
           } else {
             DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
             var stored = localStorage.getItem(DB_KEY);
