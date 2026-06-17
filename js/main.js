@@ -831,7 +831,7 @@
       for (var i = 0; i < ordersList.length; i++) {
         var o = ordersList[i];
         var cleanPhone = (o.telephone || '').replace(/[^0-9]/g, '');
-        if (o.id.toUpperCase() === orderId && cleanPhone.indexOf(phoneDigits) !== -1) { found = o; break; }
+        if (o.id.toUpperCase() === orderId && cleanPhone === phoneDigits) { found = o; break; }
       }
       if (!found) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée. Vérifiez le numéro et l\'ID.</p>'; return; }
       // Timeline steps (must match admin statuses)
