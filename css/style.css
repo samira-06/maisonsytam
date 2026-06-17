@@ -438,7 +438,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 .checkout-content::-webkit-scrollbar-track { background: transparent; }
 .checkout-content::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.18); border-radius: 4px; }
 .checkout-content::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,0.35); }
-@media (max-width:640px) { .checkout-content { padding: 24px 16px; top: 0; transform: translate(-50%, 0); max-height: 100vh; border-radius: 0; } .checkout-content input, .checkout-content textarea, .checkout-content select { font-size: 16px; } }
+@media (max-width:640px) { .checkout-content { padding: 24px 16px 80px; top: 0; transform: translate(-50%, 0); max-height: 100vh; max-height: 100dvh; border-radius: 0; } .checkout-content input, .checkout-content textarea, .checkout-content select { font-size: 16px; } }
 .checkout-content h2 { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-weight: 500; margin-bottom: 5px; font-size: 0.82rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.3px; }
