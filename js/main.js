@@ -641,6 +641,8 @@
     SytamCart.clear();
     closeCheckout();
     document.getElementById('order-ref').textContent = order.id;
+    var ref2 = document.getElementById('order-ref2');
+    if (ref2) ref2.textContent = order.id;
 
     document.getElementById('order-success').classList.add('open');
   }

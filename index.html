@@ -76,24 +76,24 @@
     <p class="section-sub">Tout ce que vous devez savoir</p>
     <div class="faq-grid">
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Quels sont les délais et frais de livraison ?<span class="icon">+</span></div>
+        <div class="faq-q" onclick="toggleFaq(this)">Quels sont les délais de livraison ?<span class="icon">+</span></div>
         <div class="faq-a">Livraison sous 72h maximum partout au Sénégal. Dakar Centre : 2 000 FCFA — Banlieue : 3 000 FCFA — Régions : 5 000 FCFA. Livraison OFFERTE dès 50 000 FCFA d'achat.</div>
       </div>
       <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Comment précommander un article en rupture ?<span class="icon">+</span></div>
+        <div class="faq-a">Contactez-nous sur WhatsApp au 77 478 98 75 ou envoyez un message depuis la section Contact. Dès que l'article est de retour, nous vous prévenons.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Comment suivre le statut de ma commande ?<span class="icon">+</span></div>
+        <div class="faq-a">Rendez-vous dans la section <strong>Suivre</strong> (menu en haut), entrez votre numéro de téléphone et le numéro de commande (CMD...) pour voir l'état de votre commande en temps réel.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Est-ce possible d'annuler ma commande ?<span class="icon">+</span></div>
+        <div class="faq-a">Oui, sous 24h après la commande. Passé ce délai, une fois la commande confirmée, il n'est plus possible d'annuler. Envoyez simplement un message WhatsApp ou appelez au 77 478 98 75 et nous annulerons votre commande.</div>
+      </div>
+      <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Quels moyens de paiement acceptez-vous ?<span class="icon">+</span></div>
-        <div class="faq-a">Nous acceptons Wave (77 478 98 75), Orange Money (77 478 98 75) et Free Money (76 443 02 18). Paiement sécurisé et rapide.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Puis-je échanger ou retourner un article ?<span class="icon">+</span></div>
-        <div class="faq-a">Oui, sous 5 jours, article neuf avec l'étiquette. Les frais de retour sont à votre charge.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Avez-vous un programme de fidélité ?<span class="icon">+</span></div>
-        <div class="faq-a">Oui ! À votre 10ᵉ commande, recevez un cadeau offert. Votre fidélité est suivie par votre numéro téléphone.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Proposez-vous du sur-mesure ou des réparations ?<span class="icon">+</span></div>
-        <div class="faq-a">Oui, contactez-nous directement sur WhatsApp au 77 478 98 75 pour discuter de vos besoins.</div>
+        <div class="faq-a">Wave (77 478 98 75), Orange Money (77 478 98 75) et Free Money (76 443 02 18). Paiement sécurisé et rapide.</div>
       </div>
     </div>
   </div>
@@ -270,6 +270,7 @@
     <h2>Commande confirmée !</h2>
     <p>Merci pour votre commande <span class="order-ref">N° <span id="order-ref"></span></span></p>
     <p style="font-size:.85rem;color:var(--text-light);margin-bottom:16px">Envoyez votre paiement au <strong>77 478 98 75</strong> et transférez la capture sur WhatsApp pour finaliser votre commande.</p>
+    <p style="font-size:.82rem;color:var(--text-lighter);margin-bottom:16px;padding:10px;background:var(--bg-light);border-radius:6px">📦 Suivez votre commande à tout moment : <a href="#track" onclick="SytamApp.closeOrderSuccess();SytamApp.navigate('track')" style="color:var(--accent);font-weight:600">Cliquez ici</a> ou dans le menu <strong>Suivre</strong> (numéro commande : <span id="order-ref2"></span>)</p>
     <button class="btn btn-primary btn-block" onclick="SytamApp.closeOrderSuccess()">Continuer mes achats</button>
   </div>
 </div>
