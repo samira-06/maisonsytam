@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maison SYTAM — Élégance & Modestie</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23B8956A'/><text x='16' y='23' font-size='20' fill='white' text-anchor='middle' font-family='serif'>S</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <a href="#home" class="logo" onclick="SytamApp.navigate('home')">Maison <span>SYTAM</span></a>
+    <nav class="nav" id="main-nav">
+      <a href="#home" class="active" data-page="home" onclick="SytamApp.navigate('home')">Accueil</a>
+      <a href="#shop" data-page="shop" onclick="SytamApp.navigate('shop')">Boutique</a>
+      <a href="#contact" data-page="contact" onclick="SytamApp.navigate('contact')">Contact</a>
+    </nav>
+    <div class="header-actions">
+      <button class="menu-btn" id="menu-btn" onclick="SytamApp.toggleMenu()" aria-label="Menu">☰</button>
+      <button class="cart-btn" onclick="SytamApp.toggleCart()">
+        🛒<span id="cart-count">0</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== PAGE ACCUEIL ==================== -->
+<section class="page active" id="page-home">
+
+  <div class="hero" id="hero-slider">
+    <div class="hero-slides" id="hero-slides">
+      <div class="hero-slide active" style="background-image:url('images/baseee.png')">
+        <div class="hero-content">
+          <h1><span>Élégance</span> &amp; Modestie</h1>
+          <div class="divider"></div>
+          <p>Découvrez notre collection de voiles, accessoires, robes et ensembles pour femme</p>
+          <a href="#shop" class="btn btn-primary" onclick="SytamApp.navigate('shop')">Explorer la boutique</a>
+        </div>
+      </div>
+      <div class="hero-slide" style="background-image:url('images/imagechoix.png')">
+        <div class="hero-content">
+          <h1><span>Le Choix</span> de l'Élégance</h1>
+          <div class="divider"></div>
+          <p>Une sélection raffinée pour toutes les femmes modernes et modestes</p>
+          <a href="#shop" class="btn btn-primary" onclick="SytamApp.navigate('shop')">Découvrir</a>
+        </div>
+      </div>
+      <div class="hero-slide" style="background-image:url('images/imagecollection.png')">
+        <div class="hero-content">
+          <h1><span>Notre</span> Collection</h1>
+          <div class="divider"></div>
+          <p>Des pièces uniques qui allient tradition et modernité pour sublimer votre quotidien</p>
+          <a href="#shop" class="btn btn-primary" onclick="SytamApp.navigate('shop')">Voir la collection</a>
+        </div>
+      </div>
+    </div>
+    <div class="hero-dots" id="hero-dots"></div>
+  </div>
+
+  <div class="container section">
+    <h2 class="section-title" style="margin-bottom:24px">Nouveautés</h2>
+    <div class="product-scroll" id="featured-products"></div>
+  </div>
+
+  <div class="container section">
+    <h2 class="section-title">Les plus tendances</h2>
+    <div class="product-scroll" id="trending-products"></div>
+  </div>
+
+  <div class="container section">
+    <h2 class="section-title">Questions fréquentes</h2>
+    <p class="section-sub">Tout ce que vous devez savoir</p>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Quels sont les délais et frais de livraison ?<span class="icon">+</span></div>
+        <div class="faq-a">Livraison sous 72h maximum partout au Sénégal. Dakar Centre : 2 000 FCFA — Banlieue : 3 000 FCFA — Régions : 5 000 FCFA. Livraison OFFERTE dès 50 000 FCFA d'achat.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Quels moyens de paiement acceptez-vous ?<span class="icon">+</span></div>
+        <div class="faq-a">Nous acceptons Wave (77 478 98 75), Orange Money (77 478 98 75) et Free Money (76 443 02 18). Paiement sécurisé et rapide.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Puis-je échanger ou retourner un article ?<span class="icon">+</span></div>
+        <div class="faq-a">Oui, sous 5 jours, article neuf avec l'étiquette. Les frais de retour sont à votre charge.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Avez-vous un programme de fidélité ?<span class="icon">+</span></div>
+        <div class="faq-a">Oui ! À votre 10ᵉ commande, recevez un cadeau offert. Votre fidélité est suivie par votre numéro téléphone.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Proposez-vous du sur-mesure ou des réparations ?<span class="icon">+</span></div>
+        <div class="faq-a">Oui, contactez-nous directement sur WhatsApp au 77 478 98 75 pour discuter de vos besoins.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PAGE BOUTIQUE ==================== -->
+<section class="page" id="page-shop">
+  <div class="shop-header">
+    <h1>Notre Boutique</h1>
+  </div>
+  <div class="container">
+    <div class="shop-top-bar">
+      <div class="cat-strip" id="shop-categories"></div>
+      <select class="sort-select" onchange="SytamApp.renderShop({sort:this.value})">
+        <option value="newest">Nouveautés</option>
+        <option value="price_asc">Prix croissant</option>
+        <option value="price_desc">Prix décroissant</option>
+      </select>
+    </div>
+    <div class="product-grid" id="shop-products"></div>
+  </div>
+</section>
+
+<!-- ==================== PAGE CONTACT ==================== -->
+<section class="page" id="page-contact">
+  <div class="container contact-wrap">
+    <div class="contact-grid">
+      <div class="contact-form">
+        <h2>Contactez-nous</h2>
+        <p class="sub">Une question ? Envoyez-nous un message</p>
+        <div class="form-group">
+          <label>Nom &amp; Prénom</label>
+          <input type="text" id="contact-name" placeholder="Votre nom">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="contact-email" placeholder="votre@email.com">
+        </div>
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="contact-phone" placeholder="77 xxx xx xx">
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="contact-message" placeholder="Votre message"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="handleContact()">Envoyer</button>
+      </div>
+      <div class="contact-info">
+        <h3>Nos coordonnées</h3>
+        <div class="contact-info-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span> <span>Dakar, Sénégal</span></div>
+        <div class="contact-info-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span> <span>+221 77 478 98 75</span></div>
+        <div class="contact-info-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span> <span>sytamhijab@gmail.com</span></div>
+        <div class="contact-info-item"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span> <span>Lun–Sam : 9h–19h</span></div>
+        <h3 style="margin-top:28px">Suivez-nous</h3>
+        <div class="social-links">
+          <a href="#" class="social-link" title="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+          <a href="#" class="social-link" title="WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
+          <a href="#" class="social-link" title="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CART PANEL ==================== -->
+<div class="cart-overlay" onclick="SytamApp.toggleCart()"></div>
+<div class="cart-panel" id="cart-panel">
+  <div class="cart-header">
+    <h3>Mon Panier</h3>
+    <button class="cart-close" onclick="SytamApp.toggleCart()">✕</button>
+  </div>
+  <div class="cart-empty">
+    <p>Votre panier est vide</p>
+    <a href="#shop" class="btn btn-primary btn-sm" onclick="SytamApp.toggleCart();SytamApp.navigate('shop')">Découvrir nos produits</a>
+  </div>
+  <div class="cart-items" id="cart-items"></div>
+  <div class="cart-summary" id="cart-summary"></div>
+</div>
+
+<!-- ==================== PRODUCT MODAL ==================== -->
+<div class="modal" id="product-modal"></div>
+
+<!-- ==================== CHECKOUT MODAL ==================== -->
+<div class="modal" id="checkout-modal">
+  <div class="modal-overlay" onclick="SytamApp.closeCheckout()"></div>
+  <div class="modal-content checkout-content">
+    <button class="modal-close" onclick="SytamApp.closeCheckout()">✕</button>
+    <h2>Finaliser la commande</h2>
+    <form id="checkout-form" onsubmit="event.preventDefault(); handleCheckout(this)">
+      <div class="form-group">
+        <label>Nom &amp; Prénom</label>
+        <input type="text" name="name" required>
+      </div>
+      <div class="form-group">
+        <label>Téléphone</label>
+        <input type="tel" name="phone" required placeholder="77 xxx xx xx">
+      </div>
+      <div class="picker-row">
+        <div class="form-group" id="quartier-group">
+          <label>Quartier</label>
+          <div class="picker-trigger" id="quartier-trigger" data-picker="quartier">
+            <span>Sélectionnez</span>
+          </div>
+          <input type="hidden" name="address" value="">
+          <span class="field-error" id="quartier-error"></span>
+        </div>
+        <div class="form-group" id="region-group">
+          <label>Région</label>
+          <div class="picker-trigger" id="region-trigger" data-picker="region">
+            <span>Dakar</span>
+          </div>
+          <input type="hidden" name="region" id="region-input" value="Dakar">
+        </div>
+      </div>
+      <div class="form-group">
+        <label id="address-label">Adresse complète (rue, villa, n°) <span id="address-optional-text">(optionnel)</span></label>
+        <input type="text" name="address_detail" id="address-detail-input" placeholder="Ex: Rue 12 x 15, Villa n°3...">
+        <span class="field-error" id="address-error"></span>
+      </div>
+      <div class="form-group">
+        <label>Mode de paiement</label>
+        <div class="payment-options" id="payment-options">
+          <div class="payment-option active" data-value="wave" onclick="selectPayment(this)">
+            <img src="images/wave.png" alt="Wave" class="payment-logo"> Wave
+          </div>
+          <div class="payment-option" data-value="orange" onclick="selectPayment(this)">
+            <img src="images/orange.jpg" alt="Orange Money" class="payment-logo"> Orange Money
+          </div>
+          <div class="payment-option" data-value="free" onclick="selectPayment(this)">
+            <img src="images/free.png" alt="Free Money" class="payment-logo"> Free Money
+          </div>
+        </div>
+        <p id="payment-info" style="font-size:.78rem;color:var(--text-light);margin-top:-8px;margin-bottom:12px;line-height:1.5"></p>
+        <input type="hidden" name="payment" value="wave">
+      </div>
+      <div class="form-group">
+        <label>Code parrainage</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" name="promo" class="promo-input" placeholder="Ex: PARRAIN10" style="flex:1;text-transform:uppercase">
+          <button type="button" class="btn btn-sm btn-outline" onclick="SytamApp.applyPromo(this)" style="white-space:nowrap">Appliquer</button>
+        </div>
+        <div id="promo-msg" style="font-size:.78rem;margin-top:4px;min-height:18px"></div>
+      </div>
+      <div class="form-group">
+        <label>Notes (optionnel)</label>
+        <textarea name="notes" rows="2" placeholder="Précisions sur la commande..."></textarea>
+      </div>
+      <div class="checkout-summary" id="checkout-summary"></div>
+      <button type="submit" class="btn btn-primary btn-block" id="checkout-btn">Confirmer la commande</button>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== ORDER SUCCESS ==================== -->
+<div class="modal" id="order-success">
+  <div class="modal-overlay" onclick="SytamApp.closeOrderSuccess()"></div>
+  <div class="modal-content success-content">
+    <div class="success-icon">✓</div>
+    <h2>Commande confirmée !</h2>
+    <p>Merci pour votre commande <span class="order-ref">N° <span id="order-ref"></span></span></p>
+    <p style="font-size:.85rem;color:var(--text-light);margin-bottom:16px">Envoyez votre paiement au <strong>77 478 98 75</strong> et transférez la capture sur WhatsApp pour finaliser votre commande.</p>
+    <button class="btn btn-primary btn-block" onclick="SytamApp.closeOrderSuccess()">Continuer mes achats</button>
+  </div>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo">Maison <span>SYTAM</span></div>
+      <p>Élégance et modestie pour toutes. Voiles, accessoires, robes et ensembles — Livraison partout au Sénégal.</p>
+    </div>
+    <div>
+      <h4>Boutique</h4>
+      <ul class="footer-links">
+        <li><a href="#shop" onclick="SytamApp.navigate('shop')">Voiles</a></li>
+        <li><a href="#shop" onclick="SytamApp.navigate('shop')">Robes</a></li>
+        <li><a href="#shop" onclick="SytamApp.navigate('shop')">Ensembles</a></li>
+        <li><a href="#shop" onclick="SytamApp.navigate('shop')">Accessoires</a></li>
+        <li><a href="#shop" onclick="SytamApp.navigate('shop')">Sport</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <ul class="footer-links">
+        <li><a href="tel:+221774789875">+221 77 478 98 75</a></li>
+        <li><a href="mailto:sytamhijab@gmail.com">sytamhijab@gmail.com</a></li>
+        <li><a href="#contact" onclick="SytamApp.navigate('contact')">Formulaire</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Paiement</h4>
+      <ul class="footer-links">
+        <li><a>Wave</a></li>
+        <li><a>Orange Money</a></li>
+        <li><a>Free Money</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">&copy; 2024 Maison SYTAM — Tous droits réservés</div>
+</footer>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script src="js/supabase-config.js"></script>
+<script src="js/supabase-loader.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/products.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/drum-picker.js"></script>
+<script src="js/main.js"></script>
+<script>
+function toggleFaq(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+function selectPayment(el) {
+  document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelector('[name="payment"]').value = el.dataset.value;
+  var payInfo = document.getElementById('payment-info');
+  if (payInfo) {
+    var phone = el.dataset.value === 'free' ? '76 443 02 18' : '77 478 98 75';
+    payInfo.innerHTML = 'Envoyez votre paiement au <strong>' + phone + '</strong> et envoyez la capture sur WhatsApp pour confirmer votre commande.';
+  }
+}
+function handleRegionChange(regionVal) {
+  var isDakar = regionVal === 'Dakar';
+  var qGroup = document.getElementById('quartier-group');
+  var qTrigger = document.getElementById('quartier-trigger');
+  var qHidden = document.querySelector('[name="address"]');
+  var addrLabel = document.getElementById('address-optional-text');
+  var addrInput = document.getElementById('address-detail-input');
+  if (!qGroup || !qTrigger || !qHidden || !addrLabel || !addrInput) return;
+
+  // Clear errors
+  document.getElementById('quartier-error').textContent = '';
+  document.getElementById('address-error').textContent = '';
+
+  if (isDakar) {
+    qGroup.classList.remove('region-disabled');
+    qTrigger.style.pointerEvents = '';
+    qTrigger.querySelector('span').textContent = 'Sélectionnez';
+    qHidden.value = '';
+    addrLabel.textContent = '(optionnel)';
+    addrLabel.style.color = '';
+    addrInput.removeAttribute('required');
+  } else {
+    qGroup.classList.add('region-disabled');
+    qTrigger.style.pointerEvents = 'none';
+    qTrigger.querySelector('span').textContent = 'Non applicable hors Dakar';
+    qHidden.value = '';
+    addrLabel.textContent = '(OBLIGATOIRE) *';
+    addrLabel.style.color = '#d32f2f';
+    addrInput.setAttribute('required', '');
+  }
+  if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
+}
+
+function handleCheckout(form) {
+  var fd = new FormData(form);
+  var region = fd.get('region') || 'Dakar';
+  var isDakar = region === 'Dakar';
+  var quartier = fd.get('address') || document.querySelector('#quartier-trigger span').textContent;
+  var addressDetail = (fd.get('address_detail') || '').trim();
+
+  // Clear errors
+  document.getElementById('quartier-error').textContent = '';
+  document.getElementById('address-error').textContent = '';
+
+  // Conditional validation
+  if (isDakar) {
+    if (!quartier || quartier === 'Sélectionnez' || quartier === 'Non applicable hors Dakar') {
+      document.getElementById('quartier-error').textContent = 'Veuillez choisir un quartier';
+      return;
+    }
+  } else {
+    if (!addressDetail) {
+      document.getElementById('address-error').textContent = 'Veuillez préciser votre adresse complète';
+      return;
+    }
+  }
+
+  var data = {
+    name: fd.get('name'), phone: fd.get('phone'),
+    address: isDakar ? quartier : addressDetail,
+    address_detail: isDakar ? addressDetail : '',
+    region: region,
+    delivery_zone: fd.get('delivery_zone'), payment: fd.get('payment'),
+    notes: fd.get('notes') || '',
+  };
+  if (!data.name || !data.phone) return;
+  SytamApp.submitOrder(data);
+  form.reset();
+  document.querySelectorAll('.payment-option').forEach(function(o,i) { o.classList.toggle('active', i===0); });
+  var payInfo = document.getElementById('payment-info');
+  if (payInfo) payInfo.innerHTML = 'Envoyez votre paiement au <strong>77 478 98 75</strong> et envoyez la capture sur WhatsApp pour confirmer votre commande.';
+  document.querySelector('#quartier-trigger span').textContent = 'Sélectionnez';
+  document.querySelector('[name="address"]').value = '';
+  var regionInput = document.getElementById('region-input');
+  var regionTrigger = document.getElementById('region-trigger');
+  if (regionInput) regionInput.value = 'Dakar';
+  if (regionTrigger) regionTrigger.querySelector('span').textContent = 'Dakar';
+  handleRegionChange('Dakar');
+}
+function handleContact() {
+  var cn = document.getElementById('contact-name');
+  var ce = document.getElementById('contact-email');
+  var cp = document.getElementById('contact-phone');
+  var cm = document.getElementById('contact-message');
+  var msg = {
+    id: Date.now().toString(36),
+    name: cn && cn.value && cn.value.trim() || '',
+    email: ce && ce.value && ce.value.trim() || '',
+    phone: cp && cp.value && cp.value.trim() || '',
+    message: cm && cm.value && cm.value.trim() || '',
+    created_at: new Date().toISOString(),
+    lu: false
+  };
+  if (!msg.name || !msg.message) return;
+  var emailField = document.getElementById('contact-email');
+  if (!msg.email || msg.email.indexOf('@') === -1) { emailField.style.borderColor = 'var(--danger)'; emailField.placeholder = 'Email valide requis (ex: nom@email.com)'; setTimeout(function(){ emailField.style.borderColor = ''; emailField.placeholder = 'votre@email.com'; }, 3000); return; }
+  if (!msg.phone || !/^[\d\s\+\(\)\-]{6,20}$/.test(msg.phone)) { var phoneField = document.getElementById('contact-phone'); phoneField.style.borderColor = 'var(--danger)'; phoneField.value = ''; phoneField.placeholder = 'Numéro valide requis (chiffres uniquement)'; setTimeout(function(){ phoneField.style.borderColor = ''; phoneField.placeholder = '77 xxx xx xx'; }, 3000); return; }
+  var msgs = JSON.parse(localStorage.getItem('sytam_messages') || '[]');
+  msgs.unshift(msg);
+  localStorage.setItem('sytam_messages', JSON.stringify(msgs));
+  const btn = document.querySelector('.contact-form .btn');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Message envoyé';
+  btn.style.background = 'var(--success)';
+  setTimeout(() => {
+    btn.textContent = orig; btn.style.background = '';
+    ['contact-name','contact-email','contact-phone','contact-message'].forEach(id => document.getElementById(id).value = '');
+  }, 2000);
+}
+function navigateToCategory(cat) { if (window.SytamApp) { SytamApp.navigate('shop'); SytamApp.renderShop({ category: cat }); } }
+</script>
+</body>
+</html>
