@@ -20,7 +20,8 @@
     $('adminDate').textContent = 'Bienvenue ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' });
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     DB.onReady(function() {
-      syncFromSupabase(function() {
+      syncAllFromSupabase(function() {
+        DB.reloadFromLocal();
         loadDashboard(); loadProducts(); loadOrders(); loadReferrals();
       });
     });
@@ -36,32 +37,14 @@
     }
   }
 
-  // ---- SYNC DEPUIS SUPABASE ----
-  function syncFromSupabase(cb) {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
-    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2'];
-    var done = 0;
-    keys.forEach(function(k) {
-      SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
-        .then(function(result) {
-          if (result && result.length && result[0].value) {
-            localStorage.setItem(k, JSON.stringify(result[0].value));
-          }
-          done++; if (done === keys.length && cb) cb();
-        })
-        .catch(function() {
-          done++; if (done === keys.length && cb) cb();
-        });
-    });
-  }
-
   // ---- NOTIFICATIONS NAVIGATEUR ----
   var _notifLastCount = 0;
   var _currentTab = 'dashboard';
   function initNotifications() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted' || Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (('Notification' in window)) {
+      if (Notification.permission === 'granted' || Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
     }
     pollOrders();
     setInterval(pollOrders, 30000);
@@ -72,23 +55,28 @@
     else if (_currentTab === 'messages') loadMessages();
     else if (_currentTab === 'promos') loadReferrals();
   }
-  function pollOrders() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    // Re-sync from Supabase so orders placed on other devices appear
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
+  // Sync ALL data from Supabase (orders, products, messages, referrals, loyalty)
+  function syncAllFromSupabase(cb) {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
+    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
+    var done = 0;
+    keys.forEach(function(k) {
+      SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
           if (result && result.length && result[0].value) {
-            localStorage.setItem('sytam_orders_v2', JSON.stringify(result[0].value));
+            localStorage.setItem(k, JSON.stringify(result[0].value));
           }
-          refreshCurrentTab();
-          checkNotifications();
+          done++; if (done === keys.length && cb) cb();
         })
-        .catch(function() { checkNotifications(); });
-    } else {
-      checkNotifications();
-    }
-    function checkNotifications() {
+        .catch(function() { done++; if (done === keys.length && cb) cb(); });
+    });
+  }
+  function pollOrders() {
+    // Toujours syncer depuis Supabase (même sans permission notification)
+    syncAllFromSupabase(function() {
+      refreshCurrentTab();
+      // Notifications seulement si permission accordée
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
       var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
       if (pending > _notifLastCount && _notifLastCount > 0) {
@@ -106,7 +94,7 @@
         });
       }
       _notifLastCount = pending;
-    }
+    });
   }
 
   function login() {

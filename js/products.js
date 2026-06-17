@@ -290,6 +290,13 @@ const DB = {
   getNewProducts() { return this._data ? this._data.filter(function(p) { return (p.tag === 'nouveau') || p.en_avant; }) : []; },
   getTrendingProducts() { return this._data ? this._data.filter(function(p) { return p.tag === 'tendance'; }) : []; },
 
+  reloadFromLocal() {
+    var stored = localStorage.getItem(DB_KEY);
+    if (stored) {
+      try { this._data = JSON.parse(stored); } catch(e) {}
+    }
+  },
+
   add(product) {
     product.id = genId();
     product.created_at = new Date().toISOString().split('T')[0];
