@@ -108,7 +108,7 @@
     window.location.hash = page;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (page === 'shop') renderShop();
-    document.body.classList.remove('cart-open');
+    document.body.classList.remove('cart-open', 'menu-open');
     state.showingCart = false;
   }
 

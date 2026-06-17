@@ -508,6 +508,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 /* Pages */
 .page { display: none; }
 .page.active { display: block; animation: pageIn 0.35s ease; }
+.page.active .shop-header { padding-top: 100px; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
