@@ -91,8 +91,25 @@
   function pollOrders() {
     // Toujours syncer depuis Supabase (même sans permission notification)
     syncAllFromSupabase(function() {
-      refreshCurrentTab();
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      // Auto-annulation des commandes en_attente depuis plus d'1h
+      var now = Date.now();
+      var changed = false;
+      for (var oi = 0; oi < orders.length; oi++) {
+        var oo = orders[oi];
+        if (oo.statut === 'en_attente' && oo.created_at) {
+          var created = new Date(oo.created_at).getTime();
+          if (now - created > 3600000) { // 1h = 3600000ms
+            oo.statut = 'annulee';
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+        pushToSupabase('sytam_orders_v2');
+      }
+      refreshCurrentTab();
       var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
       if (pending > _notifLastCount && _notifLastCount > 0) {
         var diff = pending - _notifLastCount;

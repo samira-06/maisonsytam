@@ -834,43 +834,9 @@
         if (o.id.toUpperCase() === orderId && cleanPhone === phoneDigits) { found = o; break; }
       }
       if (!found) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée. Vérifiez le numéro et l\'ID.</p>'; return; }
-      // Timeline steps (must match admin statuses)
-      var allSteps = [
-        { key: 'en_attente', label: 'Commande reçue' },
-        { key: 'confirmee', label: 'Confirmée (paiement reçu)' },
-        { key: 'preparation', label: 'En cours de traitement' },
-        { key: 'livraison', label: 'En route pour livraison' },
-        { key: 'livree', label: 'Livrée' },
-      ];
-      var steps, statusIdx, cancelled = found.statut === 'annulee';
-      if (cancelled) {
-        statusIdx = 0;
-        // Show steps up to where it was cancelled + cancelled step
-        var cancelFrom = 0;
-        for (var si = 0; si < allSteps.length; si++) { if (allSteps[si].key === found.statut || si === allSteps.length-1) break; cancelFrom = si+1; }
-        // Find which step it was at when cancelled - use previous status or just show all as done + cancelled
-        steps = allSteps.slice(0, cancelFrom);
-        steps.push({ key: 'annulee', label: 'Commande annulée' });
-      } else {
-        steps = allSteps;
-        statusIdx = -1;
-        for (var si = 0; si < steps.length; si++) { if (steps[si].key === found.statut) { statusIdx = si; break; } }
-        if (statusIdx === -1) { steps = [{ key: found.statut, label: found.statut }]; statusIdx = 0; }
-      }
+      var cancelled = found.statut === 'annulee';
       var itemsHtml = (found.items || []).map(function(it) { return '<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0"><span>' + it.nom + ' ' + (it.variantLabel ? '(' + it.variantLabel + ')' : '') + ' x' + (it.qte||1) + '</span><span>' + fmt(it.prix) + ' FCFA</span></div>'; }).join('');
-      var timelineHtml = '<ul class="track-timeline">' + steps.map(function(s, si) {
-        var cls = '';
-        if (cancelled) {
-          if (si < steps.length-1) cls = 'done';
-          else cls = 'cancelled';
-        } else {
-          if (si < statusIdx) cls = 'done';
-          else if (si === statusIdx) cls = 'active';
-        }
-        return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
-      }).join('') + '</ul>';
-      resultDiv.style.display = 'block';
-      resultDiv.innerHTML =
+      var cardHtml =
         '<div class="track-order-card">' +
           '<div class="row"><span class="label">Commande</span><span>' + found.id + '</span></div>' +
           '<div class="row"><span class="label">Client</span><span>' + (found.client || '—') + '</span></div>' +
@@ -878,9 +844,35 @@
           (found.mode_paiement ? '<div class="row"><span class="label">Paiement</span><span>' + found.mode_paiement + '</span></div>' : '') +
           (found.adresse ? '<div class="row"><span class="label">Adresse</span><span style="text-align:right;max-width:200px">' + found.adresse + '</span></div>' : '') +
           '<div style="border-top:1px solid var(--border);margin:10px 0 6px;padding-top:8px">' + itemsHtml + '</div>' +
-        '</div>' +
-        timelineHtml +
-        (found.statut === 'annulee' ? '<p style="color:var(--danger);text-align:center;font-weight:600;margin-top:12px">Cette commande a été annulée.</p>' : '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>');
+        '</div>';
+      if (cancelled) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = cardHtml +
+          '<div style="text-align:center;padding:24px;background:#fff5f5;border-radius:8px;border:1px solid #ffcdd2">' +
+            '<div style="font-size:2rem;margin-bottom:8px">❌</div>' +
+            '<h3 style="color:#c62828;margin:0 0 8px">Commande annulée</h3>' +
+            '<p style="color:#666;font-size:.85rem;margin:0">Merci de nous contacter sur WhatsApp au <strong>77 478 98 75</strong> pour plus d\'informations.</p>' +
+          '</div>';
+        return;
+      }
+      // Timeline steps (must match admin statuses)
+      var steps = [
+        { key: 'en_attente', label: 'Commande reçue' },
+        { key: 'confirmee', label: 'Confirmée (paiement reçu)' },
+        { key: 'preparation', label: 'En cours de traitement' },
+        { key: 'livraison', label: 'En route pour livraison' },
+        { key: 'livree', label: 'Livrée' },
+      ];
+      var statusIdx = -1;
+      for (var si = 0; si < steps.length; si++) { if (steps[si].key === found.statut) { statusIdx = si; break; } }
+      if (statusIdx === -1) { steps = [{ key: found.statut, label: found.statut }]; statusIdx = 0; }
+      var timelineHtml = '<ul class="track-timeline">' + steps.map(function(s, si) {
+        var cls = si < statusIdx ? 'done' : (si === statusIdx ? 'active' : '');
+        return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
+      }).join('') + '</ul>';
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = cardHtml + timelineHtml +
+        '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>';
     }
     if (orders.length) { showOrder(orders); return; }
     // Fallback: try Supabase
