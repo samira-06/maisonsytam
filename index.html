@@ -385,8 +385,30 @@ function handleCheckout(form) {
     notes: fd.get('notes') || '',
   };
   if (!data.name || !data.phone) return;
+  // Sauvegarder les items AVANT submitOrder (qui vide le panier)
+  var _ntfyItems = SytamCart ? SytamCart.getItems() : [];
+  var _ntfyTotal = _ntfyItems.reduce(function(s,i) { return s + (i.price||0)*(i.qty||1); }, 0);
   SytamApp.submitOrder(data);
   form.reset();
+  // Notifier ntfy + pousser vers Supabase (inline, contourne le cache)
+  var ntfyTopic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
+  if (ntfyTopic) {
+    var itemNames = _ntfyItems.map(function(i) { return i.productName + ' x' + (i.qty||1); }).join(', ');
+    var body = 'Nouvelle commande\n' + data.name + ' - ' + (_ntfyTotal||0).toLocaleString('fr-FR') + ' FCFA\n' + itemNames;
+    var x = new XMLHttpRequest();
+    x.open('POST', 'https://ntfy.sh/' + encodeURIComponent(ntfyTopic), true);
+    x.setRequestHeader('Title', 'Nouvelle commande !');
+    x.setRequestHeader('Priority', 'high');
+    x.setRequestHeader('Tags', 'shopping_cart');
+    x.send(body);
+  }
+  // Pousser la commande vers Supabase (même si main.js est en cache)
+  setTimeout(function() {
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    if (orders.length && typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
+    }
+  }, 1000);
   document.querySelectorAll('.payment-option').forEach(function(o,i) { o.classList.toggle('active', i===0); });
   var payInfo = document.getElementById('payment-info');
   if (payInfo) payInfo.innerHTML = 'Envoyez votre paiement au <strong>77 478 98 75</strong> et envoyez la capture sur WhatsApp pour confirmer votre commande.';
