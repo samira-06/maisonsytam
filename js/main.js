@@ -821,6 +821,9 @@
     var orderId = document.getElementById('track-id').value.trim().toUpperCase();
     var resultDiv = document.getElementById('track-result');
     if (!phone || !orderId) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Veuillez remplir les deux champs.</p>'; return; }
+    // Phone: only digits allowed
+    var phoneDigits = phone.replace(/[^0-9]/g, '');
+    if (phone !== phoneDigits) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Le numéro de téléphone ne doit contenir que des chiffres.</p>'; return; }
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     // Check Supabase if not found locally
     function showOrder(ordersList) {
@@ -828,28 +831,42 @@
       for (var i = 0; i < ordersList.length; i++) {
         var o = ordersList[i];
         var cleanPhone = (o.telephone || '').replace(/[^0-9]/g, '');
-        var searchPhone = phone.replace(/[^0-9]/g, '');
-        if (o.id.toUpperCase() === orderId && cleanPhone.indexOf(searchPhone) !== -1) { found = o; break; }
+        if (o.id.toUpperCase() === orderId && cleanPhone.indexOf(phoneDigits) !== -1) { found = o; break; }
       }
       if (!found) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée. Vérifiez le numéro et l\'ID.</p>'; return; }
-      var steps = [
+      // Timeline steps (must match admin statuses)
+      var allSteps = [
         { key: 'en_attente', label: 'Commande reçue' },
         { key: 'confirmee', label: 'Confirmée (paiement reçu)' },
         { key: 'preparation', label: 'En cours de traitement' },
         { key: 'livraison', label: 'En route pour livraison' },
         { key: 'livree', label: 'Livrée' },
       ];
-      var statusIdx = -1;
-      if (found.statut === 'annulee') {
-        steps = [{ key: 'annulee', label: 'Commande annulée' }];
+      var steps, statusIdx, cancelled = found.statut === 'annulee';
+      if (cancelled) {
         statusIdx = 0;
+        // Show steps up to where it was cancelled + cancelled step
+        var cancelFrom = 0;
+        for (var si = 0; si < allSteps.length; si++) { if (allSteps[si].key === found.statut || si === allSteps.length-1) break; cancelFrom = si+1; }
+        // Find which step it was at when cancelled - use previous status or just show all as done + cancelled
+        steps = allSteps.slice(0, cancelFrom);
+        steps.push({ key: 'annulee', label: 'Commande annulée' });
       } else {
+        steps = allSteps;
+        statusIdx = -1;
         for (var si = 0; si < steps.length; si++) { if (steps[si].key === found.statut) { statusIdx = si; break; } }
         if (statusIdx === -1) { steps = [{ key: found.statut, label: found.statut }]; statusIdx = 0; }
       }
       var itemsHtml = (found.items || []).map(function(it) { return '<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0"><span>' + it.nom + ' ' + (it.variantLabel ? '(' + it.variantLabel + ')' : '') + ' x' + (it.qte||1) + '</span><span>' + fmt(it.prix) + ' FCFA</span></div>'; }).join('');
       var timelineHtml = '<ul class="track-timeline">' + steps.map(function(s, si) {
-        var cls = found.statut === 'annulee' ? 'cancelled' : (si < statusIdx ? 'done' : (si === statusIdx ? 'active' : ''));
+        var cls = '';
+        if (cancelled) {
+          if (si < steps.length-1) cls = 'done';
+          else cls = 'cancelled';
+        } else {
+          if (si < statusIdx) cls = 'done';
+          else if (si === statusIdx) cls = 'active';
+        }
         return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
       }).join('') + '</ul>';
       resultDiv.style.display = 'block';
@@ -863,7 +880,7 @@
           '<div style="border-top:1px solid var(--border);margin:10px 0 6px;padding-top:8px">' + itemsHtml + '</div>' +
         '</div>' +
         timelineHtml +
-        (found.statut === 'annulee' ? '' : '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>');
+        (found.statut === 'annulee' ? '<p style="color:var(--danger);text-align:center;font-weight:600;margin-top:12px">Cette commande a été annulée.</p>' : '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>');
     }
     if (orders.length) { showOrder(orders); return; }
     // Fallback: try Supabase
