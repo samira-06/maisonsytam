@@ -472,9 +472,9 @@
     document.body.style.overflow = 'hidden';
     renderCheckoutSummary();
     setTimeout(function() {
-      var btn = document.getElementById('checkout-btn');
-      if (btn) btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
+      var cc = document.querySelector('.checkout-content');
+      if (cc) cc.scrollTop = cc.scrollHeight;
+    }, 400);
     document.querySelectorAll('.checkout-content input, .checkout-content select, .checkout-content textarea').forEach(function(el) {
       el.addEventListener('focus', function() { this.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     });
