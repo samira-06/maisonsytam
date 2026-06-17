@@ -599,6 +599,8 @@
       SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
       SupabaseAPI.upsert('store_data', { key: 'sytam_loyalty_v2', value: JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}') });
     }
+    // Notifier via ntfy
+    sendNtfyNotification(order);
 
     // Loyalty: track orders count + total per phone
     var cleanPhone = (formData.phone || '').replace(/[^0-9]/g, '');
@@ -779,6 +781,20 @@
   function _startFeaturedScroll() {
     _autoScroll('featured-products', 1);
     _autoScroll('trending-products', -1);
+  }
+
+  // --- Notification ntfy (push vers téléphone) ---
+  function sendNtfyNotification(order) {
+    var topic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
+    if (!topic) return;
+    var items = (order.items || []).map(function(i) { return i.nom + ' x' + i.qte; }).join(', ');
+    var body = 'Commande #' + order.id + '\n' + order.client + ' - ' + fmt(order.total) + ' FCFA\n' + items;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'https://ntfy.sh/' + encodeURIComponent(topic), true);
+    xhr.setRequestHeader('Title', 'Nouvelle commande !');
+    xhr.setRequestHeader('Priority', 'high');
+    xhr.setRequestHeader('Tags', 'shopping_cart');
+    xhr.send(body);
   }
 
   // Périodiquement, pousse les données locales vers Supabase

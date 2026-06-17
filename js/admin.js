@@ -19,6 +19,7 @@
     $('loginScreen').style.display = 'none'; $('adminApp').style.display = 'block';
     $('adminDate').textContent = 'Bienvenue ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' });
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    loadNtfyTopic();
     DB.onReady(function() {
       syncAllFromSupabase(function() {
         DB.reloadFromLocal();
@@ -91,8 +92,6 @@
     // Toujours syncer depuis Supabase (même sans permission notification)
     syncAllFromSupabase(function() {
       refreshCurrentTab();
-      // Notifications seulement si permission accordée
-      if (!('Notification' in window) || Notification.permission !== 'granted') return;
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
       var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
       if (pending > _notifLastCount && _notifLastCount > 0) {
@@ -102,15 +101,32 @@
         latest.forEach(function(order) {
           var total = fmt(order.total);
           var items = (order.items || []).length;
-          new Notification('Nouvelle commande #' + order.id, {
-            body: order.client + ' — ' + total + ' FCFA (' + items + ' art.)',
-            icon: '/favicon.ico',
-            tag: order.id
-          });
+          // Notification navigateur
+          if (('Notification' in window) && Notification.permission === 'granted') {
+            new Notification('Nouvelle commande #' + order.id, {
+              body: order.client + ' — ' + total + ' FCFA (' + items + ' art.)',
+              icon: '/favicon.ico',
+              tag: order.id
+            });
+          }
+          // Notification ntfy (push vers téléphone même si page fermée)
+          sendNtfy(order);
         });
       }
       _notifLastCount = pending;
     });
+  }
+  function sendNtfy(order) {
+    var topic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
+    if (!topic) return;
+    var itemNames = (order.items || []).map(function(i) { return i.nom + ' x' + i.qte; }).join(', ');
+    var body = '#' + order.id + ' - ' + order.client + ' - ' + fmt(order.total) + ' FCFA\n' + itemNames;
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'https://ntfy.sh/' + encodeURIComponent(topic), true);
+    xhr.setRequestHeader('Title', 'Nouvelle commande !');
+    xhr.setRequestHeader('Priority', 'high');
+    xhr.setRequestHeader('Tags', 'shopping_cart');
+    xhr.send(body);
   }
 
   function login() {
@@ -160,7 +176,16 @@
       .catch(function() { showToast('Erreur', 'Impossible de sauvegarder'); });
   }
 
+  function saveNtfyTopic() {
+    var topic = ($('ntfy-topic') && $('ntfy-topic').value.trim()) || 'sytam-shop';
+    localStorage.setItem('sytam_ntfy_topic', topic);
+    showToast('✓ Topic ntfy sauvegardé : ' + topic);
+  }
 
+  function loadNtfyTopic() {
+    var saved = localStorage.getItem('sytam_ntfy_topic');
+    if (saved && $('ntfy-topic')) $('ntfy-topic').value = saved;
+  }
 
   function restoreDefaults() {
     if (!confirm('Réinitialiser tous les produits ? Les données Supabase seront écrasées.')) return;
@@ -945,7 +970,7 @@
     deleteProduct, addColor, saveProduct, closeModal, closeModalOut, uploadImage, uploadColorImage, removeImage,
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
-    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings,
+    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic,
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
