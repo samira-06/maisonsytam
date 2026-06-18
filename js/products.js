@@ -157,13 +157,20 @@ const DB = {
 
   _migrateData() {
     if (!this._data || !this._data.length) return;
-    var seedMap = {};
-    SEED_PRODUCTS.forEach(function(sp) { seedMap[sp.id] = sp; });
+    var noSizesCats = ['voiles', 'accessoires', 'collants', 'nikab'];
     var changed = false;
     this._data = this._data.map(function(p) {
-      var seed = seedMap[p.id];
-      if (!seed) return p;
-      if (!p.tag && seed.tag) {
+      if (!p.sizes || !p.sizes.length) {
+        if (noSizesCats.indexOf((p.categorie || '').toLowerCase()) === -1) {
+          p.sizes = ['S', 'M', 'L', 'XL'];
+          changed = true;
+        }
+      }
+      var seed = null;
+      for (var si = 0; si < SEED_PRODUCTS.length; si++) {
+        if (SEED_PRODUCTS[si].id === p.id) { seed = SEED_PRODUCTS[si]; break; }
+      }
+      if (seed && !p.tag && seed.tag) {
         changed = true;
         p.tag = seed.tag;
       }
@@ -214,6 +221,7 @@ const DB = {
           clearTimeout(fallbackTimer);
           if (result && result.length && result[0].value && result[0].value.length) {
             DB._data = result[0].value;
+            DB._migrateData();
           } else {
             DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
             var stored = localStorage.getItem(DB_KEY);
