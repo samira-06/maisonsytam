@@ -628,6 +628,65 @@
     var ph = getMeasurePlaceholder(cat);
     document.querySelectorAll('.mesure-input').forEach(function(inp) { inp.placeholder = ph; });
   }
+  function renderMesureEditor(mesures) {
+    var fields = (mesures && mesures.fields) || [];
+    if (!fields || !fields.length) return '<p style="font-size:.8rem;color:var(--tl);padding:8px 0">Ajoutez des mesures (Longueur, Poitrine, etc.)</p>';
+    var html = '<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.8rem"><thead><tr><th style="padding:6px 8px;border:1px solid var(--bd);background:var(--bg2);text-align:left">Mesure</th>';
+    ALL_SIZES.forEach(function(s) {
+      html += '<th style="padding:6px 8px;border:1px solid var(--bd);background:var(--bg2);text-align:center">' + s + '</th>';
+    });
+    html += '<th style="padding:6px 8px;border:1px solid var(--bd);background:var(--bg2);width:30px"></th></tr></thead><tbody>';
+    fields.forEach(function(f, fi) {
+      html += '<tr><td style="padding:4px 8px;border:1px solid var(--bd);font-weight:500;white-space:nowrap">' + f.replace(/"/g,'&quot;') + '</td>';
+      ALL_SIZES.forEach(function(s) {
+        var val = (mesures[s] && mesures[s][fi]) || '';
+        html += '<td style="padding:2px 4px;border:1px solid var(--bd);text-align:center"><input class="mesure-cell" data-fi="' + fi + '" data-size="' + s + '" value="' + val.replace(/"/g,'&quot;') + '" style="width:52px;padding:4px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:.75rem"></td>';
+      });
+      html += '<td style="padding:2px 4px;border:1px solid var(--bd);text-align:center"><button type="button" class="btn-del btn-sm" onclick="SytamAdmin.removeMesureField(' + fi + ')" style="padding:2px 6px;font-size:.7rem">✕</button></td></tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<input type="hidden" name="mesure-fields" value=\'' + JSON.stringify(fields).replace(/'/g,"&apos;") + '\'>';
+    return html;
+  }
+  function addMesureField() {
+    var inp = document.getElementById('new-mesure-name');
+    if (!inp || !inp.value.trim()) { showToast('Erreur', 'Donne un nom à la mesure'); return; }
+    var name = inp.value.trim();
+    inp.value = '';
+    var editor = document.getElementById('mesure-editor');
+    if (!editor) return;
+    // Read current data
+    var data = readMesureData();
+    if (!data.fields) data.fields = [];
+    data.fields.push(name);
+    (data.S || (data.S = [])).push('');
+    (data.M || (data.M = [])).push('');
+    (data.L || (data.L = [])).push('');
+    (data.XL || (data.XL = [])).push('');
+    editor.innerHTML = renderMesureEditor(data);
+  }
+  function removeMesureField(fi) {
+    var editor = document.getElementById('mesure-editor');
+    if (!editor) return;
+    var data = readMesureData();
+    if (!data.fields || fi >= data.fields.length) return;
+    data.fields.splice(fi, 1);
+    ALL_SIZES.forEach(function(s) { if (data[s]) data[s].splice(fi, 1); });
+    editor.innerHTML = renderMesureEditor(data);
+  }
+  function readMesureData() {
+    var data = { fields: [] };
+    var hidden = document.querySelector('[name="mesure-fields"]');
+    if (hidden) { try { data.fields = JSON.parse(hidden.value); } catch(e) {} }
+    ALL_SIZES.forEach(function(s) {
+      data[s] = [];
+      data.fields.forEach(function(f, fi) {
+        var cell = document.querySelector('.mesure-cell[data-fi="' + fi + '"][data-size="' + s + '"]');
+        data[s].push(cell ? cell.value.trim() : '');
+      });
+    });
+    return data;
+  }
 
   function openProductModal(product) {
     editingId = null;
@@ -668,11 +727,9 @@
       '<div class="form-group"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">COULEURS &amp; STOCKS</label>' +
       '<div id="colors-list">' + renderColorsEdit(colors) + '</div>' +
       '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + sizeStockInputsHtml(ALL_SIZES, 'add') + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
-      '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE <span style="font-weight:400;text-transform:none;font-size:.75rem;color:var(--tl)">(optionnel — ex: Longueur: 140cm | Poitrine: 82cm)</span></label>' +
-      ALL_SIZES.map(function(s) {
-        var val = mesures[s] ? (Array.isArray(mesures[s]) ? mesures[s].join(' | ') : mesures[s]) : '';
-        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-weight:600;min-width:24px;font-size:.85rem">' + s + '</span><input class="form-input mesure-input" name="mesure-' + s.toLowerCase() + '" value="' + val.replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px" placeholder="' + _defPlaceholder + '"></div>';
-      }).join('') +
+      '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE</label>' +
+      '<div id="mesure-editor">' + renderMesureEditor(mesures) + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="new-mesure-name" placeholder="Ex: Longueur" style="flex:1;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font-size:.8rem"><button type="button" class="btn-add btn-sm" onclick="SytamAdmin.addMesureField()">+ Ajouter</button></div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:16px"><button type="button" class="btn-add" onclick="SytamAdmin.saveProduct()">Enregistrer</button>' +
       '<button type="button" class="btn-del" onclick="SytamAdmin.closeModal()">Annuler</button></div></form>'
@@ -796,12 +853,11 @@
       variantes: [],
       mesures: {},
     };
-    ALL_SIZES.forEach(function(s) {
-      var inp = f.querySelector('[name="mesure-' + s.toLowerCase() + '"]');
-      if (inp && inp.value.trim()) {
-        data.mesures[s] = inp.value.split('|').map(function(v) { return v.trim(); }).filter(Boolean);
-      }
-    });
+    // Read structured mesures
+    var mesureData = readMesureData();
+    if (mesureData.fields && mesureData.fields.length) {
+      data.mesures = mesureData;
+    }
     if (editingId) DB.update(editingId, data); else DB.add(data);
     closeModal();
     loadProducts();
@@ -1033,7 +1089,7 @@
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
-    updateMeasurePlaceholders,
+    updateMeasurePlaceholders, addMesureField, removeMesureField,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);

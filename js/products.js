@@ -174,6 +174,34 @@ const DB = {
         changed = true;
         p.tag = seed.tag;
       }
+      // Migrate old mesures format to new structured format
+      if (p.mesures && !p.mesures.fields) {
+        var oldSizes = ['S','M','L','XL'];
+        var firstVal = '';
+        for (var si = 0; si < oldSizes.length; si++) {
+          if (p.mesures[oldSizes[si]] && Array.isArray(p.mesures[oldSizes[si]]) && p.mesures[oldSizes[si]].length) {
+            firstVal = p.mesures[oldSizes[si]][0] || '';
+            break;
+          }
+        }
+        if (firstVal && firstVal.indexOf(':') !== -1) {
+          // Old format: "Longueur: 140cm" → extract fields
+          var sample = p.mesures[oldSizes[0]] || p.mesures[oldSizes[1]] || [];
+          var fields = sample.map(function(m) { var parts = m.split(':'); return parts.length >= 2 ? parts[0].trim() : 'Mesure'; });
+          p.mesures.fields = fields;
+          oldSizes.forEach(function(s) {
+            if (p.mesures[s] && Array.isArray(p.mesures[s])) {
+              p.mesures[s] = p.mesures[s].map(function(m) { var parts = m.split(':'); return parts.length >= 2 ? parts.slice(1).join(':').trim() : m; });
+            }
+          });
+          changed = true;
+        } else if (firstVal && firstVal.indexOf(':') === -1) {
+          // Values without labels - create generic fields
+          var sample2 = p.mesures[oldSizes[0]] || p.mesures[oldSizes[1]] || [];
+          p.mesures.fields = sample2.map(function(_, i) { return 'Mesure ' + (i + 1); });
+          changed = true;
+        }
+      }
       return p;
     });
     if (changed) localStorage.setItem(DB_KEY, JSON.stringify(this._data));
