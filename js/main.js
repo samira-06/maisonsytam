@@ -405,21 +405,40 @@
     // Check if product has its own measurements
     var hasProdMesures = p.mesures && sizes.some(function(s) { return p.mesures[s]; });
     if (hasProdMesures) {
+      // Extract fields from first non-empty size
+      var fields = [];
+      var firstSize = '';
+      for (var si = 0; si < sizes.length; si++) { if (p.mesures[sizes[si]] && p.mesures[sizes[si]].length) { firstSize = sizes[si]; break; } }
+      if (firstSize) {
+        fields = p.mesures[firstSize].map(function(m) {
+          var parts = m.split(':');
+          if (parts.length >= 2) return parts[0].trim();
+          return 'Mesure ' + (fields.length + 1);
+        });
+      }
       var html = '<h3 style="margin-top:0">Guide des tailles — ' + p.nom + '</h3>';
       html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem"><thead><tr>';
-      html += '<th style="text-align:left;padding:8px 12px;border:1px solid var(--border);background:var(--bg2)">Taille</th>';
-      html += '<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg2);text-align:center">Mesures</th>';
-      html += '</tr></thead><tbody>';
+      html += '<th style="text-align:left;padding:8px 12px;border:1px solid var(--border);background:var(--bg2)">Mesure</th>';
       sizes.forEach(function(s) {
-        var mesures = p.mesures[s];
-        if (mesures && Array.isArray(mesures)) {
-          html += '<tr' + (s === selSize ? ' style="background:var(--bg2);font-weight:600"' : '') + '>';
-          html += '<td style="padding:8px 12px;border:1px solid var(--border);font-weight:600;text-align:center' + (s === selSize ? ';background:var(--primary);color:#fff' : '') + '">' + s + '</td>';
-          html += '<td style="padding:8px 12px;border:1px solid var(--border)">' + mesures.join(' | ') + '</td>';
-          html += '</tr>';
-        }
+        html += '<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg2);text-align:center' + (s === selSize ? ';background:var(--primary);color:#fff' : '') + '">' + s + (s === selSize ? ' ✓' : '') + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+      fields.forEach(function(f, fi) {
+        html += '<tr>';
+        html += '<td style="padding:8px 12px;border:1px solid var(--border);font-weight:500">' + f + '</td>';
+        sizes.forEach(function(s) {
+          var mesures = p.mesures[s];
+          var val = '-';
+          if (mesures && Array.isArray(mesures) && mesures[fi]) {
+            var parts = mesures[fi].split(':');
+            val = parts.length >= 2 ? parts.slice(1).join(':').trim() : mesures[fi];
+          }
+          html += '<td style="padding:8px 12px;border:1px solid var(--border);text-align:center' + (s === selSize ? ';background:var(--bg2);font-weight:600' : '') + '">' + val + '</td>';
+        });
+        html += '</tr>';
       });
       html += '</tbody></table></div>';
+      html += '<p style="margin:12px 0 0;font-size:.75rem;color:var(--tl)">* Mesures approximatives.</p>';
       var el = document.getElementById('sizeguide-content');
       if (el) { el.innerHTML = html; }
       var modal = document.getElementById('sizeguide-modal');
