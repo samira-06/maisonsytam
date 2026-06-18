@@ -21,7 +21,10 @@ var SupabaseAPI = {
   get: function(endpoint) {
     if (!SupabaseApp.ready) return Promise.resolve([]);
     return fetch(this._url(endpoint), { headers: this._headers() })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (!r.ok) { console.warn('Supabase get error status:', r.status, r.statusText); return []; }
+        return r.json();
+      })
       .then(function(data) { return data || []; })
       .catch(function(e) { console.warn('Supabase get error:', e); return []; });
   },
@@ -31,6 +34,9 @@ var SupabaseAPI = {
       method: 'POST',
       headers: Object.assign(this._headers(), { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }),
       body: JSON.stringify(data),
+    }).then(function(r) {
+      if (!r.ok) console.warn('Supabase upsert status:', r.status, r.statusText);
+      return r;
     }).catch(function(e) { console.warn('Supabase upsert error:', e); });
   },
 };
