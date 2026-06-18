@@ -716,15 +716,21 @@
       created_at: new Date().toISOString(),
     };
 
+    // Sauvegarder dans Supabase d'abord, localStorage seulement en urgence
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders.unshift(order);
-    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-
-    // Sync vers Supabase
+    var supabaseOk = false;
     if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
-      SupabaseAPI.upsert('store_data', { key: 'sytam_loyalty_v2', value: JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}') });
+      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
+        .then(function() { supabaseOk = true; })
+        .catch(function() {});
     }
+    // Fallback localStorage si Supabase échoue (sera retenté par periodicSync)
+    setTimeout(function() {
+      if (!supabaseOk) {
+        localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+      }
+    }, 2000);
     // Notifier via ntfy
     sendNtfyNotification(order);
 
