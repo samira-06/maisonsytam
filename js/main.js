@@ -319,17 +319,20 @@
       </div>
     `;
     if (hasTaille && state.selectedVariant && state.selectedVariant.attributs && state.selectedVariant.attributs.taille) {
-      var _guide = getSizeGuide();
-      var _catKey = p.categorie ? p.categorie.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g,'') : '';
-      var _g = _guide[_catKey] || _guide.robes;
-      var _sizeInfo = document.getElementById('size-info');
       var _selSize = state.selectedVariant.attributs.taille;
-      if (_sizeInfo && _g && _g.fields && _g[_selSize]) {
-        var _parts = [];
-        for (var _fi = 0; _fi < _g.fields.length; _fi++) {
-          _parts.push(_g.fields[_fi] + ': ' + (_g[_selSize][_fi] || '-'));
+      var _prodMesures = getProductMeasurements(p, _selSize);
+      var _sizeInfo = document.getElementById('size-info');
+      if (_prodMesures) {
+        _sizeInfo.innerHTML = '📏 <strong>Taille ' + _selSize + '</strong> — ' + (Array.isArray(_prodMesures) ? _prodMesures.join(' | ') : _prodMesures);
+      } else {
+        var _catG = getCategoryGuide(p);
+        if (_sizeInfo && _catG && _catG.fields && _catG[_selSize]) {
+          var _parts = [];
+          for (var _fi = 0; _fi < _catG.fields.length; _fi++) {
+            _parts.push(_catG.fields[_fi] + ': ' + (_catG[_selSize][_fi] || '-'));
+          }
+          _sizeInfo.innerHTML = '📏 <strong>Taille ' + _selSize + '</strong> — ' + _parts.join(' | ');
         }
-        _sizeInfo.innerHTML = '📏 <strong>Taille ' + _selSize + '</strong> — ' + _parts.join(' | ');
       }
     }
   }
@@ -396,19 +399,19 @@
       }
     }
     // Show size info for selected size
-    if (attr === 'taille' && value) {
-      var p = state.selectedProduct;
-      if (p) {
-        var guide = getSizeGuide();
-        var catKey = p.categorie ? p.categorie.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g,'') : '';
-        var g = guide[catKey] || guide.robes;
-        var sizeInfo = document.getElementById('size-info');
-        if (sizeInfo && g && g.fields && g[value]) {
-          var parts = [];
-          for (var fi = 0; fi < g.fields.length; fi++) {
-            parts.push(g.fields[fi] + ': ' + (g[value][fi] || '-'));
+    if (attr === 'taille' && value && p) {
+      var _sizeInfo = document.getElementById('size-info');
+      var _prodMesures = getProductMeasurements(p, value);
+      if (_prodMesures) {
+        if (_sizeInfo) _sizeInfo.innerHTML = '📏 <strong>Taille ' + value + '</strong> — ' + (Array.isArray(_prodMesures) ? _prodMesures.join(' | ') : _prodMesures);
+      } else {
+        var _catG = getCategoryGuide(p);
+        if (_sizeInfo && _catG && _catG.fields && _catG[value]) {
+          var _parts = [];
+          for (var _fi = 0; _fi < _catG.fields.length; _fi++) {
+            _parts.push(_catG.fields[_fi] + ': ' + (_catG[value][_fi] || '-'));
           }
-          sizeInfo.innerHTML = '📏 <strong>Taille ' + value + '</strong> — ' + parts.join(' | ');
+          _sizeInfo.innerHTML = '📏 <strong>Taille ' + value + '</strong> — ' + _parts.join(' | ');
         }
       }
     }
@@ -417,38 +420,62 @@
   function getSizeGuide() {
     var stored = localStorage.getItem('sytam_size_guide');
     if (stored) { try { return JSON.parse(stored); } catch(e) {} }
-    // Fallback defaults
-    return {
-      robes: { label: 'Robes', fields: ['Longueur totale', 'Tour de poitrine', 'Tour de taille', 'Tour de hanches'], S: ['140cm', '82cm', '66cm', '90cm'], M: ['142cm', '86cm', '70cm', '94cm'], L: ['144cm', '92cm', '76cm', '100cm'], XL: ['146cm', '98cm', '82cm', '106cm'] },
-      pantalons: { label: 'Pantalons', fields: ['Longueur totale', 'Tour de taille', 'Tour de hanches', "Longueur d'entrejambe"], S: ['102cm', '66cm', '90cm', '74cm'], M: ['104cm', '70cm', '94cm', '76cm'], L: ['106cm', '76cm', '100cm', '78cm'], XL: ['108cm', '82cm', '106cm', '80cm'] },
-      ensembles: { label: 'Ensembles', fields: ['Longueur chemise/tunique', 'Tour de poitrine', 'Tour de taille pantalon', 'Longueur pantalon'], S: ['72cm', '84cm', '66cm', '102cm'], M: ['74cm', '88cm', '70cm', '104cm'], L: ['76cm', '94cm', '76cm', '106cm'], XL: ['78cm', '100cm', '82cm', '108cm'] },
-      jupes: { label: 'Jupes', fields: ['Longueur totale', 'Tour de taille', 'Tour de hanches'], S: ['88cm', '66cm', '90cm'], M: ['90cm', '70cm', '94cm'], L: ['92cm', '76cm', '100cm'], XL: ['94cm', '82cm', '106cm'] },
-      voiles: { label: 'Voiles', fields: ['Largeur', 'Longueur'], S: ['70cm', '150cm'], M: ['75cm', '160cm'], L: ['80cm', '170cm'], XL: ['85cm', '180cm'] },
-      cardigan: { label: 'Cardigans', fields: ['Longueur totale', 'Tour de poitrine', 'Longueur manche'], S: ['90cm', '84cm', '58cm'], M: ['92cm', '88cm', '60cm'], L: ['94cm', '94cm', '62cm'], XL: ['96cm', '100cm', '64cm'] },
-      sport: { label: 'Tenues Sport', fields: ['Longueur tunique', 'Tour de poitrine', 'Tour de taille pantalon', 'Longueur pantalon'], S: ['70cm', '82cm', '66cm', '100cm'], M: ['72cm', '86cm', '70cm', '102cm'], L: ['74cm', '92cm', '76cm', '104cm'], XL: ['76cm', '98cm', '82cm', '106cm'] },
-      accessoires: { label: 'Accessoires', fields: ['Taille'], S: ['Unique'], M: ['Unique'], L: ['Unique'], XL: ['Unique'] },
-    };
+    return {};
+  }
+  function getProductMeasurements(p, size) {
+    if (p && p.mesures && p.mesures[size]) return p.mesures[size];
+    return null;
+  }
+  function getCategoryGuide(p) {
+    var guide = getSizeGuide();
+    if (!p) return guide;
+    var catKey = p.categorie ? p.categorie.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g,'') : '';
+    return guide[catKey];
   }
   function openSizeGuide() {
     var p = state.selectedProduct;
     if (!p) return;
-    var guide = getSizeGuide();
-    var catKey = p.categorie ? p.categorie.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g,'') : '';
-    var g = guide[catKey] || guide.robes;
     var sizes = ['S','M','L','XL'];
     var selSize = state.selectedVariant && state.selectedVariant.attributs && state.selectedVariant.attributs.taille ? state.selectedVariant.attributs.taille : '';
-    var html = '<h3 style="margin-top:0">Guide des tailles — ' + g.label + '</h3>';
+    // Check if product has its own measurements
+    var hasProdMesures = p.mesures && sizes.some(function(s) { return p.mesures[s]; });
+    if (hasProdMesures) {
+      var html = '<h3 style="margin-top:0">Guide des tailles — ' + p.nom + '</h3>';
+      html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem"><thead><tr>';
+      html += '<th style="text-align:left;padding:8px 12px;border:1px solid var(--border);background:var(--bg2)">Taille</th>';
+      html += '<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg2);text-align:center">Mesures</th>';
+      html += '</tr></thead><tbody>';
+      sizes.forEach(function(s) {
+        var mesures = p.mesures[s];
+        if (mesures && Array.isArray(mesures)) {
+          html += '<tr' + (s === selSize ? ' style="background:var(--bg2);font-weight:600"' : '') + '>';
+          html += '<td style="padding:8px 12px;border:1px solid var(--border);font-weight:600;text-align:center' + (s === selSize ? ';background:var(--primary);color:#fff' : '') + '">' + s + '</td>';
+          html += '<td style="padding:8px 12px;border:1px solid var(--border)">' + mesures.join(' | ') + '</td>';
+          html += '</tr>';
+        }
+      });
+      html += '</tbody></table></div>';
+      var el = document.getElementById('sizeguide-content');
+      if (el) { el.innerHTML = html; }
+      var modal = document.getElementById('sizeguide-modal');
+      if (modal) { modal.style.display = ''; modal.classList.add('open'); }
+      return;
+    }
+    // Fallback to category guide
+    var catG = getCategoryGuide(p);
+    if (!catG) { catG = { label: p.categorie, fields: ['Mesures'], S: ['-'], M: ['-'], L: ['-'], XL: ['-'] }; }
+    var html = '<h3 style="margin-top:0">Guide des tailles — ' + catG.label + '</h3>';
     html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem"><thead><tr>';
     html += '<th style="text-align:left;padding:8px 12px;border:1px solid var(--border);background:var(--bg2)">Mesure</th>';
     sizes.forEach(function(s) {
       html += '<th style="padding:8px 12px;border:1px solid var(--border);background:var(--bg2);text-align:center' + (s === selSize ? ';background:var(--primary);color:#fff' : '') + '">' + s + (s === selSize ? ' ✓' : '') + '</th>';
     });
     html += '</tr></thead><tbody>';
-    (g.fields || []).forEach(function(f, fi) {
+    (catG.fields || []).forEach(function(f, fi) {
       html += '<tr>';
       html += '<td style="padding:8px 12px;border:1px solid var(--border);font-weight:500">' + f + '</td>';
       sizes.forEach(function(s) {
-        var val = (g[s] && g[s][fi]) || '-';
+        var val = (catG[s] && catG[s][fi]) || '-';
         html += '<td style="padding:8px 12px;border:1px solid var(--border);text-align:center' + (s === selSize ? ';background:var(--bg2);font-weight:600' : '') + '">' + val + '</td>';
       });
       html += '</tr>';
@@ -471,7 +498,7 @@
     html += '<p style="font-size:.85rem;color:var(--tl);margin-bottom:12px">Sélectionnez une catégorie pour voir les mesures :</p>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">';
     cats.forEach(function(cat) {
-      html += '<button class="btn btn-sm btn-outline" onclick="SytamApp.showSizeGuideCategory(\'' + cat + '\')" style="font-size:.8rem">' + guide[cat].label + '</button>';
+      html += '<button class="btn btn-sm btn-outline" onclick="SytamApp.showSizeGuideCategory(\'' + cat + '\')" style="font-size:.8rem">' + (guide[cat].label || cat) + '</button>';
     });
     html += '</div>';
     html += '<div id="sizeguide-cat-detail"></div>';

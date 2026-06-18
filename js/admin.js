@@ -59,7 +59,7 @@
   // Sync ALL data from Supabase (orders, products, messages, referrals, loyalty)
   function syncAllFromSupabase(cb) {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
-    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4', 'sytam_size_guide'];
+    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
     var done = 0;
     keys.forEach(function(k) {
       var localData = localStorage.getItem(k);
@@ -263,62 +263,6 @@
     input.click();
   }
 
-  // ---- GUIDE DES TAILLES ----
-  var DEFAULT_SIZE_GUIDE = {
-    robes: { label: 'Robes', fields: ['Longueur totale', 'Tour de poitrine', 'Tour de taille', 'Tour de hanches'], S: ['140cm', '82cm', '66cm', '90cm'], M: ['142cm', '86cm', '70cm', '94cm'], L: ['144cm', '92cm', '76cm', '100cm'], XL: ['146cm', '98cm', '82cm', '106cm'] },
-    pantalons: { label: 'Pantalons', fields: ['Longueur totale', 'Tour de taille', 'Tour de hanches', 'Longueur d\'entrejambe'], S: ['102cm', '66cm', '90cm', '74cm'], M: ['104cm', '70cm', '94cm', '76cm'], L: ['106cm', '76cm', '100cm', '78cm'], XL: ['108cm', '82cm', '106cm', '80cm'] },
-    ensembles: { label: 'Ensembles', fields: ['Longueur chemise/tunique', 'Tour de poitrine', 'Tour de taille pantalon', 'Longueur pantalon'], S: ['72cm', '84cm', '66cm', '102cm'], M: ['74cm', '88cm', '70cm', '104cm'], L: ['76cm', '94cm', '76cm', '106cm'], XL: ['78cm', '100cm', '82cm', '108cm'] },
-    jupes: { label: 'Jupes', fields: ['Longueur totale', 'Tour de taille', 'Tour de hanches'], S: ['88cm', '66cm', '90cm'], M: ['90cm', '70cm', '94cm'], L: ['92cm', '76cm', '100cm'], XL: ['94cm', '82cm', '106cm'] },
-    voiles: { label: 'Voiles', fields: ['Largeur', 'Longueur'], S: ['70cm', '150cm'], M: ['75cm', '160cm'], L: ['80cm', '170cm'], XL: ['85cm', '180cm'] },
-    cardigan: { label: 'Cardigans', fields: ['Longueur totale', 'Tour de poitrine', 'Longueur manche'], S: ['90cm', '84cm', '58cm'], M: ['92cm', '88cm', '60cm'], L: ['94cm', '94cm', '62cm'], XL: ['96cm', '100cm', '64cm'] },
-    sport: { label: 'Tenues Sport', fields: ['Longueur tunique', 'Tour de poitrine', 'Tour de taille pantalon', 'Longueur pantalon'], S: ['70cm', '82cm', '66cm', '100cm'], M: ['72cm', '86cm', '70cm', '102cm'], L: ['74cm', '92cm', '76cm', '104cm'], XL: ['76cm', '98cm', '82cm', '106cm'] },
-    accessoires: { label: 'Accessoires', fields: ['Taille'], S: ['Unique'], M: ['Unique'], L: ['Unique'], XL: ['Unique'] },
-  };
-  function getSizeGuide() {
-    var stored = localStorage.getItem('sytam_size_guide');
-    if (stored) { try { return JSON.parse(stored); } catch(e) {} }
-    return JSON.parse(JSON.stringify(DEFAULT_SIZE_GUIDE));
-  }
-  function loadSizeGuide() {
-    var guide = getSizeGuide();
-    var editor = $('sizeguide-editor');
-    if (!editor) return;
-    var cats = Object.keys(guide);
-    var html = '';
-    cats.forEach(function(cat) {
-      var g = guide[cat];
-      html += '<div class="card" style="margin-bottom:12px;padding:12px">';
-      html += '<h4 style="margin:0 0 8px;font-size:.9rem">' + g.label + '</h4>';
-      html += '<div style="font-size:.75rem;color:var(--tl);margin-bottom:8px">Champs (séparés par |) : <input class="form-input" id="sg-fields-' + cat + '" value="' + (g.fields || []).join(' | ') + '" style="padding:4px 8px;font-size:.75rem;width:100%"></div>';
-      var sizes = ['S','M','L','XL'];
-      sizes.forEach(function(s) {
-        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
-        html += '<span style="font-weight:600;min-width:24px;font-size:.8rem">' + s + '</span>';
-        html += '<input class="form-input" id="sg-' + cat + '-' + s + '" value="' + (g[s] || []).join(' | ') + '" style="padding:4px 8px;font-size:.75rem;flex:1">';
-        html += '</div>';
-      });
-      html += '</div>';
-    });
-    editor.innerHTML = html || '<p style="color:var(--tl)">Aucune catégorie.</p>';
-  }
-  function saveSizeGuide() {
-    var guide = getSizeGuide();
-    var cats = Object.keys(guide);
-    cats.forEach(function(cat) {
-      var fieldsRaw = $('sg-fields-' + cat);
-      if (fieldsRaw) guide[cat].fields = fieldsRaw.value.split('|').map(function(f) { return f.trim(); }).filter(function(f) { return f; });
-      ['S','M','L','XL'].forEach(function(s) {
-        var inp = $('sg-' + cat + '-' + s);
-        if (inp) guide[cat][s] = inp.value.split('|').map(function(v) { return v.trim(); }).filter(function(v) { return v; });
-      });
-    });
-    localStorage.setItem('sytam_size_guide', JSON.stringify(guide));
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: 'sytam_size_guide', value: guide });
-    }
-    showToast('✓ Guide des tailles sauvegardé');
-  }
-
   // NAVIGATION
   function goTab(tab, el) {
     _currentTab = tab;
@@ -333,7 +277,6 @@
     else if (tab === 'products') loadProducts();
     else if (tab === 'promos') loadReferrals();
     else if (tab === 'loyalty') loadLoyalty();
-    else if (tab === 'sizeguide') loadSizeGuide();
 
     // Fermer la sidebar sur mobile
     if (window.innerWidth <= 768) {
@@ -685,6 +628,7 @@
       }
     }
     var allCatOptions = (typeof CATEGORIES !== 'undefined' ? CATEGORIES.map(function(c) { return c.nom; }) : []).concat(['jupes', 'manteaux', 'cardigan', 'collants', 'nikab', 'jellabas']).filter(function(v,i,a) { return a.indexOf(v) === i; }).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    var mesures = (product && product.mesures) || {};
 
     openModal(
       '<button class="modal-close" onclick="SytamAdmin.closeModal()">✕</button>' +
@@ -701,6 +645,12 @@
       '<div class="form-group"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">COULEURS &amp; STOCKS</label>' +
       '<div id="colors-list">' + renderColorsEdit(colors) + '</div>' +
       '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + sizeStockInputsHtml(ALL_SIZES, 'add') + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
+      '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE <span style="font-weight:400;text-transform:none;font-size:.75rem;color:var(--tl)">(optionnel — ex: Longueur: 140cm | Poitrine: 82cm)</span></label>' +
+      ALL_SIZES.map(function(s) {
+        var val = mesures[s] ? (Array.isArray(mesures[s]) ? mesures[s].join(' | ') : mesures[s]) : '';
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-weight:600;min-width:24px;font-size:.85rem">' + s + '</span><input class="form-input" name="mesure-' + s.toLowerCase() + '" value="' + val.replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px" placeholder="Longueur: ... | Tour de poitrine: ..."></div>';
+      }).join('') +
+      '</div>' +
       '<div style="display:flex;gap:8px;margin-top:16px"><button type="button" class="btn-add" onclick="SytamAdmin.saveProduct()">Enregistrer</button>' +
       '<button type="button" class="btn-del" onclick="SytamAdmin.closeModal()">Annuler</button></div></form>'
     );
@@ -821,7 +771,14 @@
       colors: colors.length ? colors : [],
       sizes: ALL_SIZES.length ? ALL_SIZES : [],
       variantes: [],
+      mesures: {},
     };
+    ALL_SIZES.forEach(function(s) {
+      var inp = f.querySelector('[name="mesure-' + s.toLowerCase() + '"]');
+      if (inp && inp.value.trim()) {
+        data.mesures[s] = inp.value.split('|').map(function(v) { return v.trim(); }).filter(Boolean);
+      }
+    });
     if (editingId) DB.update(editingId, data); else DB.add(data);
     closeModal();
     loadProducts();
@@ -1050,7 +1007,6 @@
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
     loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic,
-    loadSizeGuide, saveSizeGuide,
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
