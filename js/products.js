@@ -85,7 +85,7 @@ function getVariantAttrs(categorie, sous_type) {
     if (st.indexOf('cagoule') !== -1 || st.indexOf('collant') !== -1) return ['couleur', 'taille'];
     return ['couleur'];
   }
-  if (['robes', 'ensembles', 'sport', 'jupes', 'manteaux', 'cardigan', 'collants', 'jellabas'].indexOf(cat) !== -1) return ['couleur', 'taille'];
+  if (['robes', 'pantalons', 'ensembles', 'sport', 'jupes', 'manteaux', 'cardigan', 'collants', 'jellabas', 'chemise'].indexOf(cat) !== -1) return ['couleur', 'taille'];
   return ['couleur'];
 }
 
