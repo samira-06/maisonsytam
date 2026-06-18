@@ -277,8 +277,7 @@
         <button class="option-btn ${state.selectedVariant && state.selectedVariant.attributs && state.selectedVariant.attributs.taille === s ? 'active' : ''}" data-value="${s}" onclick="SytamApp.selectVariantAttr('taille','${s}')">${s}</button>
       `).join('');
       html += `</div></div>`;
-      html += `<div id="size-info" style="font-size:.75rem;color:var(--tl);margin:4px 0 0;min-height:1.2em"></div>`;
-      html += `<div style="margin-top:4px;text-align:right"><button class="btn-link" onclick="SytamApp.openSizeGuide()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:.75rem;text-decoration:underline">📏 Guide des tailles complet</button></div>`;
+      html += `<div style="margin-top:4px;text-align:right"><button class="btn-link" onclick="SytamApp.openSizeGuide()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:.75rem;text-decoration:underline;opacity:.7">📏 Guide des tailles</button></div>`;
     }
 
     const stock = (state.selectedVariant && state.selectedVariant.stock) || 0;
@@ -318,23 +317,6 @@
         </div>
       </div>
     `;
-    if (hasTaille && state.selectedVariant && state.selectedVariant.attributs && state.selectedVariant.attributs.taille) {
-      var _selSize = state.selectedVariant.attributs.taille;
-      var _prodMesures = getProductMeasurements(p, _selSize);
-      var _sizeInfo = document.getElementById('size-info');
-      if (_prodMesures) {
-        _sizeInfo.innerHTML = '📏 <strong>Taille ' + _selSize + '</strong> — ' + (Array.isArray(_prodMesures) ? _prodMesures.join(' | ') : _prodMesures);
-      } else {
-        var _catG = getCategoryGuide(p);
-        if (_sizeInfo && _catG && _catG.fields && _catG[_selSize]) {
-          var _parts = [];
-          for (var _fi = 0; _fi < _catG.fields.length; _fi++) {
-            _parts.push(_catG.fields[_fi] + ': ' + (_catG[_selSize][_fi] || '-'));
-          }
-          _sizeInfo.innerHTML = '📏 <strong>Taille ' + _selSize + '</strong> — ' + _parts.join(' | ');
-        }
-      }
-    }
   }
 
   function selectVariantAttr(attr, value) {
@@ -396,23 +378,6 @@
         btn.disabled = true;
         btn.className = 'btn btn-dark btn-block';
         btn.onclick = null;
-      }
-    }
-    // Show size info for selected size
-    if (attr === 'taille' && value && p) {
-      var _sizeInfo = document.getElementById('size-info');
-      var _prodMesures = getProductMeasurements(p, value);
-      if (_prodMesures) {
-        if (_sizeInfo) _sizeInfo.innerHTML = '📏 <strong>Taille ' + value + '</strong> — ' + (Array.isArray(_prodMesures) ? _prodMesures.join(' | ') : _prodMesures);
-      } else {
-        var _catG = getCategoryGuide(p);
-        if (_sizeInfo && _catG && _catG.fields && _catG[value]) {
-          var _parts = [];
-          for (var _fi = 0; _fi < _catG.fields.length; _fi++) {
-            _parts.push(_catG.fields[_fi] + ': ' + (_catG[value][_fi] || '-'));
-          }
-          _sizeInfo.innerHTML = '📏 <strong>Taille ' + value + '</strong> — ' + _parts.join(' | ');
-        }
       }
     }
   }
