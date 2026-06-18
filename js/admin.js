@@ -607,6 +607,28 @@
     });
   }
 
+  var MEASURE_TEMPLATES = {
+    robes: 'Longueur: 140cm | Poitrine: 86cm | Longueur manche: 60cm',
+    jupe: 'Longueur: 88cm | Tour de taille: 66cm | Hanches: 90cm',
+    jupes: 'Longueur: 88cm | Tour de taille: 66cm | Hanches: 90cm',
+    pantalon: 'Longueur: 102cm | Tour de hanche: 94cm',
+    pantalons: 'Longueur: 102cm | Tour de hanche: 94cm',
+    chemise: 'Longueur chemise: 72cm | Longueur manche: 58cm',
+    ensembles: 'Longueur tunique: 72cm | Longueur pantalon: 102cm',
+    cardigan: 'Longueur: 90cm | Poitrine: 84cm | Longueur manche: 58cm',
+    sport: 'Longueur tunique: 70cm | Longueur pantalon: 100cm',
+    voiles: '',
+    accessoires: '',
+  };
+  function getMeasurePlaceholder(cat) {
+    var key = (cat || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    return MEASURE_TEMPLATES[key] !== undefined ? MEASURE_TEMPLATES[key] : 'Longueur: ... | Largeur: ...';
+  }
+  function updateMeasurePlaceholders(cat) {
+    var ph = getMeasurePlaceholder(cat);
+    document.querySelectorAll('.mesure-input').forEach(function(inp) { inp.placeholder = ph; });
+  }
+
   function openProductModal(product) {
     editingId = null;
     var nom = '', categorie = 'voiles', sous_type = '', prix = '', desc = '', images = '', tagSel = '', promoPct = '';
@@ -629,13 +651,14 @@
     }
     var allCatOptions = (typeof CATEGORIES !== 'undefined' ? CATEGORIES.map(function(c) { return c.nom; }) : []).concat(['jupes', 'manteaux', 'cardigan', 'collants', 'nikab', 'jellabas']).filter(function(v,i,a) { return a.indexOf(v) === i; }).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     var mesures = (product && product.mesures) || {};
+    var _defPlaceholder = getMeasurePlaceholder(categorie);
 
     openModal(
       '<button class="modal-close" onclick="SytamAdmin.closeModal()">✕</button>' +
       '<h2>' + (editingId ? 'Modifier' : 'Ajouter') + ' un produit</h2>' +
       '<form id="product-form" onsubmit="event.preventDefault();SytamAdmin.saveProduct()">' +
       '<div class="form-group"><label class="form-label">Nom du produit</label><input class="form-input" name="nom" value="' + nom.replace(/"/g, '&quot;') + '" required></div>' +
-      '<div class="grid-2"><div class="form-group"><label class="form-label">Catégorie</label><input class="form-input" name="categorie" list="cat-list" value="' + categorie + '" required><datalist id="cat-list">' + allCatOptions + '</datalist></div>' +
+      '<div class="grid-2"><div class="form-group"><label class="form-label">Catégorie</label><input class="form-input" name="categorie" id="cat-input" list="cat-list" value="' + categorie + '" required oninput="SytamAdmin.updateMeasurePlaceholders(this.value)" onchange="SytamAdmin.updateMeasurePlaceholders(this.value)"><datalist id="cat-list">' + allCatOptions + '</datalist></div>' +
       '<div class="form-group"><label class="form-label">Sous-type</label><input class="form-input" name="sous_type" value="' + sous_type + '" required></div></div>' +
       '<div class="grid-2"><div class="form-group"><label class="form-label">Prix (FCFA)</label><input class="form-input" type="number" name="prix" value="' + prix + '" min="0" required></div>' +
       '<div class="form-group"><label class="form-label">Promo (%)</label><input class="form-input" type="number" name="promo_pct" value="' + promoPct + '" min="0" max="100" placeholder="0 = pas de promo"></div></div>' +
@@ -648,7 +671,7 @@
       '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE <span style="font-weight:400;text-transform:none;font-size:.75rem;color:var(--tl)">(optionnel — ex: Longueur: 140cm | Poitrine: 82cm)</span></label>' +
       ALL_SIZES.map(function(s) {
         var val = mesures[s] ? (Array.isArray(mesures[s]) ? mesures[s].join(' | ') : mesures[s]) : '';
-        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-weight:600;min-width:24px;font-size:.85rem">' + s + '</span><input class="form-input" name="mesure-' + s.toLowerCase() + '" value="' + val.replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px" placeholder="Longueur: ... | Tour de poitrine: ..."></div>';
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-weight:600;min-width:24px;font-size:.85rem">' + s + '</span><input class="form-input mesure-input" name="mesure-' + s.toLowerCase() + '" value="' + val.replace(/"/g, '&quot;') + '" style="flex:1;padding:6px 8px" placeholder="' + _defPlaceholder + '"></div>';
       }).join('') +
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:16px"><button type="button" class="btn-add" onclick="SytamAdmin.saveProduct()">Enregistrer</button>' +
@@ -1010,6 +1033,7 @@
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
+    updateMeasurePlaceholders,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);
