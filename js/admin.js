@@ -63,29 +63,31 @@
     var done = 0;
     keys.forEach(function(k) {
       var localData = localStorage.getItem(k);
-      // First, push local data to Supabase (so newer data is never lost)
-      if (localData) {
-        try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
-      }
-      // Then load from Supabase
+      // First load from Supabase (so new orders from other devices are not overwritten)
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
-          if (result && result.length && result[0].value) {
-            var supabaseItems = result[0].value;
-            var localItems = [];
-            try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
-            // Merge: keep all items, deduplicate by ID
-            if (Array.isArray(supabaseItems) && Array.isArray(localItems) && localItems.length > 0) {
-              var seen = {};
-              supabaseItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
-              localItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
-              supabaseItems = Object.values(seen);
-            }
-            localStorage.setItem(k, JSON.stringify(supabaseItems));
+          var supabaseItems = result && result.length && result[0].value ? result[0].value : [];
+          var localItems = [];
+          try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
+          // Merge: keep all items, deduplicate by ID
+          if (Array.isArray(supabaseItems) && Array.isArray(localItems)) {
+            var seen = {};
+            supabaseItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
+            localItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
+            supabaseItems = Object.values(seen);
           }
+          localStorage.setItem(k, JSON.stringify(supabaseItems));
+          // Then push merged data back to Supabase
+          SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
           done++; if (done === keys.length && cb) cb();
         })
-        .catch(function() { done++; if (done === keys.length && cb) cb(); });
+        .catch(function() {
+          // Fallback: push local data
+          if (localData) {
+            try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
+          }
+          done++; if (done === keys.length && cb) cb();
+        });
     });
   }
   function pollOrders() {
