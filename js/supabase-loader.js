@@ -25,15 +25,30 @@ var SupabaseAPI = {
         if (!r.ok) { console.warn('Supabase get error status:', r.status, r.statusText); return []; }
         return r.json();
       })
-      .then(function(data) { return data || []; })
+      .then(function(data) {
+        if (!data || !data.length) return [];
+        // If multiple rows returned (e.g. same key), merge them by keeping the last with the most data
+        if (data.length > 1 && endpoint.indexOf('key=eq.') !== -1) {
+          var merged = data[data.length - 1];
+          return [merged];
+        }
+        return data;
+      })
       .catch(function(e) { console.warn('Supabase get error:', e); return []; });
   },
   upsert: function(table, data) {
     if (!SupabaseApp.ready) return Promise.resolve();
-    return fetch(this._url(table), {
-      method: 'POST',
-      headers: Object.assign(this._headers(), { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }),
-      body: JSON.stringify(data),
+    // First delete existing row with same key, then insert
+    var key = data.key;
+    return fetch(this._url(table) + '?key=eq.' + encodeURIComponent(key), {
+      method: 'DELETE',
+      headers: this._headers(),
+    }).then(function() {
+      return fetch(SupabaseAPI._url(table), {
+        method: 'POST',
+        headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data),
+      });
     }).then(function(r) {
       if (!r.ok) console.warn('Supabase upsert status:', r.status, r.statusText);
       return r;
