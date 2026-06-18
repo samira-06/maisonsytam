@@ -18,6 +18,7 @@
       <a href="#shop" data-page="shop" onclick="SytamApp.navigate('shop')">Boutique</a>
       <a href="#contact" data-page="contact" onclick="SytamApp.navigate('contact')">Contact</a>
       <a href="#track" data-page="track" onclick="SytamApp.navigate('track')">Suivre</a>
+      <a href="#" onclick="SytamApp.openGeneralSizeGuide();return false">Tailles</a>
     </nav>
     <div class="header-actions">
       <button class="menu-btn" id="menu-btn" onclick="SytamApp.toggleMenu()" aria-label="Menu">☰</button>
@@ -192,6 +193,13 @@
 
 <!-- ==================== PRODUCT MODAL ==================== -->
 <div class="modal" id="product-modal"></div>
+<div class="modal" id="sizeguide-modal" style="display:none">
+  <div class="modal-overlay" onclick="SytamApp.closeSizeGuide()"></div>
+  <div class="modal-content" style="max-width:600px">
+    <button class="modal-close" onclick="SytamApp.closeSizeGuide()">✕</button>
+    <div id="sizeguide-content"></div>
+  </div>
+</div>
 
 <!-- ==================== CHECKOUT MODAL ==================== -->
 <div class="modal" id="checkout-modal">
