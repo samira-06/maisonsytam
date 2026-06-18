@@ -710,6 +710,29 @@
     }
     var allCatOptions = (typeof CATEGORIES !== 'undefined' ? CATEGORIES.map(function(c) { return c.nom; }) : []).concat(['jupes', 'manteaux', 'cardigan', 'collants', 'nikab', 'jellabas']).filter(function(v,i,a) { return a.indexOf(v) === i; }).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     var mesures = (product && product.mesures) || {};
+    // Convert old format to new structured format
+    if (mesures && !mesures.fields) {
+      var _oldSizes = ['S','M','L','XL'];
+      var _firstVal = '';
+      for (var _si = 0; _si < _oldSizes.length; _si++) {
+        if (mesures[_oldSizes[_si]] && Array.isArray(mesures[_oldSizes[_si]]) && mesures[_oldSizes[_si]].length) {
+          _firstVal = mesures[_oldSizes[_si]][0] || '';
+          break;
+        }
+      }
+      if (_firstVal && _firstVal.indexOf(':') !== -1) {
+        var _sample = mesures[_oldSizes[0]] || mesures[_oldSizes[1]] || [];
+        mesures.fields = _sample.map(function(m) { var parts = m.split(':'); return parts.length >= 2 ? parts[0].trim() : 'Mesure'; });
+        _oldSizes.forEach(function(s) {
+          if (mesures[s] && Array.isArray(mesures[s])) {
+            mesures[s] = mesures[s].map(function(m) { var parts = m.split(':'); return parts.length >= 2 ? parts.slice(1).join(':').trim() : m; });
+          }
+        });
+      } else if (_firstVal) {
+        var _sample2 = mesures[_oldSizes[0]] || mesures[_oldSizes[1]] || [];
+        mesures.fields = _sample2.map(function(_, i) { return 'Mesure ' + (i + 1); });
+      }
+    }
     var _defPlaceholder = getMeasurePlaceholder(categorie);
 
     openModal(
