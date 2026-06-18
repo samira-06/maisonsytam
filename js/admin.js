@@ -56,6 +56,13 @@
     else if (_currentTab === 'messages') loadMessages();
     else if (_currentTab === 'promos') loadReferrals();
   }
+  function syncNow() {
+    showToast('⏳ Synchronisation...');
+    syncAllFromSupabase(function() {
+      refreshCurrentTab();
+      showToast('✓ Synchronisé');
+    });
+  }
   // Sync ALL data from Supabase (orders, products, messages, referrals, loyalty)
   function syncAllFromSupabase(cb) {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
@@ -1114,7 +1121,7 @@
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
-    updateMeasurePlaceholders, addMesureField, removeMesureField,
+    updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);

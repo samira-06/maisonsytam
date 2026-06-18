@@ -716,21 +716,28 @@
       created_at: new Date().toISOString(),
     };
 
-    // Sauvegarder dans Supabase d'abord, localStorage seulement en urgence
+    // Sauvegarder la commande : Supabase d'abord, localStorage en dernier recours
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders.unshift(order);
-    var supabaseOk = false;
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
-        .then(function() { supabaseOk = true; })
-        .catch(function() {});
+    var _pushed = false;
+    function _tryPush(attempt) {
+      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+        SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
+          .then(function(r) { if (r && r.ok) _pushed = true; })
+          .catch(function() {});
+      }
+      // Retry up to 3 times (initial + 2 retries at 2s and 5s)
+      if (!_pushed && attempt < 3) {
+        setTimeout(function() { _tryPush(attempt + 1); }, attempt === 1 ? 2000 : 3000);
+      }
     }
-    // Fallback localStorage si Supabase échoue (sera retenté par periodicSync)
+    _tryPush(1);
+    // Fallback localStorage si toujours pas poussé après 8s
     setTimeout(function() {
-      if (!supabaseOk) {
+      if (!_pushed) {
         localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
       }
-    }, 2000);
+    }, 8000);
     // Notifier via ntfy
     sendNtfyNotification(order);
 
