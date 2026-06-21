@@ -805,12 +805,12 @@
     var wrap = btn.parentElement;
     if (!wrap) return;
     var img = wrap.querySelector('img');
-    var src = img ? img.src : '';
-    // Remove from textarea
+    var src = img ? (img.getAttribute('src') || img.src) : '';
+    // Remove from textarea (comparer l'attribut exact, pas l'URL absolue résolue par le navigateur)
     var ta = document.querySelector('#product-form [name="images"]');
     if (ta && src) {
       var urls = ta.value.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
-      urls = urls.filter(function(u) { return u !== src; });
+      urls = urls.filter(function(u) { return u !== src && u !== img.src; });
       ta.value = urls.join('\n');
     }
     wrap.remove();
