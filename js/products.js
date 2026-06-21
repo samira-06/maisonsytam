@@ -208,33 +208,12 @@ const DB = {
   },
 
   _load() {
-    // Migration automatique depuis localStorage vers Supabase
-    var stored = localStorage.getItem(DB_KEY);
-
-    if (stored && typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      try { DB._data = JSON.parse(stored); }
-      catch(e) { DB._data = null; }
-      if (DB._data) {
-        DB._migrateData();
-        // Pousser vers Supabase (peut échouer sur file:/// → ignoré)
-        SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data })
-          .then(function() {
-            // Maintenant charger depuis Supabase pour confirmer
-            DB._loadFromSupabase();
-          })
-          .catch(function() {
-            DB._ready = true;
-            DB._notifyReady();
-          });
-        // En attendant, utiliser les données locales
-        setTimeout(function() {
-          if (!DB._ready) { DB._ready = true; DB._notifyReady(); }
-        }, 100);
-        return;
-      }
+    // Toujours charger Supabase d'abord, puis fusionner avec localStorage
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      DB._loadFromSupabase();
+    } else {
+      DB._fallback();
     }
-
-    DB._loadFromSupabase();
   },
 
   _loadFromSupabase() {
@@ -247,17 +226,28 @@ const DB = {
       SupabaseAPI.get('store_data?key=eq.' + DB_KEY + '&select=value')
         .then(function(result) {
           clearTimeout(fallbackTimer);
-          if (result && result.length && result[0].value && result[0].value.length) {
-            DB._data = result[0].value;
+          var localData = null;
+          var stored = localStorage.getItem(DB_KEY);
+          if (stored) { try { localData = JSON.parse(stored); } catch(e) {} }
+          var supabaseData = result && result.length && result[0].value ? result[0].value : null;
+          if (supabaseData && Array.isArray(supabaseData) && supabaseData.length) {
+            // Fusion : Supabase d'abord, localStorage écrase (pour garder les modifs locales)
+            var seen = {};
+            supabaseData.forEach(function(p) { if (p && p.id) seen[p.id] = p; });
+            if (localData && Array.isArray(localData)) {
+              localData.forEach(function(p) { if (p && p.id) seen[p.id] = p; });
+            }
+            DB._data = Object.values(seen);
+            DB._migrateData();
+          } else if (localData && Array.isArray(localData) && localData.length) {
+            DB._data = localData;
             DB._migrateData();
           } else {
             DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
-            var stored = localStorage.getItem(DB_KEY);
-            if (stored) { try { DB._data = JSON.parse(stored); } catch(e) {} }
             DB._migrateData();
-            SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data });
           }
           localStorage.setItem(DB_KEY, JSON.stringify(DB._data));
+          SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data });
           DB._ready = true;
           DB._notifyReady();
         })
