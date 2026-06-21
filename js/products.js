@@ -221,7 +221,7 @@ const DB = {
     var fallbackTimer = setTimeout(function() {
       console.log('DB: Supabase timeout, fallback');
       if (!DB._ready) DB._fallback();
-    }, 3000);
+    }, 15000);
     if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
       SupabaseAPI.get('store_data?key=eq.' + DB_KEY + '&select=value')
         .then(function(result) {
@@ -248,8 +248,14 @@ const DB = {
           }
           localStorage.setItem(DB_KEY, JSON.stringify(DB._data));
           SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data });
-          DB._ready = true;
-          DB._notifyReady();
+          if (!DB._ready) {
+            DB._ready = true;
+            DB._notifyReady();
+          } else {
+            // Données mises à jour après le fallback → re-notifier les callbacks
+            DB._notified = false;
+            DB._notifyReady();
+          }
         })
         .catch(function() {
           clearTimeout(fallbackTimer);

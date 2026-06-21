@@ -935,7 +935,7 @@
   // Périodiquement, pousse les données locales vers Supabase
   function _periodicSync() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2'];
+    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
     _keys.forEach(function(k) {
       var d = localStorage.getItem(k);
       if (d) {

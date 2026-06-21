@@ -55,6 +55,7 @@
     else if (_currentTab === 'orders') loadOrders();
     else if (_currentTab === 'messages') loadMessages();
     else if (_currentTab === 'promos') loadReferrals();
+    else if (_currentTab === 'products') loadProducts();
   }
   function syncNow() {
     showToast('⏳ Synchronisation...');
@@ -108,6 +109,10 @@
           }
           localStorage.setItem(k, JSON.stringify(supabaseItems));
           SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
+          if (k === 'sytam_products_v4' && typeof DB !== 'undefined') {
+            DB._data = supabaseItems;
+            DB._migrateData();
+          }
           done++; if (done === keys.length) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
         })
         .catch(function(err) {
