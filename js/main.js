@@ -716,9 +716,10 @@
       created_at: new Date().toISOString(),
     };
 
-    // Sauvegarder la commande : Supabase d'abord, localStorage en dernier recours
+    // Sauvegarder la commande : localStorage immédiatement, puis Supabase en tâche de fond
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders.unshift(order);
+    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
     var _pushed = false;
     function _tryPush(attempt) {
       if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
@@ -726,18 +727,11 @@
           .then(function(r) { if (r && r.ok) _pushed = true; })
           .catch(function() {});
       }
-      // Retry up to 3 times (initial + 2 retries at 2s and 5s)
       if (!_pushed && attempt < 3) {
         setTimeout(function() { _tryPush(attempt + 1); }, attempt === 1 ? 2000 : 3000);
       }
     }
     _tryPush(1);
-    // Fallback localStorage si toujours pas poussé après 8s
-    setTimeout(function() {
-      if (!_pushed) {
-        localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-      }
-    }, 8000);
     // Notifier via ntfy
     sendNtfyNotification(order);
 
@@ -941,18 +935,15 @@
   // Périodiquement, pousse les données locales vers Supabase
   function _periodicSync() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var orderKey = 'sytam_orders_v2';
-    var ordData = localStorage.getItem(orderKey);
-    if (ordData) {
-      try { SupabaseAPI.upsert('store_data', { key: orderKey, value: JSON.parse(ordData) }); } catch(e) {}
-    }
-    var loyaltyKey = 'sytam_loyalty_v2';
-    var loyData = localStorage.getItem(loyaltyKey);
-    if (loyData) {
-      try { SupabaseAPI.upsert('store_data', { key: loyaltyKey, value: JSON.parse(loyData) }); } catch(e) {}
-    }
+    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2'];
+    _keys.forEach(function(k) {
+      var d = localStorage.getItem(k);
+      if (d) {
+        try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(d) }); } catch(e) {}
+      }
+    });
   }
-  setInterval(_periodicSync, 60000);
+  setInterval(_periodicSync, 15000);
 
   // --- Suivi de commande ---
   function trackOrder() {

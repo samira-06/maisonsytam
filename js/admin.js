@@ -58,6 +58,19 @@
   }
   function syncNow() {
     showToast('⏳ Synchronisation...');
+    // Test de connectivité Supabase
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
+        .then(function(r) {
+          console.log('syncNow: Supabase OK', r ? r.length + ' lignes' : 'vide');
+        })
+        .catch(function(e) {
+          console.warn('syncNow: Supabase INACCESSIBLE', e);
+          showToast('⚠ Supabase inaccessible — vérifie ton projet supabase.com');
+        });
+    } else {
+      showToast('⚠ Supabase non configuré');
+    }
     syncAllFromSupabase(function() {
       refreshCurrentTab();
       showToast('✓ Synchronisé');
@@ -65,37 +78,50 @@
   }
   // Sync ALL data from Supabase (orders, products, messages, referrals, loyalty)
   function syncAllFromSupabase(cb) {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
+      console.warn('syncAllFromSupabase ⚡ Supabase non disponible');
+      updateSupabaseStatus('HS', 'Supabase déconnecté');
+      if (cb) cb(); return;
+    }
+    updateSupabaseStatus('...', 'Synchronisation...');
     var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
     var done = 0;
     keys.forEach(function(k) {
       var localData = localStorage.getItem(k);
-      // First load from Supabase (so new orders from other devices are not overwritten)
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
-          var supabaseItems = result && result.length && result[0].value ? result[0].value : [];
+          // Safe parsing — result peut être [] ou [{key, value}]
+          var supabaseItems = [];
+          try {
+            if (result && result.length && result[0] && result[0].value && Array.isArray(result[0].value)) {
+              supabaseItems = result[0].value;
+            }
+          } catch(e) { console.warn('syncAllFromSupabase parse error for', k, e); }
           var localItems = [];
           try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
           // Merge: keep all items, deduplicate by ID
           if (Array.isArray(supabaseItems) && Array.isArray(localItems)) {
             var seen = {};
-            supabaseItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
-            localItems.forEach(function(item) { if (item.id) seen[item.id] = item; });
+            supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
+            localItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
             supabaseItems = Object.values(seen);
           }
           localStorage.setItem(k, JSON.stringify(supabaseItems));
-          // Then push merged data back to Supabase
           SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
-          done++; if (done === keys.length && cb) cb();
+          done++; if (done === keys.length) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
         })
-        .catch(function() {
-          // Fallback: push local data
+        .catch(function(err) {
+          console.warn('syncAllFromSupabase ⚠ échec pour', k, err);
           if (localData) {
             try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
           }
-          done++; if (done === keys.length && cb) cb();
+          done++; if (done === keys.length) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) cb(); }
         });
     });
+  }
+  function updateSupabaseStatus(sym, label) {
+    var el = document.getElementById('supabase-status');
+    if (el) { el.innerHTML = '<span style="font-size:1.2rem">' + sym + '</span> ' + label; }
   }
   function pollOrders() {
     // Toujours syncer depuis Supabase (même sans permission notification)

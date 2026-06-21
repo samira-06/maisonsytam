@@ -22,36 +22,58 @@ var SupabaseAPI = {
     if (!SupabaseApp.ready) return Promise.resolve([]);
     return fetch(this._url(endpoint), { headers: this._headers() })
       .then(function(r) {
-        if (!r.ok) { console.warn('Supabase get error status:', r.status, r.statusText); return []; }
+        if (!r.ok) { console.warn('Supabase get ⚠ code ' + r.status + ' pour', endpoint); return []; }
         return r.json();
       })
       .then(function(data) {
         if (!data || !data.length) return [];
-        // If multiple rows returned (e.g. same key), merge them by keeping the last with the most data
+        // Si plusieurs lignes (ex: clés dupliquées), garder la dernière (insertion la plus récente)
         if (data.length > 1 && endpoint.indexOf('key=eq.') !== -1) {
-          var merged = data[data.length - 1];
-          return [merged];
+          console.warn('Supabase get ⚠ lignes multiples pour', endpoint, '→ dernière utilisée');
+          return [data[data.length - 1]];
         }
         return data;
       })
-      .catch(function(e) { console.warn('Supabase get error:', e); return []; });
+      .catch(function(e) { console.warn('Supabase get erreur:', e); return []; });
   },
   upsert: function(table, data) {
     if (!SupabaseApp.ready) return Promise.resolve();
-    // First delete existing row with same key, then insert
     var key = data.key;
-    return fetch(this._url(table) + '?key=eq.' + encodeURIComponent(key), {
-      method: 'DELETE',
-      headers: this._headers(),
-    }).then(function() {
-      return fetch(SupabaseAPI._url(table), {
-        method: 'POST',
-        headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
-        body: JSON.stringify(data),
+    var url = this._url(table) + '?key=eq.' + encodeURIComponent(key);
+    // Essaie UPDATE (PATCH) d'abord avec return=representation pour voir si ligne existe
+    return fetch(url, {
+      method: 'PATCH',
+      headers: Object.assign(this._headers(), {
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }),
+      body: JSON.stringify(data),
+    }).then(function(patchRes) {
+      if (!patchRes.ok) {
+        // PATCH a échoué → POST en dernier recours
+        return fetch(SupabaseAPI._url(table), {
+          method: 'POST',
+          headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
+          body: JSON.stringify(data),
+        }).then(function(postRes) {
+          if (!postRes.ok) console.warn('Supabase upsert POST status:', postRes.status, postRes.statusText);
+          return { ok: postRes.ok, method: 'POST' };
+        });
+      }
+      return patchRes.json().then(function(body) {
+        if (!body || (Array.isArray(body) && body.length === 0)) {
+          // Aucune ligne trouvée → faire INSERT
+          return fetch(SupabaseAPI._url(table), {
+            method: 'POST',
+            headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
+            body: JSON.stringify(data),
+          }).then(function(postRes) {
+            if (!postRes.ok) console.warn('Supabase upsert POST status:', postRes.status, postRes.statusText);
+            return { ok: postRes.ok, method: 'POST' };
+          });
+        }
+        return { ok: true, method: 'PATCH' };
       });
-    }).then(function(r) {
-      if (!r.ok) console.warn('Supabase upsert status:', r.status, r.statusText);
-      return r;
-    }).catch(function(e) { console.warn('Supabase upsert error:', e); });
+    }).catch(function(e) { console.warn('Supabase upsert error:', e); return { ok: false }; });
   },
 };
