@@ -224,13 +224,9 @@
     if (!state.selectedProduct) return;
     state.selectedVariant = null;
     state.selectedQty = 1;
-    // Render modal content BEFORE opening
     renderModal(state.selectedProduct);
-    // Small RAF delay to ensure DOM is painted before showing
-    requestAnimationFrame(function() {
-      document.getElementById('product-modal').classList.add('open');
-      document.body.style.overflow = 'hidden';
-    });
+    document.getElementById('product-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeQuickView() {
@@ -434,7 +430,7 @@
       var el = document.getElementById('sizeguide-content');
       if (el) { el.innerHTML = html; }
       var modal = document.getElementById('sizeguide-modal');
-      if (modal) { modal.style.display = ''; modal.classList.add('open'); }
+      if (modal) { modal.classList.add('open'); }
       return;
     }
     // Fallback to category guide
@@ -461,11 +457,11 @@
     var el = document.getElementById('sizeguide-content');
     if (el) { el.innerHTML = html; }
     var modal = document.getElementById('sizeguide-modal');
-    if (modal) { modal.style.display = ''; modal.classList.add('open'); }
+    if (modal) { modal.classList.add('open'); }
   }
   function closeSizeGuide() {
     var modal = document.getElementById('sizeguide-modal');
-    if (modal) { modal.style.display = 'none'; modal.classList.remove('open'); }
+    if (modal) { modal.classList.remove('open'); }
   }
   function openGeneralSizeGuide() {
     var guide = getSizeGuide();
@@ -481,7 +477,7 @@
     var el = document.getElementById('sizeguide-content');
     if (el) { el.innerHTML = html; }
     var modal = document.getElementById('sizeguide-modal');
-    if (modal) { modal.style.display = ''; modal.classList.add('open'); }
+    if (modal) { modal.classList.add('open'); }
     // Show first category by default
     if (cats.length) { showSizeGuideCategory(cats[0]); }
   }
