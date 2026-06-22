@@ -101,7 +101,6 @@
 
   function navigate(page) {
     state.currentPage = page;
-    // Render content BEFORE showing page to prevent layout shift
     if (page === 'shop') renderShop();
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);
