@@ -989,8 +989,6 @@
     // Phone: only digits allowed
     var phoneDigits = phone.replace(/[^0-9]/g, '');
     if (phone !== phoneDigits) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Le numéro de téléphone ne doit contenir que des chiffres.</p>'; return; }
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    // Check Supabase if not found locally
     function showOrder(ordersList) {
       var found = null;
       for (var i = 0; i < ordersList.length; i++) {
@@ -1020,7 +1018,6 @@
           '</div>';
         return;
       }
-      // Timeline steps (must match admin statuses)
       var steps = [
         { key: 'en_attente', label: 'Commande reçue' },
         { key: 'confirmee', label: 'Confirmée (paiement reçu)' },
@@ -1039,18 +1036,23 @@
       resultDiv.innerHTML = cardHtml + timelineHtml +
         '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>';
     }
-    if (orders.length) { showOrder(orders); return; }
-    // Fallback: try Supabase
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
-        .then(function(result) {
-          if (result && result.length && result[0].value) { showOrder(result[0].value); }
-          else { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>'; }
-        })
-        .catch(function() { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Erreur de connexion.</p>'; });
-    } else {
+    // Chercher Supabase d'abord (données à jour), fallback localStorage
+    function trySupabase() {
+      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+        SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
+          .then(function(result) {
+            if (result && result.length && result[0].value) { showOrder(result[0].value); }
+            else { tryLocal(); }
+          })
+          .catch(function() { tryLocal(); });
+      } else { tryLocal(); }
+    }
+    function tryLocal() {
+      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      if (orders.length) { showOrder(orders); return; }
       resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
     }
+    trySupabase();
   }
 
   window.SytamApp = {
