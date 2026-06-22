@@ -225,6 +225,8 @@
     state.selectedVariant = null;
     state.selectedQty = 1;
     renderModal(state.selectedProduct);
+    // Force layout calculation before showing
+    document.body.offsetHeight;
     document.getElementById('product-modal').classList.add('open');
     document.body.style.overflow = 'hidden';
   }
