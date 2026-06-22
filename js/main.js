@@ -671,9 +671,12 @@
     renderCheckoutSummary();
   }
 
+  var _submitting = false;
   function submitOrder(formData) {
+    if (_submitting) return;
+    _submitting = true;
     var items = SytamCart.getItems();
-    if (items.length === 0) return;
+    if (items.length === 0) { _submitting = false; return; }
 
     var zone = DELIVERY_ZONES[_neighborhoodZone()] || DELIVERY_ZONES.dakar_centre;
     var subtotal = SytamCart.getSubtotal();
@@ -720,18 +723,21 @@
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders.unshift(order);
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-    var _pushed = false;
-    function _tryPush(attempt) {
-      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-        SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
-          .then(function(r) { if (r && r.ok) _pushed = true; })
-          .catch(function() {});
-      }
-      if (!_pushed && attempt < 3) {
-        setTimeout(function() { _tryPush(attempt + 1); }, attempt === 1 ? 2000 : 3000);
-      }
+    var _pushAttempts = 0;
+    function _tryPush() {
+      if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready || _pushAttempts >= 5) return;
+      _pushAttempts++;
+      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
+        .then(function(r) {
+          if (!(r && r.ok) && _pushAttempts < 5) {
+            setTimeout(_tryPush, 3000);
+          }
+        })
+        .catch(function() {
+          if (_pushAttempts < 5) setTimeout(_tryPush, 3000);
+        });
     }
-    _tryPush(1);
+    _tryPush();
     // Notifier via ntfy
     sendNtfyNotification(order);
 
@@ -746,30 +752,32 @@
     }
 
     // Decrement stock for each item
-    items.forEach(function(item) {
-      var prod = DB.getById(item.productId);
-      if (!prod || !prod.colors) return;
-      var colorName = '', sizeName = '';
-      if (item.variantLabel) {
-        var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
-        parts.forEach(function(p) {
-          if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
-          if (p.indexOf('taille:') === 0 || p.indexOf('Taille:') === 0) sizeName = p.split(':')[1].trim();
-        });
-      }
-      if (!colorName) return;
-      var color = null;
-      for (var ci = 0; ci < prod.colors.length; ci++) {
-        if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
-      }
-      if (!color) return;
-      if (sizeName && color.stocks && color.stocks[sizeName] !== undefined) {
-        color.stocks[sizeName] = Math.max(0, color.stocks[sizeName] - item.qty);
-      } else if (color.stock !== undefined) {
-        color.stock = Math.max(0, color.stock - item.qty);
-      }
-      DB.update(prod.id, prod);
-    });
+    try {
+      items.forEach(function(item) {
+        var prod = DB.getById(item.productId);
+        if (!prod || !prod.colors) return;
+        var colorName = '', sizeName = '';
+        if (item.variantLabel) {
+          var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
+          parts.forEach(function(p) {
+            if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
+            if (p.indexOf('taille:') === 0 || p.indexOf('Taille:') === 0) sizeName = p.split(':')[1].trim();
+          });
+        }
+        if (!colorName) return;
+        var color = null;
+        for (var ci = 0; ci < prod.colors.length; ci++) {
+          if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
+        }
+        if (!color) return;
+        if (sizeName && color.stocks && color.stocks[sizeName] !== undefined) {
+          color.stocks[sizeName] = Math.max(0, color.stocks[sizeName] - item.qty);
+        } else if (color.stock !== undefined) {
+          color.stock = Math.max(0, color.stock - item.qty);
+        }
+        DB.update(prod.id, prod);
+      });
+    } catch(e) { console.warn('Stock decrement error:', e); }
 
     SytamCart.clear();
     closeCheckout();
@@ -778,11 +786,24 @@
     if (ref2) ref2.textContent = order.id;
 
     document.getElementById('order-success').classList.add('open');
+    // Set WhatsApp link with order details
+    var waLink = document.getElementById('whatsapp-link');
+    if (waLink) {
+      var shopPhone = localStorage.getItem('sytam_shop_phone') || '+221 77 478 98 75';
+      var cleanPhone = shopPhone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('221')) cleanPhone = cleanPhone.slice(3);
+      var waMsg = encodeURIComponent('Bonjour ! Je viens de passer commande (#' + order.id + ') et je souhaite confirmer mon paiement.');
+      waLink.href = 'https://wa.me/221' + cleanPhone + '?text=' + waMsg;
+    }
+    _submitting = false;
   }
 
   function closeOrderSuccess() {
     document.getElementById('order-success').classList.remove('open');
     toggleCart();
+    // Réactiver le bouton de commande
+    var _btn = document.getElementById('checkout-btn');
+    if (_btn) { _btn.disabled = false; _btn.textContent = 'Confirmer la commande'; }
   }
 
   // ---- COULEURS ----

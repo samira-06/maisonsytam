@@ -107,8 +107,14 @@
             localItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
             supabaseItems = Object.values(seen);
           }
-          localStorage.setItem(k, JSON.stringify(supabaseItems));
-          SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
+          // Sauvegarder seulement si on a des données ou si on avait déjà des données locales
+          // (évite d'écraser Supabase avec [] si le fetch échoue)
+          if (supabaseItems.length || localItems.length || k === 'sytam_products_v4') {
+            localStorage.setItem(k, JSON.stringify(supabaseItems));
+            SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
+          } else {
+            console.log('syncAllFromSupabase: skip empty save for', k);
+          }
           if (k === 'sytam_products_v4' && typeof DB !== 'undefined') {
             DB._data = supabaseItems;
             DB._migrateData();
