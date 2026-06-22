@@ -49,6 +49,7 @@
   }
 
   function init() {
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.init();
     // Rendu immédiat depuis les données seed (pas d'attente Supabase)
     _renderFromData(SEED_PRODUCTS || []);
     DB.onReady(function() {
@@ -222,6 +223,7 @@
   function quickView(id) {
     state.selectedProduct = DB.getById(id);
     if (!state.selectedProduct) return;
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackProductClick(id, state.selectedProduct.nom);
     state.selectedVariant = null;
     state.selectedQty = 1;
     renderModal(state.selectedProduct);
@@ -968,7 +970,7 @@
   // Périodiquement, pousse les données locales vers Supabase
   function _periodicSync() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
+    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4', 'sytam_analytics_v1'];
     _keys.forEach(function(k) {
       var d = localStorage.getItem(k);
       if (d) {

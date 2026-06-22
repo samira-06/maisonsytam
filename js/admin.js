@@ -86,12 +86,12 @@
     }
     updateSupabaseStatus('...', 'Synchronisation...');
     var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4'];
+    var total = keys.length + 1; // +1 pour analytics
     var done = 0;
     keys.forEach(function(k) {
       var localData = localStorage.getItem(k);
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
-          // Safe parsing — result peut être [] ou [{key, value}]
           var supabaseItems = [];
           try {
             if (result && result.length && result[0] && result[0].value && Array.isArray(result[0].value)) {
@@ -100,15 +100,12 @@
           } catch(e) { console.warn('syncAllFromSupabase parse error for', k, e); }
           var localItems = [];
           try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
-          // Merge: keep all items, deduplicate by ID
           if (Array.isArray(supabaseItems) && Array.isArray(localItems)) {
             var seen = {};
             supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
             localItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
             supabaseItems = Object.values(seen);
           }
-          // Sauvegarder seulement si on a des données ou si on avait déjà des données locales
-          // (évite d'écraser Supabase avec [] si le fetch échoue)
           if (supabaseItems.length || localItems.length || k === 'sytam_products_v4') {
             localStorage.setItem(k, JSON.stringify(supabaseItems));
             SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });
@@ -119,16 +116,33 @@
             DB._data = supabaseItems;
             DB._migrateData();
           }
-          done++; if (done === keys.length) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
+          done++; if (done === total) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
         })
         .catch(function(err) {
           console.warn('syncAllFromSupabase ⚠ échec pour', k, err);
           if (localData) {
             try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
           }
-          done++; if (done === keys.length) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) cb(); }
+          done++; if (done === total) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) cb(); }
         });
     });
+    // Analytics (objet unique, pas un tableau)
+    var ak = 'sytam_analytics_v1';
+    SupabaseAPI.get('store_data?key=eq.' + ak + '&select=value')
+      .then(function(result) {
+        try {
+          if (result && result.length && result[0] && result[0].value) {
+            var remote = result[0].value;
+            if (typeof SytamAnalytics !== 'undefined') {
+              SytamAnalytics.loadFromSync({ value: remote });
+            }
+          }
+        } catch(e) { console.warn('syncAllFromSupabase analytics error', e); }
+        done++; if (done === total) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
+      })
+      .catch(function() {
+        done++; if (done === total) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) cb(); }
+      });
   }
   function updateSupabaseStatus(sym, label) {
     var el = document.getElementById('supabase-status');
@@ -323,6 +337,7 @@
     else if (tab === 'products') loadProducts();
     else if (tab === 'promos') loadReferrals();
     else if (tab === 'loyalty') loadLoyalty();
+    else if (tab === 'analytics') loadAnalytics();
 
     // Fermer la sidebar sur mobile
     if (window.innerWidth <= 768) {
@@ -1147,6 +1162,31 @@
       : '<tr><td colspan="5" class="empty-row">Aucun résultat.</td></tr>';
   }
 
+  function loadAnalytics() {
+    if (typeof SytamAnalytics !== 'undefined' && SytamAnalytics._data) {
+      SytamAnalytics.renderAdminAnalytics();
+    } else {
+      var tab = document.getElementById('tab-analytics');
+      if (tab) tab.innerHTML = '<div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Analytiques</h1><p>Statistiques et rapports</p></div></div></div><p style="color:var(--tl);padding:40px;text-align:center">Chargement des données...</p>';
+    }
+  }
+
+  function syncAnalytics() {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
+      showToast('Supabase', 'Supabase pas prêt');
+      return;
+    }
+    SupabaseAPI.get('store_data', 'sytam_analytics_v1').then(function(data) {
+      if (data && data.value && typeof SytamAnalytics !== 'undefined') {
+        SytamAnalytics.loadFromSync(data);
+        SytamAnalytics.renderAdminAnalytics();
+        showToast('Analytiques', 'Données synchronisées');
+      }
+    }).catch(function() {
+      showToast('Erreur', 'Impossible de synchroniser');
+    });
+  }
+
   // EXPOSE
   window.SytamAdmin = {
     checkAuth, login, logout, goTab, toggleSidebar,
@@ -1159,6 +1199,7 @@
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
+    loadAnalytics, syncAnalytics,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);

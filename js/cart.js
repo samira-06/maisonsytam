@@ -70,6 +70,7 @@ const SytamCart = {
         addedAt: Date.now(),
       });
     }
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackAddToCart(product.id, product.nom);
     this._save();
     this._showNotification(product.nom);
   },
