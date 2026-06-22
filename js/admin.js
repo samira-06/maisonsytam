@@ -1163,7 +1163,11 @@
   }
 
   function loadAnalytics() {
-    if (typeof SytamAnalytics !== 'undefined' && SytamAnalytics._data) {
+    if (typeof SytamAnalytics !== 'undefined') {
+      if (!SytamAnalytics._data) {
+        var stored = localStorage.getItem(SytamAnalytics.STORAGE_KEY);
+        if (stored) { try { SytamAnalytics._data = JSON.parse(stored); } catch(e) {} }
+      }
       SytamAnalytics.renderAdminAnalytics();
     } else {
       var tab = document.getElementById('tab-analytics');
