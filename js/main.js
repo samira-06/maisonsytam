@@ -101,13 +101,14 @@
 
   function navigate(page) {
     state.currentPage = page;
+    // Render content BEFORE showing page to prevent layout shift
+    if (page === 'shop') renderShop();
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);
     if (t) t.classList.add('active');
     $$s('.nav a').forEach(l => l.classList.toggle('active', l.dataset.page === page));
     window.location.hash = page;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (page === 'shop') renderShop();
     document.body.classList.remove('cart-open', 'menu-open');
     state.showingCart = false;
   }
@@ -224,9 +225,13 @@
     if (!state.selectedProduct) return;
     state.selectedVariant = null;
     state.selectedQty = 1;
+    // Render modal content BEFORE opening
     renderModal(state.selectedProduct);
-    document.getElementById('product-modal').classList.add('open');
-    document.body.style.overflow = 'hidden';
+    // Small RAF delay to ensure DOM is painted before showing
+    requestAnimationFrame(function() {
+      document.getElementById('product-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    });
   }
 
   function closeQuickView() {
@@ -522,9 +527,15 @@
   // ---- PANIER ----
   function toggleCart() {
     state.showingCart = !state.showingCart;
-    document.body.classList.toggle('cart-open', state.showingCart);
     document.body.classList.remove('menu-open');
-    if (state.showingCart) renderCart();
+    if (state.showingCart) {
+      renderCart();
+      requestAnimationFrame(function() {
+        document.body.classList.add('cart-open');
+      });
+    } else {
+      document.body.classList.remove('cart-open');
+    }
   }
 
   function toggleMenu() {
@@ -594,9 +605,10 @@
   function showCheckout() {
     state.showingCart = false;
     document.body.classList.remove('cart-open');
+    // Render checkout content BEFORE opening modal
+    renderCheckoutSummary();
     document.getElementById('checkout-modal').classList.add('open');
     document.body.style.overflow = 'hidden';
-    renderCheckoutSummary();
     setTimeout(function() {
       var cc = document.querySelector('.checkout-content');
       if (cc) cc.scrollTop = cc.scrollHeight;
