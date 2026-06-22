@@ -207,63 +207,65 @@
     <button class="modal-close" onclick="SytamApp.closeCheckout()">✕</button>
     <h2>Finaliser la commande</h2>
     <form id="checkout-form" onsubmit="event.preventDefault(); handleCheckout(this)">
-      <div class="form-group">
-        <label>Nom &amp; Prénom</label>
-        <input type="text" name="name" required>
-      </div>
-      <div class="form-group">
-        <label>Téléphone</label>
-        <input type="tel" name="phone" required placeholder="77 xxx xx xx">
-      </div>
-      <div class="picker-row">
-        <div class="form-group" id="quartier-group">
-          <label>Quartier</label>
-          <div class="picker-trigger" id="quartier-trigger" data-picker="quartier">
-            <span>Sélectionnez</span>
-          </div>
-          <input type="hidden" name="address" value="">
-          <span class="field-error" id="quartier-error"></span>
+      <div class="checkout-fields">
+        <div class="form-group">
+          <label>Nom &amp; Prénom</label>
+          <input type="text" name="name" required>
         </div>
-        <div class="form-group" id="region-group">
-          <label>Région</label>
-          <div class="picker-trigger" id="region-trigger" data-picker="region">
-            <span>Dakar</span>
-          </div>
-          <input type="hidden" name="region" id="region-input" value="Dakar">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" name="phone" required placeholder="77 xxx xx xx">
         </div>
-      </div>
-      <div class="form-group">
-        <label id="address-label">Adresse complète (rue, villa, n°) <span id="address-optional-text">(optionnel)</span></label>
-        <input type="text" name="address_detail" id="address-detail-input" placeholder="Ex: Rue 12 x 15, Villa n°3...">
-        <span class="field-error" id="address-error"></span>
-      </div>
-      <div class="form-group">
-        <label>Mode de paiement</label>
-        <div class="payment-options" id="payment-options">
-          <div class="payment-option active" data-value="wave" onclick="selectPayment(this)">
-            <img src="images/wave.png" alt="Wave" class="payment-logo"> Wave
+        <div class="picker-row">
+          <div class="form-group" id="quartier-group">
+            <label>Quartier</label>
+            <div class="picker-trigger" id="quartier-trigger" data-picker="quartier">
+              <span>Sélectionnez</span>
+            </div>
+            <input type="hidden" name="address" value="">
+            <span class="field-error" id="quartier-error"></span>
           </div>
-          <div class="payment-option" data-value="orange" onclick="selectPayment(this)">
-            <img src="images/orange.jpg" alt="Orange Money" class="payment-logo"> Orange Money
-          </div>
-          <div class="payment-option" data-value="free" onclick="selectPayment(this)">
-            <img src="images/free.png" alt="Free Money" class="payment-logo"> Free Money
+          <div class="form-group" id="region-group">
+            <label>Région</label>
+            <div class="picker-trigger" id="region-trigger" data-picker="region">
+              <span>Dakar</span>
+            </div>
+            <input type="hidden" name="region" id="region-input" value="Dakar">
           </div>
         </div>
-        <p id="payment-info" style="font-size:.78rem;color:var(--text-light);margin-top:-8px;margin-bottom:12px;line-height:1.5"></p>
-        <input type="hidden" name="payment" value="wave">
-      </div>
-      <div class="form-group">
-        <label>Code parrainage</label>
-        <div style="display:flex;gap:6px">
-          <input type="text" name="promo" class="promo-input" placeholder="Ex: PARRAIN10" style="flex:1;text-transform:uppercase">
-          <button type="button" class="btn btn-sm btn-outline" onclick="SytamApp.applyPromo(this)" style="white-space:nowrap">Appliquer</button>
+        <div class="form-group">
+          <label id="address-label">Adresse complète (rue, villa, n°) <span id="address-optional-text">(optionnel)</span></label>
+          <input type="text" name="address_detail" id="address-detail-input" placeholder="Ex: Rue 12 x 15, Villa n°3...">
+          <span class="field-error" id="address-error"></span>
         </div>
-        <div id="promo-msg" style="font-size:.78rem;margin-top:4px;min-height:18px"></div>
-      </div>
-      <div class="form-group">
-        <label>Notes (optionnel)</label>
-        <textarea name="notes" rows="2" placeholder="Précisions sur la commande..."></textarea>
+        <div class="form-group">
+          <label>Mode de paiement</label>
+          <div class="payment-options" id="payment-options">
+            <div class="payment-option active" data-value="wave" onclick="selectPayment(this)">
+              <img src="images/wave.png" alt="Wave" class="payment-logo"> Wave
+            </div>
+            <div class="payment-option" data-value="orange" onclick="selectPayment(this)">
+              <img src="images/orange.jpg" alt="Orange Money" class="payment-logo"> Orange Money
+            </div>
+            <div class="payment-option" data-value="free" onclick="selectPayment(this)">
+              <img src="images/free.png" alt="Free Money" class="payment-logo"> Free Money
+            </div>
+          </div>
+          <p id="payment-info" style="font-size:.78rem;color:var(--text-light);margin-top:-8px;margin-bottom:12px;line-height:1.5"></p>
+          <input type="hidden" name="payment" value="wave">
+        </div>
+        <div class="form-group">
+          <label>Code parrainage</label>
+          <div style="display:flex;gap:6px">
+            <input type="text" name="promo" class="promo-input" placeholder="Ex: PARRAIN10" style="flex:1;text-transform:uppercase">
+            <button type="button" class="btn btn-sm btn-outline" onclick="SytamApp.applyPromo(this)" style="white-space:nowrap">Appliquer</button>
+          </div>
+          <div id="promo-msg" style="font-size:.78rem;margin-top:4px;min-height:18px"></div>
+        </div>
+        <div class="form-group">
+          <label>Notes (optionnel)</label>
+          <textarea name="notes" rows="2" placeholder="Précisions sur la commande..."></textarea>
+        </div>
       </div>
       <div class="checkout-summary" id="checkout-summary"></div>
       <button type="submit" class="btn btn-primary btn-block" id="checkout-btn">Confirmer la commande</button>
