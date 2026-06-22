@@ -678,81 +678,81 @@
     var items = SytamCart.getItems();
     if (items.length === 0) { _submitting = false; return; }
 
-    var zone = DELIVERY_ZONES[_neighborhoodZone()] || DELIVERY_ZONES.dakar_centre;
-    var subtotal = SytamCart.getSubtotal();
-    var delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : zone.tarif;
-
-    // Apply promo discount
-    var discount = 0;
-    var promoCode = '';
-    var promoLabel = '';
-    if (_appliedPromo) {
-      discount = Math.round(subtotal * _appliedPromo.reduction / 100);
-      promoCode = _appliedPromo.code;
-      promoLabel = _appliedPromo.code + ' (-' + _appliedPromo.reduction + '%)';
-      var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
-      for (var ri = 0; ri < refs.length; ri++) {
-        if (refs[ri].code === _appliedPromo.code) {
-          refs[ri].used = (refs[ri].used || 0) + 1;
-          break;
-        }
-      }
-      localStorage.setItem('sytam_referrals', JSON.stringify(refs));
-    }
-
-    var total = Math.max(0, subtotal - discount) + delivery;
-
-    var order = {
-      id: 'CMD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase(),
-      client: formData.name,
-      telephone: formData.phone,
-      adresse: formData.address + (formData.address_detail ? ', ' + formData.address_detail : '') + (formData.region ? ' (' + formData.region + ')' : ''),
-      zone_livraison: _neighborhoodZone(),
-      frais_livraison: delivery,
-      mode_paiement: formData.payment,
-      notes: formData.notes,
-      promo: promoLabel || '',
-      reduction: discount,
-      items: items.map(function (i) { return { nom: i.productName, variantLabel: i.variantLabel, prix: i.price, qte: i.qty }; }),
-      total: total,
-      statut: 'en_attente',
-      created_at: new Date().toISOString(),
-    };
-
-    // Sauvegarder la commande : localStorage immédiatement, puis Supabase en tâche de fond
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    orders.unshift(order);
-    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-    var _pushAttempts = 0;
-    function _tryPush() {
-      if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready || _pushAttempts >= 5) return;
-      _pushAttempts++;
-      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
-        .then(function(r) {
-          if (!(r && r.ok) && _pushAttempts < 5) {
-            setTimeout(_tryPush, 3000);
-          }
-        })
-        .catch(function() {
-          if (_pushAttempts < 5) setTimeout(_tryPush, 3000);
-        });
-    }
-    _tryPush();
-    // Notifier via ntfy
-    sendNtfyNotification(order);
-
-    // Loyalty: track orders count + total per phone
-    var cleanPhone = (formData.phone || '').replace(/[^0-9]/g, '');
-    if (cleanPhone.length >= 6) {
-      var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}');
-      if (!loyalty[cleanPhone]) loyalty[cleanPhone] = { orders: 0, total: 0 };
-      loyalty[cleanPhone].orders = (loyalty[cleanPhone].orders || 0) + 1;
-      loyalty[cleanPhone].total = (loyalty[cleanPhone].total || 0) + total;
-      localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
-    }
-
-    // Decrement stock for each item
     try {
+      var zone = DELIVERY_ZONES[_neighborhoodZone()] || DELIVERY_ZONES.dakar_centre;
+      var subtotal = SytamCart.getSubtotal();
+      var delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : zone.tarif;
+
+      // Apply promo discount
+      var discount = 0;
+      var promoCode = '';
+      var promoLabel = '';
+      if (_appliedPromo) {
+        discount = Math.round(subtotal * _appliedPromo.reduction / 100);
+        promoCode = _appliedPromo.code;
+        promoLabel = _appliedPromo.code + ' (-' + _appliedPromo.reduction + '%)';
+        var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
+        for (var ri = 0; ri < refs.length; ri++) {
+          if (refs[ri].code === _appliedPromo.code) {
+            refs[ri].used = (refs[ri].used || 0) + 1;
+            break;
+          }
+        }
+        localStorage.setItem('sytam_referrals', JSON.stringify(refs));
+      }
+
+      var total = Math.max(0, subtotal - discount) + delivery;
+
+      var order = {
+        id: 'CMD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase(),
+        client: formData.name,
+        telephone: formData.phone,
+        adresse: formData.address + (formData.address_detail ? ', ' + formData.address_detail : '') + (formData.region ? ' (' + formData.region + ')' : ''),
+        zone_livraison: _neighborhoodZone(),
+        frais_livraison: delivery,
+        mode_paiement: formData.payment,
+        notes: formData.notes,
+        promo: promoLabel || '',
+        reduction: discount,
+        items: items.map(function (i) { return { nom: i.productName, variantLabel: i.variantLabel, prix: i.price, qte: i.qty }; }),
+        total: total,
+        statut: 'en_attente',
+        created_at: new Date().toISOString(),
+      };
+
+      // Sauvegarder la commande : localStorage immédiatement, puis Supabase en tâche de fond
+      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      orders.unshift(order);
+      localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+      var _pushAttempts = 0;
+      function _tryPush() {
+        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready || _pushAttempts >= 5) return;
+        _pushAttempts++;
+        SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
+          .then(function(r) {
+            if (!(r && r.ok) && _pushAttempts < 5) {
+              setTimeout(_tryPush, 3000);
+            }
+          })
+          .catch(function() {
+            if (_pushAttempts < 5) setTimeout(_tryPush, 3000);
+          });
+      }
+      _tryPush();
+      // Notifier via ntfy
+      sendNtfyNotification(order);
+
+      // Loyalty: track orders count + total per phone
+      var cleanPhone = (formData.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 6) {
+        var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}');
+        if (!loyalty[cleanPhone]) loyalty[cleanPhone] = { orders: 0, total: 0 };
+        loyalty[cleanPhone].orders = (loyalty[cleanPhone].orders || 0) + 1;
+        loyalty[cleanPhone].total = (loyalty[cleanPhone].total || 0) + total;
+        localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
+      }
+
+      // Decrement stock for each item
       items.forEach(function(item) {
         var prod = DB.getById(item.productId);
         if (!prod || !prod.colors) return;
@@ -777,25 +777,28 @@
         }
         DB.update(prod.id, prod);
       });
-    } catch(e) { console.warn('Stock decrement error:', e); }
 
-    SytamCart.clear();
-    closeCheckout();
-    document.getElementById('order-ref').textContent = order.id;
-    var ref2 = document.getElementById('order-ref2');
-    if (ref2) ref2.textContent = order.id;
+      SytamCart.clear();
+      closeCheckout();
+      document.getElementById('order-ref').textContent = order.id;
+      var ref2 = document.getElementById('order-ref2');
+      if (ref2) ref2.textContent = order.id;
 
-    document.getElementById('order-success').classList.add('open');
-    // Set WhatsApp link with order details
-    var waLink = document.getElementById('whatsapp-link');
-    if (waLink) {
-      var shopPhone = localStorage.getItem('sytam_shop_phone') || '+221 77 478 98 75';
-      var cleanPhone = shopPhone.replace(/[^0-9]/g, '');
-      if (cleanPhone.startsWith('221')) cleanPhone = cleanPhone.slice(3);
-      var waMsg = encodeURIComponent('Bonjour ! Je viens de passer commande (#' + order.id + ') et je souhaite confirmer mon paiement.');
-      waLink.href = 'https://wa.me/221' + cleanPhone + '?text=' + waMsg;
+      document.getElementById('order-success').classList.add('open');
+      // Set WhatsApp link with order details
+      var waLink = document.getElementById('whatsapp-link');
+      if (waLink) {
+        var shopPhone = localStorage.getItem('sytam_shop_phone') || '+221 77 478 98 75';
+        var cleanPhone = shopPhone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('221')) cleanPhone = cleanPhone.slice(3);
+        var waMsg = encodeURIComponent('Bonjour ! Je viens de passer commande (#' + order.id + ') et je souhaite confirmer mon paiement.');
+        waLink.href = 'https://wa.me/221' + cleanPhone + '?text=' + waMsg;
+      }
+    } catch(e) {
+      console.warn('submitOrder error:', e);
+    } finally {
+      _submitting = false;
     }
-    _submitting = false;
   }
 
   function closeOrderSuccess() {
