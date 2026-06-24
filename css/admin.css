@@ -356,7 +356,6 @@ select.form-input { cursor: pointer; }
   .grid-3 { grid-template-columns: 1fr; gap: 12px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .analytics-grid { grid-template-columns: 1fr !important; }
-  .analytics-chart-row { grid-template-columns: 1fr !important; }
   .stat-card { padding: 12px; }
   .stat-val { font-size: 1.2rem; }
   .stat-ico svg { width: 18px; height: 18px; }
@@ -415,7 +414,6 @@ select.form-input { cursor: pointer; }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
   .analytics-grid { grid-template-columns: 1fr !important; }
-  .analytics-chart-row { grid-template-columns: 1fr !important; }
   .stat-card { padding: 10px; }
   .stat-val { font-size: 1rem; }
   .prod-table thead th:nth-child(7) { display: none; }

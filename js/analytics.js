@@ -371,24 +371,24 @@ const SytamAnalytics = {
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div><div class="stat-val">' + conversionGlobal + '%</div><div class="stat-lbl">Taux conversion global</div><div class="stat-sub">Visites → commandes</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val">' + cartConversion + '%</div><div class="stat-lbl">Taux ajout panier</div><div class="stat-sub">Visites → panier</div></div>' +
       '</div>' +
-      // SECTION 2: Graphique + Historique côte à côte
-      '<div class="analytics-chart-row" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">' +
-        '<div class="card" style="margin-bottom:0">' +
+      // SECTION 2: Graphique + Historique côte à côte (même classe grid-2 que le dashboard)
+      '<div class="grid-2">' +
+        '<div class="card">' +
           '<div class="card-title">Trafic (7 derniers jours)</div>' +
           '<div id="analyticsChart">' + this._renderChart(d.dailyStats) + '</div>' +
         '</div>' +
-        '<div class="card" style="margin-bottom:0">' +
+        '<div class="card">' +
           '<div class="card-title">Historique journalier <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + (days || 0) + ' jours)</span></div>' +
           '<div id="analyticsDailyHistory" style="max-height:300px;overflow-y:auto">' + this._renderDailyHistory(d.dailyStats) + '</div>' +
         '</div>' +
       '</div>' +
-      // SECTION 3: Tableau produits (pleine largeur)
-      '<div class="card" style="margin-top:16px">' +
+      // SECTION 3: Tableau produits
+      '<div class="card" style="margin-top:0">' +
         '<div class="card-title">Détails par produit</div>' +
         '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
       '</div>' +
-      // SECTION 4: Suivi clients (pleine largeur)
-      '<div class="card" style="margin-top:16px">' +
+      // SECTION 4: Suivi clients
+      '<div class="card">' +
         '<div class="card-title">Suivi clients</div>' +
         '<div id="analyticsCustomers">' + this._renderCustomerTracking() + '</div>' +
       '</div>';
@@ -463,12 +463,12 @@ const SytamAnalytics = {
     var rows = list.map(function(c, i) {
       var dateStr = c.derniere ? new Date(c.derniere).toLocaleDateString('fr-FR') : '—';
       return '<tr>' +
-        '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem">#' + (i + 1) + '</td>' +
-        '<td style="padding:6px 8px;font-size:.82rem">' + c.name + '</td>' +
-        '<td style="padding:6px 8px;font-size:.78rem">' + c.phone + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem">' + c.commandes + '</td>' +
-        '<td style="padding:6px 8px;text-align:right;font-size:.82rem;font-weight:600">' + _fmtAnalytics(c.total) + ' FCFA</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.75rem;color:var(--tl)">' + dateStr + '</td>' +
+        '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem;white-space:nowrap">#' + (i + 1) + '</td>' +
+        '<td style="padding:6px 8px;font-size:.82rem;white-space:nowrap">' + c.name + '</td>' +
+        '<td style="padding:6px 8px;font-size:.78rem;white-space:nowrap">' + c.phone + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap">' + c.commandes + '</td>' +
+        '<td style="padding:6px 8px;text-align:right;font-size:.82rem;font-weight:600;white-space:nowrap">' + _fmtAnalytics(c.total) + ' FCFA</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem;color:var(--tl);white-space:nowrap">' + dateStr + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
@@ -543,7 +543,7 @@ const SytamAnalytics = {
       var colorRows = '';
       var colNames = Object.keys(item.colorStats);
       if (colNames.length) {
-        colorRows = '<div style="margin-top:4px;font-size:.72rem">';
+        colorRows = '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:2px">';
         colNames.forEach(function(colName) {
           var cs = item.colorStats[colName];
           var cmdColor = 0;
@@ -552,20 +552,20 @@ const SytamAnalytics = {
               if ((item2.productId === item.id || item2.nom === item.name) && item2.couleur === colName) cmdColor += parseInt(item2.quantite || item2.qty || 0);
             });
           });
-          colorRows += '<div style="display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;background:var(--cr);border:1px solid var(--bd);border-radius:3px;white-space:nowrap">' +
+          colorRows += '<span style="font-size:.65rem;background:var(--cr);border:1px solid var(--bd);border-radius:3px;padding:1px 5px;white-space:nowrap">' +
             colName + ' clics:' + (cs.clicks || 0) + ' +:' + (cs.addToCart || 0) + ' -:' + (cs.removeFromCart || 0) + ' cmd:' + cmdColor +
-          '</div>';
+          '</span>';
         });
         colorRows += '</div>';
       }
       return '<tr>' +
-        '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem">#' + (i + 1) + '</td>' +
-        '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + item.name + '<br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + colorRows + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem">' + item.clicks + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;color:var(--ok)">' + item.cart + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem;color:var(--er)">' + (item.remove || '—') + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;color:var(--gold)">' + conversion + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + stockLabel + '</td>' +
+        '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem;white-space:nowrap">#' + (i + 1) + '</td>' +
+        '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + '<span style="font-weight:600">' + item.name + '</span><br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + colorRows + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap">' + item.clicks + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap;color:var(--ok)">' + item.cart + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem;white-space:nowrap;color:var(--er)">' + (item.remove || '—') + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap;color:var(--gold)">' + conversion + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem;white-space:nowrap">' + stockLabel + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
@@ -609,18 +609,18 @@ const SytamAnalytics = {
     var rows = days.map(function(date) {
       var day = dailyStats[date];
       return '<tr>' +
-        '<td style="padding:6px 8px;white-space:nowrap;font-weight:500;font-size:.82rem">' + date + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.visits || 0) + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.clicks || 0) + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.addToCart || 0) + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.78rem;color:var(--er)">' + (day.removeFromCart || 0) + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.78rem;color:var(--tl)">' + (day.timeSeconds ? SytamAnalytics._fmtTime(day.timeSeconds) : '—') + '</td>' +
+        '<td style="padding:4px 6px;white-space:nowrap;font-weight:500;font-size:.78rem">' + date.slice(5) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.visits || 0) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.clicks || 0) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.addToCart || 0) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.72rem;white-space:nowrap;color:var(--er)">' + (day.removeFromCart || 0) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.72rem;white-space:nowrap;color:var(--tl)">' + (day.timeSeconds ? SytamAnalytics._fmtTime(day.timeSeconds) : '—') + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
-      '<th style="text-align:left">Date</th><th style="text-align:center">Vues</th>' +
-      '<th style="text-align:center">Clics</th><th style="text-align:center">Panier+</th>' +
-      '<th style="text-align:center">Retiré</th><th style="text-align:center">Temps</th>' +
+      '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Date</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Vues</th>' +
+      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Clics</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Panier+</th>' +
+      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Retiré</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Temps</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   },
 
