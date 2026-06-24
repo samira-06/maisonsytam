@@ -50,25 +50,26 @@
 
   function init() {
     if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.init();
-    // Rendu immédiat depuis les données seed (pas d'attente Supabase)
     _renderFromData(SEED_PRODUCTS || []);
-    DB.onReady(function() {
-      renderHome();
-      renderShop();
-      updateCartUI();
-      bindEvents();
-      navigate(window.location.hash.slice(1) || 'home');
-      observeAnimations();
-      _initHero();
-      _startFeaturedScroll();
-    });
-    // Lancer un pull immédiat dès que Supabase est prêt
+    var _doRender = function() {
+      DB.onReady(function() {
+        renderHome();
+        renderShop();
+        updateCartUI();
+        bindEvents();
+        navigate(window.location.hash.slice(1) || 'home');
+        observeAnimations();
+        _initHero();
+        _startFeaturedScroll();
+      });
+    };
     var _waitSupabase = setInterval(function() {
       if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
         clearInterval(_waitSupabase);
-        _periodicPull();
+        _periodicPull(_doRender);
       }
-    }, 500);
+    }, 200);
+    setTimeout(function() { clearInterval(_waitSupabase); _doRender(); }, 8000);
   }
 
   function _renderFromData(data) {
@@ -746,6 +747,7 @@
         total: total,
         statut: 'en_attente',
         created_at: new Date().toISOString(),
+        mis_a_jour: new Date().toISOString(),
       };
 
       // Sauvegarder la commande : localStorage immédiatement, puis Supabase en tâche de fond
@@ -998,8 +1000,8 @@
   setInterval(_periodicSync, 15000);
 
   // Périodiquement, tire les données depuis Supabase (pour voir les changements admin)
-  function _periodicPull() {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
+  function _periodicPull(cb) {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
     // Commandes : on récupère les statuts à jour
     SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value').then(function(result) {
       try {
@@ -1095,6 +1097,7 @@
         }
       } catch(e) {}
     }).catch(function() {});
+    if (cb) setTimeout(cb, 100);
   }
   setInterval(_periodicPull, 30000);
 
@@ -1151,8 +1154,10 @@
         return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
       }).join('') + '</ul>';
       resultDiv.style.display = 'block';
+      var lastUpdate = found.created_at || found.mis_a_jour || '';
+      var dateStr = lastUpdate ? new Date(lastUpdate).toLocaleString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
       resultDiv.innerHTML = cardHtml + timelineHtml +
-        '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + new Date(found.created_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + '</p>';
+        '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + dateStr + '</p>';
     }
     // Chercher Supabase d'abord (données à jour), fallback localStorage
     function trySupabase() {

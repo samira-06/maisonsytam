@@ -51,7 +51,7 @@
     setInterval(pollOrders, 30000);
     // Périodiquement, pousse tous les changements vers Supabase
     setInterval(function() {
-      var _keys = ['sytam_products_v4', 'sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_admin_settings', 'sytam_deleted_products'];
+      var _keys = ['sytam_products_v4', 'sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_admin_settings'];
       _keys.forEach(function(k) {
         var d = localStorage.getItem(k);
         if (d) { try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(d) }); } catch(e) {} }
@@ -157,33 +157,33 @@
           // Tableaux classiques
           var supabaseItems = Array.isArray(supabaseVal) ? supabaseVal : [];
           var localItems = Array.isArray(localVal) ? localVal : [];
-          var seen = {};
-          supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
-          localItems.forEach(function(item) {
-            if (item && item.id) {
-              var existing = seen[item.id];
-              if (existing && k === 'sytam_products_v4') {
-                if (item.colors && existing.colors) {
-                  existing.colors = existing.colors.map(function(sc) {
-                    var lc = item.colors.find(function(c) { return c.name === sc.name; });
-                    return lc ? { name: sc.name, hex: sc.hex, stock: lc.stock } : sc;
+          if (k === 'sytam_products_v4') {
+            // Supabase = source de vérité unique pour les produits
+            // Seulement préserver les stocks locaux (commandes passées en local)
+            var localMap = {};
+            localItems.forEach(function(item) { if (item && item.id) localMap[item.id] = item; });
+            supabaseItems.forEach(function(item) {
+              if (item && item.id) {
+                var localItem = localMap[item.id];
+                if (localItem && item.colors && localItem.colors) {
+                  item.colors.forEach(function(sc) {
+                    var lc = localItem.colors.find(function(c) { return c.name === sc.name; });
+                    if (lc && (lc.stock !== undefined || (lc.stocks && Object.keys(lc.stocks).length))) {
+                      if (lc.stocks) { Object.keys(lc.stocks).forEach(function(sz) { if (sc.stocks) sc.stocks[sz] = lc.stocks[sz]; }); }
+                      else if (sc.stock !== undefined) sc.stock = lc.stock;
+                    }
                   });
                 }
-                if (item.sizes && existing.sizes) existing.sizes = item.sizes;
-              } else {
-                seen[item.id] = item;
               }
-            }
-          });
-          supabaseItems = Object.values(seen);
-          // Filtrer les produits marqués comme supprimés
-          if (k === 'sytam_products_v4') {
-            try {
-              var deletedList = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]');
-              if (deletedList.length) {
-                supabaseItems = supabaseItems.filter(function(item) { return item && item.id && deletedList.indexOf(item.id) === -1; });
-              }
-            } catch(e) {}
+            });
+          } else {
+            // Pour les autres données, merger local + distant
+            var seen = {};
+            supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
+            localItems.forEach(function(item) {
+              if (item && item.id && !seen[item.id]) seen[item.id] = item;
+            });
+            supabaseItems = Object.values(seen);
           }
           if (supabaseItems.length || localItems.length || k === 'sytam_products_v4') {
             localStorage.setItem(k, JSON.stringify(supabaseItems));
@@ -240,6 +240,7 @@
           var created = new Date(oo.created_at).getTime();
           if (now - created > 3600000) { // 1h = 3600000ms
             oo.statut = 'annulee';
+            oo.mis_a_jour = new Date().toISOString();
             changed = true;
           }
         }
@@ -1032,12 +1033,7 @@
   function deleteProduct(id) {
     if (!confirm('Supprimer ce produit ?')) return;
     DB.delete(id);
-    // Marquer comme supprimé pour empêcher la restauration par un autre appareil
-    var deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]');
-    if (deleted.indexOf(id) === -1) deleted.push(id);
-    localStorage.setItem('sytam_deleted_products', JSON.stringify(deleted));
     pushToSupabase('sytam_products_v4');
-    pushToSupabase('sytam_deleted_products');
     loadProducts();
     showToast('✓ Produit supprimé');
   }
@@ -1118,7 +1114,7 @@
   function updateStatus(id, status) {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var o = orders.find(function (x) { return x.id === id; });
-    if (o) { o.statut = status; localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2'); }
+    if (o) { o.statut = status; o.mis_a_jour = new Date().toISOString(); localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2'); }
     loadOrders(); loadDashboard();
     showToast('✓ Statut mis à jour');
   }
