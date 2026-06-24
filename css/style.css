@@ -512,8 +512,8 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 .cart-toast-icon { width: 24px; height: 24px; border-radius: 50%; background: var(--success); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: var(--white); }
 
 /* Pages */
-.page { display: block; opacity: 0; visibility: hidden; pointer-events: none; position: absolute; width: 100%; z-index: -1; }
-.page.active { opacity: 1; visibility: visible; pointer-events: auto; position: relative; z-index: auto; animation: pageIn 0.35s ease; }
+.page { display: none; }
+.page.active { display: block; opacity: 1; visibility: visible; pointer-events: auto; position: relative; z-index: auto; animation: pageIn 0.35s ease; }
 .page.active .shop-header { padding-top: 100px; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
