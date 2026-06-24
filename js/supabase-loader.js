@@ -27,42 +27,28 @@ var SupabaseAPI = {
       })
       .then(function(data) {
         if (!data || !data.length) return [];
-        // Si plusieurs lignes (ex: clés dupliquées), garder la dernière (insertion la plus récente)
+        // Si plusieurs lignes pour la même clé (ne devrait plus arriver avec upsert corrigé)
         if (data.length > 1 && endpoint.indexOf('key=eq.') !== -1) {
-          console.warn('Supabase get ⚠ lignes multiples pour', endpoint, '→ dernière utilisée');
-          return [data[data.length - 1]];
+          console.warn('Supabase get ⚠ lignes multiples pour', endpoint, '→ prend la première');
+          return [data[0]];
         }
         return data;
       })
       .catch(function(e) { console.warn('Supabase get erreur:', e); return []; });
   },
   upsert: function(table, data) {
-    if (!SupabaseApp.ready) return Promise.resolve();
+    if (!SupabaseApp.ready) return Promise.resolve({ ok: false });
     var key = data.key;
     var url = this._url(table) + '?key=eq.' + encodeURIComponent(key);
-    // Essaie UPDATE (PATCH) d'abord avec return=representation pour voir si ligne existe
+    // PATCH d'abord ; si 204 (succès sans body) ou 200 avec body, c'est OK
     return fetch(url, {
       method: 'PATCH',
-      headers: Object.assign(this._headers(), {
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      }),
+      headers: Object.assign(this._headers(), { 'Content-Type': 'application/json' }),
       body: JSON.stringify(data),
     }).then(function(patchRes) {
       if (!patchRes.ok) {
-        // PATCH a échoué → POST en dernier recours
-        return fetch(SupabaseAPI._url(table), {
-          method: 'POST',
-          headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
-          body: JSON.stringify(data),
-        }).then(function(postRes) {
-          if (!postRes.ok) console.warn('Supabase upsert POST status:', postRes.status, postRes.statusText);
-          return { ok: postRes.ok, method: 'POST' };
-        });
-      }
-      return patchRes.json().then(function(body) {
-        if (!body || (Array.isArray(body) && body.length === 0)) {
-          // Aucune ligne trouvée → faire INSERT
+        // 404 → aucune ligne trouvée → POST
+        if (patchRes.status === 404 || patchRes.status === 406) {
           return fetch(SupabaseAPI._url(table), {
             method: 'POST',
             headers: Object.assign(SupabaseAPI._headers(), { 'Content-Type': 'application/json' }),
@@ -72,8 +58,11 @@ var SupabaseAPI = {
             return { ok: postRes.ok, method: 'POST' };
           });
         }
-        return { ok: true, method: 'PATCH' };
-      });
+        console.warn('Supabase upsert PATCH status:', patchRes.status);
+        return { ok: false, method: 'PATCH' };
+      }
+      // PATCH réussi (200 ou 204)
+      return { ok: true, method: 'PATCH' };
     }).catch(function(e) { console.warn('Supabase upsert error:', e); return { ok: false }; });
   },
 };
