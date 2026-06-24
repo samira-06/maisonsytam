@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maison SYTAM — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-lock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="login-logo">Maison <span>SYTAM</span></div>
+    <div class="login-sub">Espace Administration Privé</div>
+    <input type="password" class="login-inp" id="pwdInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')SytamAdmin.login()">
+    <button class="login-btn" onclick="SytamAdmin.login()">Accéder au tableau de bord</button>
+    <div class="login-err" id="loginErr">Mot de passe incorrect</div>
+    <div class="login-hint">Accès réservé — Maison SYTAM</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><div class="toast-title" id="toastTitle"></div><div id="toastBody"></div></div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="modalOv" onclick="SytamAdmin.closeModalOut(event)"><div class="modal" id="modal"></div></div>
+
+<!-- ADMIN APP -->
+<div id="adminApp">
+<div class="admin-wrap">
+  <div class="sb-overlay" id="sbOverlay" onclick="SytamAdmin.toggleSidebar()"></div>
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <h1>ADMIN</h1>
+      <p>Maison SYTAM — Privé</p>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-item active" data-tab="dashboard" onclick="SytamAdmin.goTab('dashboard',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+        Tableau de bord
+      </div>
+      <div class="sb-item" data-tab="orders" onclick="SytamAdmin.goTab('orders',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        Commandes<span class="sb-badge" id="ord-badge" style="display:none">0</span>
+      </div>
+      <div class="sb-item" data-tab="messages" onclick="SytamAdmin.goTab('messages',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        Messages<span class="sb-badge" id="msg-badge" style="display:none">0</span>
+      </div>
+      <div class="sb-item" data-tab="products" onclick="SytamAdmin.goTab('products',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+        Produits &amp; Stock
+      </div>
+      <div class="sb-item" data-tab="loyalty" onclick="SytamAdmin.goTab('loyalty',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
+        Fidélités
+      </div>
+      <div class="sb-item" data-tab="promos" onclick="SytamAdmin.goTab('promos',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+        Promotions
+      </div>
+      <div class="sb-item" data-tab="analytics" onclick="SytamAdmin.goTab('analytics',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        Analytiques
+      </div>
+
+      <div class="sb-item" data-tab="settings" onclick="SytamAdmin.goTab('settings',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        Paramètres
+      </div>
+    </nav>
+    <div class="sb-logout">
+      <a href="index.html" class="btn-back-site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Retour au site</a>
+      <button class="logout-btn" onclick="SytamAdmin.logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Déconnexion</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <!-- DASHBOARD -->
+    <div class="tab active" id="tab-dashboard">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>
+          <div><h1>Tableau de bord</h1><p id="adminDate">Bienvenue sur votre espace de gestion</p></div>
+        </div>
+        <div class="topbar-right" style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:.75rem;color:var(--tl)" id="supabase-status">—</div>
+          <div style="font-size:.8rem;color:var(--tl)" id="topDate"></div>
+        </div>
+      </div>
+      <!-- STATS ROW -->
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-val" id="s-revenue">—</div><div class="stat-lbl">Chiffre d'affaires</div><div class="stat-sub"><span class="stat-trend" id="rev-trend"></span></div></div>
+        <div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val" id="s-orders">—</div><div class="stat-lbl">Commandes</div><div class="stat-sub" id="ord-sub"></div></div>
+        <div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div><div class="stat-val" id="s-products">—</div><div class="stat-lbl">Produits actifs</div><div class="stat-sub" id="prod-sub"></div></div>
+        <div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="stat-val" id="s-pending">—</div><div class="stat-lbl">En attente</div><div class="stat-sub" id="pend-sub"></div></div>
+        <div class="stat-card" onclick="SytamAdmin.goTab('messages',document.querySelector('.sb-item[data-tab=&quot;messages&quot;]'))" style="cursor:pointer"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="stat-val" id="s-unread">0</div><div class="stat-lbl">Non lus</div></div>
+        <div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="stat-val" id="s-average">—</div><div class="stat-lbl">Panier moyen</div></div>
+      </div>
+      <!-- CHARTS ROW -->
+      <div class="grid-2" style="margin-top:0">
+        <div class="card">
+          <div class="card-title">Ventes par mois</div>
+          <div style="padding:8px 0"><svg id="salesChart" viewBox="0 0 400 180" style="width:100%;max-height:180px;display:block"></svg></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Ventes par catégorie</div>
+          <div style="padding:4px 0" id="categoryChartWrap"></div>
+        </div>
+      </div>
+      <!-- MIDDLE ROW -->
+      <div class="grid-2" style="margin-top:0">
+        <div class="card">
+          <div class="card-title">Top produits</div>
+          <div style="padding:4px 0" id="topProductsWrap"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Alertes stock <span style="font-size:.7rem;font-weight:400;color:var(--tl)" id="stock-alert-count"></span></div>
+          <div style="padding:4px 0" id="stockAlertsWrap"></div>
+        </div>
+      </div>
+      <!-- RECENT ORDERS -->
+      <div class="card full">
+        <div class="card-title">Dernières commandes</div>
+        <div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Client</th><th>Total</th><th>Statut</th><th>Date</th></tr></thead><tbody id="recentOrders"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class="tab" id="tab-orders">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Commandes</h1><p>Gestion des commandes boutique</p></div></div>
+        <div class="topbar-right">
+          <select class="form-input" style="width:auto;padding:.5rem .8rem" id="orderFilter" onchange="SytamAdmin.loadOrders()">
+            <option value="all">Toutes</option>
+            <option value="en_attente">En attente</option>
+            <option value="confirmee">Confirmées</option>
+            <option value="livree">Livrées</option>
+            <option value="annulee">Annulées</option>
+          </select>
+          <span id="supabase-status" style="font-size:.75rem;color:var(--tl);margin-right:6px"></span>
+          <button class="btn-add btn-sm" onclick="SytamAdmin.syncNow()" title="Synchroniser depuis Supabase">🔄</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap"><table><thead><tr><th style="width:50px">N°</th><th>Client</th><th>Articles</th><th style="text-align:right">Total</th><th>Paiement</th><th>Statut</th><th style="width:130px">Date</th><th style="width:210px">Action</th></tr></thead><tbody id="ordersTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="tab" id="tab-messages">
+      <div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Messages <span class="sb-badge" id="msg-badge" style="display:none;margin-left:8px;font-size:.7rem;vertical-align:middle">0</span></h1><p>Messages des visiteurs — cliquer sur un message pour le lire</p></div></div></div>
+      <div class="card">
+        <div class="card-title">Boîte de réception</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Nom</th><th>Email</th><th>Téléphone</th><th>Message</th><th>Action</th></tr></thead><tbody id="messagesTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="tab" id="tab-products">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Produits &amp; Stock</h1><p>Gérez votre catalogue</p></div></div>
+        <button class="btn-add" onclick="SytamAdmin.openProductModal()">+ Ajouter un produit</button>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap"><table class="prod-table"><thead><tr><th>Photo</th><th>Produit</th><th>Catégorie</th><th>Prix</th><th>Promo</th><th>Stock</th><th>Niveau</th><th>Vendus</th><th>Actions</th></tr></thead><tbody id="productsTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- FIDELITE -->
+    <div class="tab" id="tab-loyalty">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Fidélités</h1><p>Suivi des clients fidèles</p></div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="tel" class="form-input" id="loyalty-search" placeholder="Téléphone client..." style="width:200px;padding:8px 12px" oninput="SytamAdmin.searchLoyalty(this.value)">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Clients fidèles</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th><th>Progression</th><th>Cadeau</th></tr></thead><tbody id="loyaltyTable"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- PROMOS -->
+    <div class="tab" id="tab-promos">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Promotions</h1><p>Codes promo, parrainage et réductions</p></div></div>
+        <button class="btn-add" onclick="SytamAdmin.openReferralModal()">+ Nouveau code parrainage</button>
+      </div>
+      <div class="promo-grid">
+        <div class="card">
+          <div class="card-title">Codes de parrainage</div>
+          <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Réduction</th><th>Utilisations</th><th>Actions</th></tr></thead><tbody id="referralTable"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="tab" id="tab-analytics"></div>
+
+    <!-- SETTINGS -->
+    <div class="tab" id="tab-settings">
+      <div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Paramètres</h1><p>Configuration</p></div></div></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Changer le mot de passe</div>
+          <div class="form-group"><label class="form-label">Nouveau mot de passe</label><input class="form-input" type="password" id="pwd-new" placeholder="••••••••"></div>
+          <div class="form-group"><label class="form-label">Confirmer</label><input class="form-input" type="password" id="pwd-cf" placeholder="••••••••"></div>
+          <button class="btn-add" onclick="SytamAdmin.changePwd()">Modifier</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Infos boutique</div>
+          <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="shop-name" value="Maison SYTAM"></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="shop-email" value="contact@sytamhijab.com"></div>
+          <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="shop-phone" value="+221 77 478 98 75"></div>
+          <button class="btn-add" onclick="SytamAdmin.saveSettings()">Sauvegarder</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Notifications push (ntfy.sh)</div>
+          <div class="form-group"><label class="form-label">Topic ntfy</label><input class="form-input" id="ntfy-topic" placeholder="sytam-shop"></div>
+          <p style="font-size:.75rem;color:var(--tl);margin-top:-8px;margin-bottom:8px">
+            👉 Installe <strong>ntfy</strong> sur ton téléphone, abonne-toi au topic, colle le même nom ici.
+            <br><a href="https://ntfy.sh" target="_blank" style="color:var(--ac)">ntfy.sh</a>
+          </p>
+          <button class="btn-add" onclick="SytamAdmin.saveNtfyTopic()">Sauvegarder</button>
+        </div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-title">🔄 Transfert de données</div>
+        <p style="font-size:.85rem;color:var(--tl);margin-bottom:12px">Sur le fichier local (<em>file:///</em>) clique <strong>Exporter</strong> → sur le site déployé clique <strong>Importer</strong>.</p>
+        <button class="btn-add" onclick="SytamAdmin.exportData()" style="margin-bottom:8px">⬇ Exporter (local)</button>
+        <button class="btn-add" onclick="SytamAdmin.importData()" style="background:var(--er);margin-bottom:8px">⬆ Importer (déployé)</button>
+        <button class="btn-del" onclick="SytamAdmin.restoreDefaults()" style="display:block">🔄 Restaurer les produits par défaut</button>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<script src="js/supabase-config.js"></script>
+<script src="js/supabase-loader.js"></script>
+<script src="js/products.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
