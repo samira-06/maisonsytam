@@ -1171,10 +1171,63 @@
 
 
   // ---- FIDELITE ----
+  function _rebuildLoyaltyFromOrders(loyalty) {
+    try {
+      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      var changed = false;
+      orders.forEach(function(o) {
+        if (o.statut === 'confirmee' || o.statut === 'livree') {
+          var phone = o.telephone || o.client_phone || '';
+          if (phone) {
+            var clean = phone.replace(/[^0-9+]/g, '');
+            if (clean) {
+              if (!loyalty[clean]) { loyalty[clean] = { orders: 0, total: 0 }; }
+              var found = false;
+              if (loyalty[clean]._orders && Array.isArray(loyalty[clean]._orders)) {
+                found = loyalty[clean]._orders.indexOf(o.id) !== -1;
+              }
+              if (!found) {
+                loyalty[clean].orders = Math.max(loyalty[clean].orders || 0, 1);
+                // compter vraiment : on parcourt toutes les commandes
+                changed = true;
+              }
+            }
+          }
+        }
+      });
+      // Recompter proprement depuis zéro
+      var recount = {};
+      orders.forEach(function(o) {
+        if (o.statut === 'confirmee' || o.statut === 'livree') {
+          var phone = o.telephone || o.client_phone || '';
+          if (phone) {
+            var clean = phone.replace(/[^0-9+]/g, '');
+            if (clean) {
+              if (!recount[clean]) recount[clean] = { orders: 0, total: 0 };
+              recount[clean].orders += 1;
+              recount[clean].total += (o.total || 0);
+            }
+          }
+        }
+      });
+      Object.keys(recount).forEach(function(p) {
+        if (!loyalty[p] || loyalty[p].orders !== recount[p].orders || loyalty[p].total !== recount[p].total) {
+          loyalty[p] = recount[p];
+          changed = true;
+        }
+      });
+      if (changed) {
+        localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
+      }
+    } catch(e) {}
+  }
+
   function loadLoyalty() {
     var tbody = $('loyaltyTable');
     if (!tbody) return;
     var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}');
+    // Reconstruire la fidélité depuis toutes les commandes existantes
+    _rebuildLoyaltyFromOrders(loyalty);
     var phones = Object.keys(loyalty).sort();
     tbody.innerHTML = phones.length
       ? phones.map(function(p) {
@@ -1210,12 +1263,87 @@
       : '<tr><td colspan="5" class="empty-row">Aucun résultat.</td></tr>';
   }
 
+  function _generateAnalyticsFromOrders() {
+    if (typeof SytamAnalytics === 'undefined' || !SytamAnalytics._agg) return;
+    try {
+      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      var agg = SytamAnalytics._agg;
+      var events = SytamAnalytics._events;
+      var existingOrderIds = {};
+      events.forEach(function(e) {
+        if (e.t === 'order_placed' && e.d && e.d.orderId) existingOrderIds[e.d.orderId] = true;
+      });
+      var newEvents = [];
+      orders.forEach(function(o) {
+        if ((o.statut === 'confirmee' || o.statut === 'livree') && !existingOrderIds[o.id]) {
+          // Ajouter les produits comme "ajout panier"
+          (o.items || []).forEach(function(item) {
+            var pid = item.id || item.nom;
+            if (!agg.addToCart[pid]) agg.addToCart[pid] = { name: item.nom, count: 0 };
+            agg.addToCart[pid].count += (item.qte || 1);
+            agg.totalAddToCart = (agg.totalAddToCart || 0) + (item.qte || 1);
+            // Clic produit aussi (car vu puis acheté)
+            if (!agg.productClicks[pid]) agg.productClicks[pid] = { name: item.nom, count: 0 };
+            agg.productClicks[pid].count += (item.qte || 1);
+            agg.totalProductClicks = (agg.totalProductClicks || 0) + (item.qte || 1);
+            newEvents.push({
+              t: 'add_to_cart', ts: o.created_at || new Date().toISOString(),
+              s: 'admin_order', v: o.telephone || '',
+              d: { productId: pid, productName: item.nom, variant: item.couleur || '', qty: item.qte || 1 },
+            });
+            newEvents.push({
+              t: 'product_click', ts: o.created_at || new Date().toISOString(),
+              s: 'admin_order', v: o.telephone || '',
+              d: { productId: pid, productName: item.nom },
+            });
+          });
+          // Événement commande
+          newEvents.push({
+            t: 'order_placed', ts: o.created_at || new Date().toISOString(),
+            s: 'admin_order', v: o.telephone || '',
+            d: { orderId: o.id, total: o.total || 0 },
+          });
+          // Visite et checkout
+          newEvents.push({
+            t: 'checkout_start', ts: o.created_at || new Date().toISOString(),
+            s: 'admin_order', v: o.telephone || '',
+            d: {},
+          });
+          newEvents.push({
+            t: 'page_visit', ts: o.created_at || new Date().toISOString(),
+            s: 'admin_order', v: o.telephone || '',
+            d: { page: 'boutique' },
+          });
+          agg.totalVisits = (agg.totalVisits || 0) + 1;
+          var uid = o.telephone || o.id;
+          if (agg.uniqueVisitorIds.indexOf(uid) === -1) agg.uniqueVisitorIds.push(uid);
+          agg.totalUnique = agg.uniqueVisitorIds.length;
+          // Stats journalières
+          var dayKey = (o.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+          if (!agg.dailyStats[dayKey]) agg.dailyStats[dayKey] = { visits: 0, addToCart: 0, clicks: 0, removeFromCart: 0, timeSeconds: 0 };
+          agg.dailyStats[dayKey].visits = (agg.dailyStats[dayKey].visits || 0) + 1;
+          agg.dailyStats[dayKey].addToCart = (agg.dailyStats[dayKey].addToCart || 0) + (o.items || []).length;
+          agg.dailyStats[dayKey].clicks = (agg.dailyStats[dayKey].clicks || 0) + (o.items || []).length;
+        }
+      });
+      if (newEvents.length) {
+        agg.lastUpdated = Date.now();
+        SytamAnalytics._events = events.concat(newEvents);
+        SytamAnalytics._saveEvents();
+        SytamAnalytics._saveAgg();
+      }
+    } catch(e) {}
+  }
+
   function loadAnalytics() {
     if (typeof SytamAnalytics !== 'undefined') {
-      if (!SytamAnalytics._data) {
-        var stored = localStorage.getItem(SytamAnalytics.STORAGE_KEY);
-        if (stored) { try { SytamAnalytics._data = JSON.parse(stored); } catch(e) {} }
+      if (!SytamAnalytics._agg) {
+        var stored = localStorage.getItem(SytamAnalytics.AGG_KEY);
+        if (stored) { try { SytamAnalytics._agg = JSON.parse(stored); } catch(e) {} }
       }
+      if (!SytamAnalytics._agg) SytamAnalytics._loadAgg();
+      if (!SytamAnalytics._events || !SytamAnalytics._events.length) SytamAnalytics._loadEvents();
+      _generateAnalyticsFromOrders();
       SytamAnalytics.renderAdminAnalytics();
     } else {
       var tab = document.getElementById('tab-analytics');
