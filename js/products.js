@@ -231,19 +231,16 @@ const DB = {
           if (stored) { try { localData = JSON.parse(stored); } catch(e) {} }
           var supabaseData = result && result.length && result[0].value ? result[0].value : null;
           if (supabaseData && Array.isArray(supabaseData) && supabaseData.length) {
-            // Supabase = source de vérité pour la liste des produits
-            // On garde les stocks locaux pour les produits qui existent dans Supabase
-            // On ne rajoute PAS les produits locaux qui ne sont plus dans Supabase (supprimés)
+            // Fusion : Supabase d'abord, puis garder les produits locaux non supprimés
             var deleted = [];
             try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
             var deletedMap = {}; deleted.forEach(function(did) { deletedMap[did] = true; });
-            var localMap = {};
-            if (localData && Array.isArray(localData)) {
-              localData.forEach(function(p) { if (p && p.id) localMap[p.id] = p; });
-            }
+            var seen = {};
+            // Supabase d'abord (avec stocks locaux fusionnés)
             supabaseData.forEach(function(p) {
               if (p && p.id && !deletedMap[p.id]) {
-                var lp = localMap[p.id];
+                seen[p.id] = p;
+                var lp = localData && Array.isArray(localData) ? localData.find(function(x) { return x && x.id === p.id; }) : null;
                 if (lp && p.colors && lp.colors) {
                   p.colors.forEach(function(sc) {
                     var lc = lp.colors.find(function(c) { return c.name === sc.name; });
@@ -255,7 +252,13 @@ const DB = {
                 }
               }
             });
-            DB._data = supabaseData.filter(function(p) { return p && p.id && !deletedMap[p.id]; });
+            // Puis garder les produits locaux qui ne sont ni dans Supabase ni supprimés
+            if (localData && Array.isArray(localData)) {
+              localData.forEach(function(p) {
+                if (p && p.id && !seen[p.id] && !deletedMap[p.id]) seen[p.id] = p;
+              });
+            }
+            DB._data = Object.values(seen);
             DB._migrateData();
           } else if (localData && Array.isArray(localData) && localData.length) {
             DB._data = localData;

@@ -158,17 +158,18 @@
           var supabaseItems = Array.isArray(supabaseVal) ? supabaseVal : [];
           var localItems = Array.isArray(localVal) ? localVal : [];
           if (k === 'sytam_products_v4') {
-            // Supabase = source de vérité unique pour les produits
-            // Filtrer les produits supprimés
+            // Fusion : Supabase + produits locaux non supprimés
             var deleted = [];
             try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
             var deletedMap = {}; deleted.forEach(function(did) { deletedMap[did] = true; });
-            supabaseItems = supabaseItems.filter(function(p) { return p && p.id && !deletedMap[p.id]; });
-            // Seulement préserver les stocks locaux (commandes passées en local)
+            var seen = {};
+            // Supabase d'abord (avec stocks locaux)
             var localMap = {};
             localItems.forEach(function(item) { if (item && item.id) localMap[item.id] = item; });
+            supabaseItems = supabaseItems.filter(function(p) { return p && p.id && !deletedMap[p.id]; });
             supabaseItems.forEach(function(item) {
               if (item && item.id) {
+                seen[item.id] = item;
                 var localItem = localMap[item.id];
                 if (localItem && item.colors && localItem.colors) {
                   item.colors.forEach(function(sc) {
@@ -181,6 +182,11 @@
                 }
               }
             });
+            // Garder les produits locaux qui ne sont ni dans Supabase ni supprimés
+            localItems.forEach(function(item) {
+              if (item && item.id && !seen[item.id] && !deletedMap[item.id]) seen[item.id] = item;
+            });
+            supabaseItems = Object.values(seen);
           } else {
             // Pour les autres données, merger local + distant
             var seen = {};
