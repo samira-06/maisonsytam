@@ -82,11 +82,14 @@ const SytamCart = {
       this.remove(itemId);
       return;
     }
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackQtyChange(item.productId, item.productName, item.qty, qty);
     item.qty = qty;
     this._save();
   },
 
   remove(itemId) {
+    var item = this._items.find(i => i.id === itemId);
+    if (item && typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackRemoveFromCart(item.productId, item.productName, item.variantLabel);
     this._items = this._items.filter(i => i.id !== itemId);
     this._save();
   },

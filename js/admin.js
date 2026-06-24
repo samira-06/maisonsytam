@@ -57,6 +57,16 @@
     else if (_currentTab === 'promos') loadReferrals();
     else if (_currentTab === 'products') loadProducts();
   }
+  function resetProducts() {
+    if (!confirm('Réinitialiser TOUS les produits aux valeurs par défaut ? Les produits ajoutés seront perdus.')) return;
+    var fresh = JSON.parse(JSON.stringify(SEED_PRODUCTS));
+    localStorage.setItem('sytam_products_v4', JSON.stringify(fresh));
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.upsert('store_data', { key: 'sytam_products_v4', value: fresh });
+    }
+    showToast('✓ Produits réinitialisés');
+    setTimeout(function() { location.reload(); }, 1500);
+  }
   function syncNow() {
     showToast('⏳ Synchronisation...');
     // Test de connectivité Supabase
@@ -92,20 +102,58 @@
       var localData = localStorage.getItem(k);
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
-          var supabaseItems = [];
+          var supabaseVal = null;
           try {
-            if (result && result.length && result[0] && result[0].value && Array.isArray(result[0].value)) {
-              supabaseItems = result[0].value;
+            if (result && result.length && result[0] && result[0].value) {
+              supabaseVal = result[0].value;
             }
           } catch(e) { console.warn('syncAllFromSupabase parse error for', k, e); }
-          var localItems = [];
-          try { localItems = JSON.parse(localData || '[]'); } catch(e) {}
-          if (Array.isArray(supabaseItems) && Array.isArray(localItems)) {
-            var seen = {};
-            supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
-            localItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
-            supabaseItems = Object.values(seen);
+          var localVal = null;
+          try { localVal = JSON.parse(localData || 'null'); } catch(e) { localVal = null; }
+          // Loyalty = objet (pas un tableau)
+          if (k === 'sytam_loyalty_v2') {
+            var merged = {};
+            if (supabaseVal && typeof supabaseVal === 'object' && !Array.isArray(supabaseVal)) {
+              Object.keys(supabaseVal).forEach(function(ph) { merged[ph] = supabaseVal[ph]; });
+            }
+            if (localVal && typeof localVal === 'object' && !Array.isArray(localVal)) {
+              Object.keys(localVal).forEach(function(ph) {
+                if (!merged[ph]) merged[ph] = localVal[ph];
+                else {
+                  merged[ph].orders = Math.max(merged[ph].orders || 0, localVal[ph].orders || 0);
+                  merged[ph].total = Math.max(merged[ph].total || 0, localVal[ph].total || 0);
+                }
+              });
+            }
+            if (Object.keys(merged).length) {
+              localStorage.setItem(k, JSON.stringify(merged));
+              SupabaseAPI.upsert('store_data', { key: k, value: merged });
+            }
+            if (typeof DB !== 'undefined') DB.reloadFromLocal();
+            done++; if (done === total) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
+            return;
           }
+          // Tableaux classiques
+          var supabaseItems = Array.isArray(supabaseVal) ? supabaseVal : [];
+          var localItems = Array.isArray(localVal) ? localVal : [];
+          var seen = {};
+          supabaseItems.forEach(function(item) { if (item && item.id) seen[item.id] = item; });
+          localItems.forEach(function(item) {
+            if (item && item.id) {
+              var existing = seen[item.id];
+              if (existing && k === 'sytam_products_v4') {
+                if (item.colors && existing.colors) {
+                  existing.colors = existing.colors.map(function(sc) {
+                    var lc = item.colors.find(function(c) { return c.name === sc.name; });
+                    return lc ? { name: sc.name, hex: sc.hex, stock: lc.stock } : sc;
+                  });
+                }
+                if (item.sizes && existing.sizes) existing.sizes = item.sizes;
+              }
+              seen[item.id] = item;
+            }
+          });
+          supabaseItems = Object.values(seen);
           if (supabaseItems.length || localItems.length || k === 'sytam_products_v4') {
             localStorage.setItem(k, JSON.stringify(supabaseItems));
             SupabaseAPI.upsert('store_data', { key: k, value: supabaseItems });

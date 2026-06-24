@@ -602,6 +602,7 @@
 
   // ---- CHECKOUT ----
   function showCheckout() {
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackCheckout();
     state.showingCart = false;
     document.body.classList.remove('cart-open');
     // Render checkout content BEFORE opening modal
