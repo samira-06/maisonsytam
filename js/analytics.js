@@ -27,9 +27,11 @@ const SytamAnalytics = {
         totalVisits: 0, uniqueVisitorIds: [], totalUnique: 0,
         productClicks: {}, addToCart: {}, removeFromCart: {},
         totalAddToCart: 0, totalProductClicks: 0, totalRemoveFromCart: 0,
-        totalTimeSeconds: 0, dailyStats: {}, lastUpdated: Date.now(),
+        totalTimeSeconds: 0, dailyStats: {}, colorStats: {},
+        lastUpdated: Date.now(),
       };
     }
+    if (!this._agg.colorStats) this._agg.colorStats = {};
   },
 
   _loadEvents() {
@@ -83,17 +85,22 @@ const SytamAnalytics = {
     this._pushEvent('page_visit', { page: window.location.hash || 'home' });
   },
 
-  trackProductClick(productId, productName) {
+  trackProductClick(productId, productName, colorName) {
     if (!this._agg) return;
     this._agg.totalProductClicks++;
     if (!this._agg.productClicks[productId]) {
       this._agg.productClicks[productId] = { name: productName, count: 0 };
     }
     this._agg.productClicks[productId].count++;
+    if (colorName) {
+      if (!this._agg.colorStats[productId]) this._agg.colorStats[productId] = {};
+      if (!this._agg.colorStats[productId][colorName]) this._agg.colorStats[productId][colorName] = { clicks: 0, addToCart: 0, removeFromCart: 0 };
+      this._agg.colorStats[productId][colorName].clicks++;
+    }
     var daily = this._ensureDaily();
     daily.clicks++;
     this._saveAgg();
-    this._pushEvent('product_click', { productId: productId, productName: productName });
+    this._pushEvent('product_click', { productId: productId, productName: productName, color: colorName || '' });
   },
 
   trackAddToCart(productId, productName, variant, qty) {
@@ -103,6 +110,11 @@ const SytamAnalytics = {
       this._agg.addToCart[productId] = { name: productName, count: 0 };
     }
     this._agg.addToCart[productId].count++;
+    if (variant) {
+      if (!this._agg.colorStats[productId]) this._agg.colorStats[productId] = {};
+      if (!this._agg.colorStats[productId][variant]) this._agg.colorStats[productId][variant] = { clicks: 0, addToCart: 0, removeFromCart: 0 };
+      this._agg.colorStats[productId][variant].addToCart += (qty || 1);
+    }
     var daily = this._ensureDaily();
     daily.addToCart++;
     this._saveAgg();
@@ -116,6 +128,11 @@ const SytamAnalytics = {
       this._agg.removeFromCart[productId] = { name: productName, count: 0 };
     }
     this._agg.removeFromCart[productId].count++;
+    if (variant) {
+      if (!this._agg.colorStats[productId]) this._agg.colorStats[productId] = {};
+      if (!this._agg.colorStats[productId][variant]) this._agg.colorStats[productId][variant] = { clicks: 0, addToCart: 0, removeFromCart: 0 };
+      this._agg.colorStats[productId][variant].removeFromCart++;
+    }
     var daily = this._ensureDaily();
     daily.removeFromCart = (daily.removeFromCart || 0) + 1;
     this._saveAgg();
@@ -281,6 +298,17 @@ const SytamAnalytics = {
         m.dailyStats[d] = JSON.parse(JSON.stringify(remote.dailyStats[d]));
       }
     }
+    if (!m.colorStats) m.colorStats = {};
+    var rc = remote.colorStats || {};
+    for (var pid in rc) {
+      if (!m.colorStats[pid]) m.colorStats[pid] = {};
+      for (var col in rc[pid]) {
+        if (!m.colorStats[pid][col]) m.colorStats[pid][col] = { clicks: 0, addToCart: 0, removeFromCart: 0 };
+        m.colorStats[pid][col].clicks = Math.max(m.colorStats[pid][col].clicks || 0, rc[pid][col].clicks || 0);
+        m.colorStats[pid][col].addToCart = Math.max(m.colorStats[pid][col].addToCart || 0, rc[pid][col].addToCart || 0);
+        m.colorStats[pid][col].removeFromCart = Math.max(m.colorStats[pid][col].removeFromCart || 0, rc[pid][col].removeFromCart || 0);
+      }
+    }
     return m;
   },
 
@@ -301,35 +329,23 @@ const SytamAnalytics = {
     var d = this._agg;
     var daily = d.dailyStats[this._todayKey()] || {};
     var conversion = d.totalVisits > 0 ? ((d.totalAddToCart / d.totalVisits) * 100).toFixed(1) : '0.0';
-    var eventCount = this._events.length;
     var days = Object.keys(d.dailyStats || {}).length;
     tab.innerHTML =
       '<div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;">' +
         '<div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>' +
         '<div><h1>Analytiques</h1><p>Statistiques et rapports</p></div>' +
       '</div>' +
-      '<div class="analytics-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' +
-        '<button class="btn-add btn-sm" onclick="SytamAdmin.syncAnalytics()" style="font-size:.75rem">🔄 Synchroniser</button>' +
-        '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportCSVFile()" style="font-size:.75rem;background:var(--ok)">⬇ Exporter CSV</button>' +
-        '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV par produit</button>' +
-      '</div>' +
       '<div class="stats-grid">' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="stat-val">' + (d.totalVisits || 0) + '</div><div class="stat-lbl">Vues totales</div><div class="stat-sub">Ajd : ' + (daily.visits || 0) + ' | Événements : ' + eventCount + '</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="stat-val">' + (d.totalVisits || 0) + '</div><div class="stat-lbl">Vues totales</div><div class="stat-sub">Ajd : ' + (daily.visits || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="stat-val">' + (d.totalUnique || 0) + '</div><div class="stat-lbl">Visiteurs uniques</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div><div class="stat-val">' + (d.totalProductClicks || 0) + '</div><div class="stat-lbl">Clics produits</div><div class="stat-sub">Ajd : ' + (daily.clicks || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val">' + (d.totalAddToCart || 0) + '</div><div class="stat-lbl">Ajouts panier</div><div class="stat-sub">Ajd : ' + (daily.addToCart || 0) + ' | Retraits : ' + (d.totalRemoveFromCart || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val">' + this._fmtTime(d.totalTimeSeconds) + '</div><div class="stat-lbl">Temps passé total</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val">' + conversion + '%</div><div class="stat-lbl">Taux conversion</div></div>' +
       '</div>' +
-      '<div class="analytics-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">' +
-        '<div class="card" style="margin-bottom:0">' +
-          '<div class="card-title">Détails par produit</div>' +
-          '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
-        '</div>' +
-        '<div class="card" style="margin-bottom:0;display:flex;flex-direction:column">' +
-          '<div class="card-title">Événements récents <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + eventCount + ' au total)</span></div>' +
-          '<div id="analyticsEventLog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:4px">' + this._renderEventLog() + '</div>' +
-        '</div>' +
+      '<div class="card" style="margin-top:16px">' +
+        '<div class="card-title">Détails par produit</div>' +
+        '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
       '</div>' +
       '<div class="card" style="margin-top:16px">' +
         '<div class="card-title">Historique journalier <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + (days || 0) + ' jours)</span></div>' +
@@ -346,6 +362,7 @@ const SytamAnalytics = {
     var clicks = d.productClicks || {};
     var carts = d.addToCart || {};
     var removes = d.removeFromCart || {};
+    var colorStats = d.colorStats || {};
     Object.keys(clicks).forEach(function(k) { allIds[k] = true; });
     Object.keys(carts).forEach(function(k) { allIds[k] = true; });
     Object.keys(removes).forEach(function(k) { allIds[k] = true; });
@@ -357,28 +374,37 @@ const SytamAnalytics = {
       var a = carts[id] || {};
       var r = removes[id] || {};
       var p = products[id];
+      var colStats = colorStats[id] || {};
       return {
         id: id, name: c.name || a.name || r.name || id,
         clicks: c.count || 0, cart: a.count || 0, remove: r.count || 0,
         img: p && p.images && p.images[0] ? p.images[0] : '',
         colors: p && p.colors ? p.colors : [],
         prix: p ? p.prix : 0,
+        colorStats: colStats,
       };
     });
     items.sort(function(a, b) { return (b.clicks + b.cart) - (a.clicks + a.cart); });
     var rows = items.map(function(item, i) {
       var abandon = item.clicks > 0 ? Math.round((1 - item.cart / item.clicks) * 100) : 0;
-      var imgHtml = item.img ? '<img src="' + item.img + '" style="width:36px;height:36px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">' : '';
-      // Couleurs : montrer la répartition si disponibles
-      var colorsHtml = item.colors.length ? item.colors.map(function(col) {
-        var colClicks = 0, colCarts = 0;
-        // Estimation depuis le nom dans les events
-        var colImg = col.image ? '<img src="' + col.image + '" style="width:20px;height:20px;object-fit:cover;border-radius:2px;vertical-align:middle;margin:0 2px">' : '';
-        return '<span style="display:inline-block;margin:2px 4px 2px 0;font-size:.72rem;background:var(--bd);padding:1px 6px;border-radius:3px;white-space:nowrap">' + colImg + '<span style="display:inline-block;width:8px;height:8px;background:' + col.hex + ';border-radius:50%;vertical-align:middle;margin-right:2px"></span>' + col.name + '</span>';
-      }).join('') : '';
+      var imgHtml = item.img ? '<img src="' + item.img + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">' : '';
+      // Détail par couleur
+      var colorRows = '';
+      var colNames = Object.keys(item.colorStats);
+      if (colNames.length) {
+        colorRows = '<div style="margin-top:4px;font-size:.72rem">';
+        colNames.forEach(function(colName) {
+          var cs = item.colorStats[colName];
+          colorRows += '<div style="display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;background:var(--cr);border:1px solid var(--bd);border-radius:3px;white-space:nowrap">' +
+            colName + ' : ' + (cs.clicks || 0) + ' clics, ' + (cs.addToCart || 0) + ' panier' +
+            (cs.removeFromCart ? ', ' + cs.removeFromCart + ' retiré' : '') +
+          '</div>';
+        });
+        colorRows += '</div>';
+      }
       return '<tr>' +
         '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem">#' + (i + 1) + '</td>' +
-        '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + item.name + '<br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + (colorsHtml ? '<br>' + colorsHtml : '') + '</td>' +
+        '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + item.name + '<br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + colorRows + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem">' + item.clicks + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;color:var(--ok)">' + item.cart + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-size:.82rem;color:var(--er)">' + (item.remove || '—') + '</td>' +
@@ -454,27 +480,37 @@ const SytamAnalytics = {
   exportProductCSV() {
     if (!this._agg) return;
     var d = this._agg;
-    var header = 'produit,prix,image,couleurs,clics,ajouts_panier,retires_panier,taux_abandon';
+    var header = 'produit,prix,image,clics_total,panier_total,retires_total,taux_abandon,couleur,clics_couleur,panier_couleur,retires_couleur';
     var products = this._getProductsMap();
     var allIds = {};
     var clicks = d.productClicks || {};
     var carts = d.addToCart || {};
     var removes = d.removeFromCart || {};
+    var colorStats = d.colorStats || {};
     Object.keys(clicks).forEach(function(k) { allIds[k] = true; });
     Object.keys(carts).forEach(function(k) { allIds[k] = true; });
     Object.keys(removes).forEach(function(k) { allIds[k] = true; });
     var esc = function(s) { return '"' + String(s || '').replace(/"/g, '""') + '"'; };
-    var rows = Object.keys(allIds).map(function(id) {
+    var rows = [];
+    Object.keys(allIds).forEach(function(id) {
       var c = clicks[id] || {}, a = carts[id] || {}, r = removes[id] || {};
       var name = c.name || a.name || r.name || id;
       var p = products[id];
       var prix = p ? p.prix : '';
       var img = p && p.images && p.images[0] ? p.images[0] : '';
-      var colors = (p && p.colors) ? p.colors.map(function(col) { return col.name + '(' + col.hex + ')'; }).join('; ') : '';
       var abandon = c.count > 0 ? Math.round((1 - a.count / c.count) * 100) : 0;
-      return [esc(name), prix, esc(img), esc(colors), c.count || 0, a.count || 0, r.count || 0, abandon + '%'].join(',');
-    }).sort().join('\n');
-    var csv = header + '\n' + rows;
+      var colStats = colorStats[id] || {};
+      var colNames = Object.keys(colStats);
+      if (colNames.length) {
+        colNames.forEach(function(col) {
+          var cs = colStats[col];
+          rows.push([esc(name), prix, esc(img), c.count || 0, a.count || 0, r.count || 0, abandon + '%', esc(col), cs.clicks || 0, cs.addToCart || 0, cs.removeFromCart || 0].join(','));
+        });
+      } else {
+        rows.push([esc(name), prix, esc(img), c.count || 0, a.count || 0, r.count || 0, abandon + '%', '', '', '', ''].join(','));
+      }
+    });
+    var csv = header + '\n' + rows.join('\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var link = document.createElement('a');
     link.href = URL.createObjectURL(blob);

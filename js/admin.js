@@ -1292,19 +1292,26 @@
             if (!agg.addToCart[pid]) agg.addToCart[pid] = { name: item.nom, count: 0 };
             agg.addToCart[pid].count += (item.qte || 1);
             agg.totalAddToCart = (agg.totalAddToCart || 0) + (item.qte || 1);
-            // Clic produit aussi (car vu puis acheté)
             if (!agg.productClicks[pid]) agg.productClicks[pid] = { name: item.nom, count: 0 };
             agg.productClicks[pid].count += (item.qte || 1);
             agg.totalProductClicks = (agg.totalProductClicks || 0) + (item.qte || 1);
+            var colName = item.couleur || item.color || '';
+            if (colName) {
+              if (!agg.colorStats) agg.colorStats = {};
+              if (!agg.colorStats[pid]) agg.colorStats[pid] = {};
+              if (!agg.colorStats[pid][colName]) agg.colorStats[pid][colName] = { clicks: 0, addToCart: 0, removeFromCart: 0 };
+              agg.colorStats[pid][colName].clicks += (item.qte || 1);
+              agg.colorStats[pid][colName].addToCart += (item.qte || 1);
+            }
             newEvents.push({
               t: 'add_to_cart', ts: o.created_at || new Date().toISOString(),
               s: 'admin_order', v: o.telephone || '',
-              d: { productId: pid, productName: item.nom, variant: item.couleur || '', qty: item.qte || 1 },
+              d: { productId: pid, productName: item.nom, variant: colName, qty: item.qte || 1 },
             });
             newEvents.push({
               t: 'product_click', ts: o.created_at || new Date().toISOString(),
               s: 'admin_order', v: o.telephone || '',
-              d: { productId: pid, productName: item.nom },
+              d: { productId: pid, productName: item.nom, color: colName },
             });
           });
           // Événement commande

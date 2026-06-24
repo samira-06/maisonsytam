@@ -223,7 +223,7 @@
   function quickView(id) {
     state.selectedProduct = DB.getById(id);
     if (!state.selectedProduct) return;
-    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackProductClick(id, state.selectedProduct.nom);
+    if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackProductClick(id, state.selectedProduct.nom, state.selectedVariant ? state.selectedVariant.name : '');
     state.selectedVariant = null;
     state.selectedQty = 1;
     renderModal(state.selectedProduct);
