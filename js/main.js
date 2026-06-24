@@ -62,6 +62,13 @@
       _initHero();
       _startFeaturedScroll();
     });
+    // Lancer un pull immédiat dès que Supabase est prêt
+    var _waitSupabase = setInterval(function() {
+      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+        clearInterval(_waitSupabase);
+        _periodicPull();
+      }
+    }, 500);
   }
 
   function _renderFromData(data) {
@@ -1083,6 +1090,7 @@
           if (changed) {
             localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));
             if (typeof DB !== 'undefined') { DB._data = localProducts; DB.reloadFromLocal(); }
+            if (state.currentPage === 'shop') renderShop();
           }
         }
       } catch(e) {}
