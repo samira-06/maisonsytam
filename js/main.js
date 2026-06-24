@@ -1002,15 +1002,15 @@
   // Périodiquement, tire les données depuis Supabase (pour voir les changements admin)
   function _periodicPull(cb) {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
-    // Commandes : on récupère les statuts à jour
+    // Commandes : on récupère les statuts à jour et on pousse les commandes locales manquantes
     SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value').then(function(result) {
       try {
+        var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+        var merged = {};
+        localOrders.forEach(function(o) { if (o && o.id) merged[o.id] = o; });
+        var changed = false;
         if (result && result.length && result[0] && Array.isArray(result[0].value)) {
           var remoteOrders = result[0].value;
-          var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-          var merged = {};
-          localOrders.forEach(function(o) { if (o && o.id) merged[o.id] = o; });
-          var changed = false;
           remoteOrders.forEach(function(o) {
             if (o && o.id) {
               if (!merged[o.id]) { merged[o.id] = o; changed = true; }
@@ -1020,9 +1020,18 @@
               }
             }
           });
-          if (changed) {
-            localStorage.setItem('sytam_orders_v2', JSON.stringify(Object.values(merged)));
-          }
+        }
+        // Pousser les commandes locales qui ne sont pas encore dans Supabase
+        var remoteIds = {};
+        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+          result[0].value.forEach(function(o) { if (o && o.id) remoteIds[o.id] = true; });
+        }
+        var needPush = localOrders.some(function(o) { return o && o.id && !remoteIds[o.id]; });
+        if (needPush) {
+          SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: localOrders });
+        }
+        if (changed) {
+          localStorage.setItem('sytam_orders_v2', JSON.stringify(Object.values(merged)));
         }
       } catch(e) {}
     }).catch(function() {});
@@ -1083,11 +1092,13 @@
               }
             }
           });
-          // Supprimer les produits locaux qui n'existent plus dans Supabase
+          // Supprimer les produits locaux qui n'existent plus dans Supabase ou qui sont dans la liste de suppression
           var remoteIds = {};
           remoteProducts.forEach(function(rp) { if (rp && rp.id) remoteIds[rp.id] = true; });
+          var deletedIds = {};
+          try { var d = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); d.forEach(function(id) { deletedIds[id] = true; }); } catch(e) {}
           var beforeCount = localProducts.length;
-          localProducts = localProducts.filter(function(lp) { return lp && lp.id && remoteIds[lp.id]; });
+          localProducts = localProducts.filter(function(lp) { return lp && lp.id && remoteIds[lp.id] && !deletedIds[lp.id]; });
           if (localProducts.length !== beforeCount) changed = true;
           if (changed) {
             localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));

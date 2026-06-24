@@ -231,13 +231,31 @@ const DB = {
           if (stored) { try { localData = JSON.parse(stored); } catch(e) {} }
           var supabaseData = result && result.length && result[0].value ? result[0].value : null;
           if (supabaseData && Array.isArray(supabaseData) && supabaseData.length) {
-            // Fusion : Supabase d'abord, localStorage écrase (pour garder les modifs locales)
-            var seen = {};
-            supabaseData.forEach(function(p) { if (p && p.id) seen[p.id] = p; });
+            // Supabase = source de vérité pour la liste des produits
+            // On garde les stocks locaux pour les produits qui existent dans Supabase
+            // On ne rajoute PAS les produits locaux qui ne sont plus dans Supabase (supprimés)
+            var deleted = [];
+            try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
+            var deletedMap = {}; deleted.forEach(function(did) { deletedMap[did] = true; });
+            var localMap = {};
             if (localData && Array.isArray(localData)) {
-              localData.forEach(function(p) { if (p && p.id) seen[p.id] = p; });
+              localData.forEach(function(p) { if (p && p.id) localMap[p.id] = p; });
             }
-            DB._data = Object.values(seen);
+            supabaseData.forEach(function(p) {
+              if (p && p.id && !deletedMap[p.id]) {
+                var lp = localMap[p.id];
+                if (lp && p.colors && lp.colors) {
+                  p.colors.forEach(function(sc) {
+                    var lc = lp.colors.find(function(c) { return c.name === sc.name; });
+                    if (lc) {
+                      if (lc.stocks) { Object.keys(lc.stocks).forEach(function(sz) { if (sc.stocks) sc.stocks[sz] = lc.stocks[sz]; }); }
+                      else if (lc.stock !== undefined && sc.stock !== undefined) sc.stock = lc.stock;
+                    }
+                  });
+                }
+              }
+            });
+            DB._data = supabaseData.filter(function(p) { return p && p.id && !deletedMap[p.id]; });
             DB._migrateData();
           } else if (localData && Array.isArray(localData) && localData.length) {
             DB._data = localData;

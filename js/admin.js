@@ -159,6 +159,11 @@
           var localItems = Array.isArray(localVal) ? localVal : [];
           if (k === 'sytam_products_v4') {
             // Supabase = source de vérité unique pour les produits
+            // Filtrer les produits supprimés
+            var deleted = [];
+            try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
+            var deletedMap = {}; deleted.forEach(function(did) { deletedMap[did] = true; });
+            supabaseItems = supabaseItems.filter(function(p) { return p && p.id && !deletedMap[p.id]; });
             // Seulement préserver les stocks locaux (commandes passées en local)
             var localMap = {};
             localItems.forEach(function(item) { if (item && item.id) localMap[item.id] = item; });
@@ -1034,6 +1039,12 @@
     if (!confirm('Supprimer ce produit ?')) return;
     DB.delete(id);
     pushToSupabase('sytam_products_v4');
+    // Ajouter l'ID à la liste des suppressions pour éviter la résurrection
+    var deleted = [];
+    try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
+    if (deleted.indexOf(id) === -1) deleted.push(id);
+    localStorage.setItem('sytam_deleted_products', JSON.stringify(deleted));
+    pushToSupabase('sytam_deleted_products');
     loadProducts();
     showToast('✓ Produit supprimé');
   }
