@@ -49,6 +49,14 @@
     }
     pollOrders();
     setInterval(pollOrders, 30000);
+    // Périodiquement, pousse tous les changements vers Supabase
+    setInterval(function() {
+      var _keys = ['sytam_products_v4', 'sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_admin_settings'];
+      _keys.forEach(function(k) {
+        var d = localStorage.getItem(k);
+        if (d) { try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(d) }); } catch(e) {} }
+      });
+    }, 15000);
   }
   function refreshCurrentTab() {
     if (_currentTab === 'dashboard') loadDashboard();
@@ -993,6 +1001,7 @@
     if (editingId) DB.update(editingId, data); else DB.add(data);
     closeModal();
     loadProducts();
+    pushToSupabase('sytam_products_v4');
     showToast('✓ Produit ' + (editingId ? 'modifié' : 'ajouté'));
     } catch(e) { showToast('Erreur', 'Impossible de sauvegarder: ' + e.message); }
   }
@@ -1001,6 +1010,7 @@
     if (!confirm('Supprimer ce produit ?')) return;
     DB.delete(id);
     loadProducts();
+    pushToSupabase('sytam_products_v4');
     showToast('✓ Produit supprimé');
   }
 

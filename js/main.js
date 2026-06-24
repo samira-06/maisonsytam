@@ -1024,6 +1024,53 @@
         }
       } catch(e) {}
     }).catch(function() {});
+    // Produits : merger les données distantes (préserver les stocks locaux)
+    SupabaseAPI.get('store_data?key=eq.sytam_products_v4&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+          var remoteProducts = result[0].value;
+          var localProducts = DB.list();
+          var localMap = {};
+          localProducts.forEach(function(p) { if (p && p.id) localMap[p.id] = p; });
+          var changed = false;
+          remoteProducts.forEach(function(rp) {
+            if (rp && rp.id) {
+              if (!localMap[rp.id]) { localProducts.push(rp); changed = true; }
+              else {
+                // Mettre à jour nom, prix, promo, images, couleurs MAIS garder le stock local
+                var lp = localMap[rp.id];
+                var oldStock = lp.colors ? JSON.parse(JSON.stringify(lp.colors)) : null;
+                Object.keys(rp).forEach(function(k) {
+                  if (k !== 'colors') lp[k] = rp[k];
+                });
+                // Restaurer les stocks locaux
+                if (oldStock && lp.colors && Array.isArray(lp.colors)) {
+                  lp.colors.forEach(function(lc) {
+                    var remoteColor = rp.colors ? rp.colors.find(function(rc) { return rc.name === lc.name; }) : null;
+                    if (remoteColor) {
+                      var matchedLocal = oldStock.find(function(os) { return os.name === lc.name; });
+                      if (matchedLocal) {
+                        if (matchedLocal.stocks) {
+                          Object.keys(matchedLocal.stocks).forEach(function(sz) {
+                            if (lc.stocks) lc.stocks[sz] = matchedLocal.stocks[sz];
+                          });
+                        } else if (matchedLocal.stock !== undefined) {
+                          lc.stock = matchedLocal.stock;
+                        }
+                      }
+                    }
+                  });
+                }
+                changed = true;
+              }
+            }
+          });
+          if (changed) {
+            localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));
+          }
+        }
+      } catch(e) {}
+    }).catch(function() {});
   }
   setInterval(_periodicPull, 30000);
 

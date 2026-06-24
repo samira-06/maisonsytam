@@ -1,3 +1,4 @@
+function _fmtAnalytics(n) { return (n || 0).toLocaleString('fr-FR'); }
 const SytamAnalytics = {
   AGG_KEY: 'sytam_analytics_v1',
   EVENTS_KEY: 'sytam_analytics_events',
@@ -330,6 +331,10 @@ const SytamAnalytics = {
       this._renderDailyHistory(d.dailyStats);
   },
 
+  _getProductsMap() {
+    try { var p = JSON.parse(localStorage.getItem('sytam_products_v4') || '[]'); var m = {}; p.forEach(function(x) { if (x && x.id) m[x.id] = x; }); return m; } catch(e) { return {}; }
+  },
+
   _renderProductDetail(d) {
     var allIds = {};
     var clicks = d.productClicks || {};
@@ -340,21 +345,34 @@ const SytamAnalytics = {
     Object.keys(removes).forEach(function(k) { allIds[k] = true; });
     var ids = Object.keys(allIds);
     if (!ids.length) return '<p style="color:var(--tl);font-size:.85rem;padding:12px 0">Aucune donnée produit</p>';
+    var products = this._getProductsMap();
     var items = ids.map(function(id) {
       var c = clicks[id] || {};
       var a = carts[id] || {};
       var r = removes[id] || {};
+      var p = products[id];
       return {
         id: id, name: c.name || a.name || r.name || id,
         clicks: c.count || 0, cart: a.count || 0, remove: r.count || 0,
+        img: p && p.images && p.images[0] ? p.images[0] : '',
+        colors: p && p.colors ? p.colors : [],
+        prix: p ? p.prix : 0,
       };
     });
     items.sort(function(a, b) { return (b.clicks + b.cart) - (a.clicks + a.cart); });
     var rows = items.map(function(item, i) {
       var abandon = item.clicks > 0 ? Math.round((1 - item.cart / item.clicks) * 100) : 0;
+      var imgHtml = item.img ? '<img src="' + item.img + '" style="width:36px;height:36px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">' : '';
+      // Couleurs : montrer la répartition si disponibles
+      var colorsHtml = item.colors.length ? item.colors.map(function(col) {
+        var colClicks = 0, colCarts = 0;
+        // Estimation depuis le nom dans les events
+        var colImg = col.image ? '<img src="' + col.image + '" style="width:20px;height:20px;object-fit:cover;border-radius:2px;vertical-align:middle;margin:0 2px">' : '';
+        return '<span style="display:inline-block;margin:2px 4px 2px 0;font-size:.72rem;background:var(--bd);padding:1px 6px;border-radius:3px;white-space:nowrap">' + colImg + '<span style="display:inline-block;width:8px;height:8px;background:' + col.hex + ';border-radius:50%;vertical-align:middle;margin-right:2px"></span>' + col.name + '</span>';
+      }).join('') : '';
       return '<tr>' +
         '<td style="padding:6px 8px;font-weight:600;color:var(--tl);font-size:.78rem">#' + (i + 1) + '</td>' +
-        '<td style="padding:6px 8px;font-size:.82rem">' + item.name + '</td>' +
+        '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + item.name + '<br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + (colorsHtml ? '<br>' + colorsHtml : '') + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem">' + item.clicks + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;color:var(--ok)">' + item.cart + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-size:.82rem;color:var(--er)">' + (item.remove || '—') + '</td>' +
@@ -432,7 +450,8 @@ const SytamAnalytics = {
   exportProductCSV() {
     if (!this._agg) return;
     var d = this._agg;
-    var header = 'produit,clics,ajouts_panier,retires_panier,taux_abandon';
+    var header = 'produit,prix,image,couleurs,clics,ajouts_panier,retires_panier,taux_abandon';
+    var products = this._getProductsMap();
     var allIds = {};
     var clicks = d.productClicks || {};
     var carts = d.addToCart || {};
@@ -440,11 +459,16 @@ const SytamAnalytics = {
     Object.keys(clicks).forEach(function(k) { allIds[k] = true; });
     Object.keys(carts).forEach(function(k) { allIds[k] = true; });
     Object.keys(removes).forEach(function(k) { allIds[k] = true; });
+    var esc = function(s) { return '"' + String(s || '').replace(/"/g, '""') + '"'; };
     var rows = Object.keys(allIds).map(function(id) {
       var c = clicks[id] || {}, a = carts[id] || {}, r = removes[id] || {};
       var name = c.name || a.name || r.name || id;
+      var p = products[id];
+      var prix = p ? p.prix : '';
+      var img = p && p.images && p.images[0] ? p.images[0] : '';
+      var colors = (p && p.colors) ? p.colors.map(function(col) { return col.name + '(' + col.hex + ')'; }).join('; ') : '';
       var abandon = c.count > 0 ? Math.round((1 - a.count / c.count) * 100) : 0;
-      return [name, c.count || 0, a.count || 0, r.count || 0, abandon + '%'].join(',');
+      return [esc(name), prix, esc(img), esc(colors), c.count || 0, a.count || 0, r.count || 0, abandon + '%'].join(',');
     }).sort().join('\n');
     var csv = header + '\n' + rows;
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
