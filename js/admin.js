@@ -150,6 +150,8 @@
             if (item && item.id) {
               var existing = seen[item.id];
               if (existing && k === 'sytam_products_v4') {
+                // Supabase est la source de vérité pour les produits
+                // Seulement préserver les stocks locaux
                 if (item.colors && existing.colors) {
                   existing.colors = existing.colors.map(function(sc) {
                     var lc = item.colors.find(function(c) { return c.name === sc.name; });
@@ -157,8 +159,11 @@
                   });
                 }
                 if (item.sizes && existing.sizes) existing.sizes = item.sizes;
+                // NE PAS écraser existing — garder la version Supabase
+              } else {
+                // Pas de version Supabase, garder la version locale
+                seen[item.id] = item;
               }
-              seen[item.id] = item;
             }
           });
           supabaseItems = Object.values(seen);

@@ -980,7 +980,7 @@
   // Périodiquement, pousse les données locales vers Supabase
   function _periodicSync() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4', 'sytam_analytics_v1'];
+    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_analytics_v1'];
     _keys.forEach(function(k) {
       var d = localStorage.getItem(k);
       if (d) {
@@ -1074,8 +1074,15 @@
               }
             }
           });
+          // Supprimer les produits locaux qui n'existent plus dans Supabase
+          var remoteIds = {};
+          remoteProducts.forEach(function(rp) { if (rp && rp.id) remoteIds[rp.id] = true; });
+          var beforeCount = localProducts.length;
+          localProducts = localProducts.filter(function(lp) { return lp && lp.id && remoteIds[lp.id]; });
+          if (localProducts.length !== beforeCount) changed = true;
           if (changed) {
             localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));
+            if (typeof DB !== 'undefined') { DB._data = localProducts; DB.reloadFromLocal(); }
           }
         }
       } catch(e) {}
