@@ -302,12 +302,13 @@ const SytamAnalytics = {
     var daily = d.dailyStats[this._todayKey()] || {};
     var conversion = d.totalVisits > 0 ? ((d.totalAddToCart / d.totalVisits) * 100).toFixed(1) : '0.0';
     var eventCount = this._events.length;
+    var days = Object.keys(d.dailyStats || {}).length;
     tab.innerHTML =
       '<div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;">' +
         '<div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>' +
         '<div><h1>Analytiques</h1><p>Statistiques et rapports</p></div>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<div class="analytics-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' +
         '<button class="btn-add btn-sm" onclick="SytamAdmin.syncAnalytics()" style="font-size:.75rem">🔄 Synchroniser</button>' +
         '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportCSVFile()" style="font-size:.75rem;background:var(--ok)">⬇ Exporter CSV</button>' +
         '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV par produit</button>' +
@@ -320,15 +321,20 @@ const SytamAnalytics = {
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val">' + this._fmtTime(d.totalTimeSeconds) + '</div><div class="stat-lbl">Temps passé total</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val">' + conversion + '%</div><div class="stat-lbl">Taux conversion</div></div>' +
       '</div>' +
-      '<div class="card" style="margin-top:16px">' +
-        '<div class="card-title">Détails par produit</div>' +
-        '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
+      '<div class="analytics-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">' +
+        '<div class="card" style="margin-bottom:0">' +
+          '<div class="card-title">Détails par produit</div>' +
+          '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
+        '</div>' +
+        '<div class="card" style="margin-bottom:0;display:flex;flex-direction:column">' +
+          '<div class="card-title">Événements récents <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + eventCount + ' au total)</span></div>' +
+          '<div id="analyticsEventLog" style="flex:1;max-height:400px;overflow-y:auto;border:1px solid var(--bd);border-radius:8px;padding:4px">' + this._renderEventLog() + '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="card" style="margin-top:16px">' +
-        '<div class="card-title">Événements récents <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + eventCount + ' au total)</span></div>' +
-        '<div id="analyticsEventLog">' + this._renderEventLog() + '</div>' +
-      '</div>' +
-      this._renderDailyHistory(d.dailyStats);
+        '<div class="card-title">Historique journalier <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + (days || 0) + ' jours)</span></div>' +
+        '<div id="analyticsDailyHistory">' + this._renderDailyHistory(d.dailyStats) + '</div>' +
+      '</div>';
   },
 
   _getProductsMap() {
@@ -428,13 +434,11 @@ const SytamAnalytics = {
         '<td style="padding:6px 8px;text-align:center;font-size:.78rem;color:var(--tl)">' + (day.timeSeconds ? SytamAnalytics._fmtTime(day.timeSeconds) : '—') + '</td>' +
       '</tr>';
     }).join('');
-    return '<div class="card" style="margin-top:16px">' +
-      '<div class="card-title">Historique journalier <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + days.length + ' jours)</span></div>' +
-      '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
-        '<th style="text-align:left">Date</th><th style="text-align:center">Vues</th>' +
-        '<th style="text-align:center">Clics</th><th style="text-align:center">Panier+</th>' +
-        '<th style="text-align:center">Retiré</th><th style="text-align:center">Temps</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
+      '<th style="text-align:left">Date</th><th style="text-align:center">Vues</th>' +
+      '<th style="text-align:center">Clics</th><th style="text-align:center">Panier+</th>' +
+      '<th style="text-align:center">Retiré</th><th style="text-align:center">Temps</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   },
 
   exportCSVFile() {
