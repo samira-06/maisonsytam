@@ -224,7 +224,33 @@ const SytamAnalytics = {
       '<div class="card" style="margin-top:16px">' +
         '<div class="card-title">Top ajouts au panier</div>' +
         '<div id="analyticsTopCart">' + this._renderTopList(d.addToCart) + '</div>' +
-      '</div>';
+      '</div>' +
+      this._renderDailyHistory(d.dailyStats);
+  },
+
+  _renderDailyHistory(dailyStats) {
+    if (!dailyStats) return '';
+    var days = Object.keys(dailyStats).sort().reverse().slice(0, 30);
+    if (days.length === 0) return '';
+    var rows = days.map(function(date) {
+      var day = dailyStats[date];
+      return '<tr>' +
+        '<td style="padding:6px 8px;white-space:nowrap;font-weight:500;font-size:.82rem">' + date + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.visits || 0) + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.clicks || 0) + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem">' + (day.addToCart || 0) + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.78rem;color:var(--tl)">' + (day.timeSeconds ? SytamAnalytics._formatTime(day.timeSeconds) : '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    return '<div class="card" style="margin-top:16px">' +
+      '<div class="card-title">Historique journalier (30 derniers jours)</div>' +
+      '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
+        '<th style="text-align:left">Date</th>' +
+        '<th style="text-align:center">Vues</th>' +
+        '<th style="text-align:center">Clics</th>' +
+        '<th style="text-align:center">Panier</th>' +
+        '<th style="text-align:center">Temps</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   },
 
   _renderTopList(obj) {
