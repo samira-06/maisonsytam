@@ -981,6 +981,52 @@
   }
   setInterval(_periodicSync, 15000);
 
+  // Périodiquement, tire les données depuis Supabase (pour voir les changements admin)
+  function _periodicPull() {
+    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
+    // Commandes : on récupère les statuts à jour
+    SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+          var remoteOrders = result[0].value;
+          var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+          var merged = {};
+          localOrders.forEach(function(o) { if (o && o.id) merged[o.id] = o; });
+          var changed = false;
+          remoteOrders.forEach(function(o) {
+            if (o && o.id) {
+              if (!merged[o.id]) { merged[o.id] = o; changed = true; }
+              else if (merged[o.id].statut !== o.statut) {
+                merged[o.id].statut = o.statut;
+                changed = true;
+              }
+            }
+          });
+          if (changed) {
+            localStorage.setItem('sytam_orders_v2', JSON.stringify(Object.values(merged)));
+          }
+        }
+      } catch(e) {}
+    }).catch(function() {});
+    // Analytics : merger les données distantes
+    SupabaseAPI.get('store_data?key=eq.sytam_analytics_v1&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && result[0].value && typeof SytamAnalytics !== 'undefined') {
+          SytamAnalytics.loadFromSync({ value: result[0].value });
+        }
+      } catch(e) {}
+    }).catch(function() {});
+    // Événements analytics
+    SupabaseAPI.get('store_data?key=eq.sytam_analytics_events&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && Array.isArray(result[0].value) && typeof SytamAnalytics !== 'undefined') {
+          SytamAnalytics.loadEventsFromSync(result[0].value);
+        }
+      } catch(e) {}
+    }).catch(function() {});
+  }
+  setInterval(_periodicPull, 30000);
+
   // --- Suivi de commande ---
   function trackOrder() {
     var phone = document.getElementById('track-phone').value.trim();
