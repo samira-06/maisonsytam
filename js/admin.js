@@ -1288,7 +1288,18 @@
         if ((o.statut === 'confirmee' || o.statut === 'livree') && !existingOrderIds[o.id]) {
           // Ajouter les produits comme "ajout panier"
           (o.items || []).forEach(function(item) {
-            var pid = item.id || item.nom;
+            // Pour les nouvelles commandes : productId est stocké ; pour les anciennes, chercher par nom
+            var pid = item.productId;
+            if (!pid) {
+              // Chercher le produit par nom dans la base
+              try {
+                var allProds = JSON.parse(localStorage.getItem('sytam_products_v4') || '[]');
+                for (var pi = 0; pi < allProds.length; pi++) {
+                  if (allProds[pi].nom === item.nom) { pid = allProds[pi].id; break; }
+                }
+              } catch(e) {}
+              if (!pid) pid = item.nom; // fallback: utiliser le nom
+            }
             if (!agg.addToCart[pid]) agg.addToCart[pid] = { name: item.nom, count: 0 };
             agg.addToCart[pid].count += (item.qte || 1);
             agg.totalAddToCart = (agg.totalAddToCart || 0) + (item.qte || 1);
@@ -1296,6 +1307,12 @@
             agg.productClicks[pid].count += (item.qte || 1);
             agg.totalProductClicks = (agg.totalProductClicks || 0) + (item.qte || 1);
             var colName = item.couleur || item.color || '';
+            if (!colName && item.variantLabel) {
+              var _parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
+              _parts.forEach(function(p) {
+                if (p.indexOf('Couleur:') === 0 || p.indexOf('couleur:') === 0) colName = p.split(':')[1].trim();
+              });
+            }
             if (colName) {
               if (!agg.colorStats) agg.colorStats = {};
               if (!agg.colorStats[pid]) agg.colorStats[pid] = {};

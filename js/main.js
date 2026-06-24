@@ -726,7 +726,16 @@
         notes: formData.notes,
         promo: promoLabel || '',
         reduction: discount,
-        items: items.map(function (i) { return { nom: i.productName, variantLabel: i.variantLabel, prix: i.price, qte: i.qty }; }),
+        items: items.map(function (i) {
+          var _c = '';
+          if (i.variantLabel) {
+            var _parts = i.variantLabel.split(',').map(function(s) { return s.trim(); });
+            _parts.forEach(function(p) {
+              if (p.indexOf('Couleur:') === 0 || p.indexOf('couleur:') === 0) _c = p.split(':')[1].trim();
+            });
+          }
+          return { nom: i.productName, variantLabel: i.variantLabel, prix: i.price, qte: i.qty, productId: i.productId, couleur: _c };
+        }),
         total: total,
         statut: 'en_attente',
         created_at: new Date().toISOString(),

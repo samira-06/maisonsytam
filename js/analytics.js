@@ -369,11 +369,21 @@ const SytamAnalytics = {
     var ids = Object.keys(allIds);
     if (!ids.length) return '<p style="color:var(--tl);font-size:.85rem;padding:12px 0">Aucune donnée produit</p>';
     var products = this._getProductsMap();
+    // Fallback : si un ID est un nom (pas dans la map), chercher par nom
+    var nameMap = {};
     var items = ids.map(function(id) {
       var c = clicks[id] || {};
       var a = carts[id] || {};
       var r = removes[id] || {};
       var p = products[id];
+      if (!p) {
+        // Chercher par nom
+        if (!nameMap._built) {
+          try { var all = JSON.parse(localStorage.getItem('sytam_products_v4') || '[]'); all.forEach(function(x) { if (x && x.nom) nameMap[x.nom] = x; }); } catch(e) {}
+          nameMap._built = true;
+        }
+        p = nameMap[c.name || a.name || r.name || id];
+      }
       var colStats = colorStats[id] || {};
       return {
         id: id, name: c.name || a.name || r.name || id,
