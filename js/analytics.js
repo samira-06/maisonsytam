@@ -350,15 +350,17 @@ const SytamAnalytics = {
     var days = Object.keys(d.dailyStats || {}).length;
 
     tab.innerHTML =
-      // TOPBAR
-      '<div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;">' +
-        '<div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>' +
-        '<div><h1>Analytiques</h1><p>Statistiques et rapports</p></div>' +
-      '</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' +
-        '<button class="btn-add btn-sm" onclick="SytamAdmin.syncAnalytics()" style="font-size:.75rem">🔄 Synchroniser</button>' +
-        '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportCSVFile()" style="font-size:.75rem;background:var(--ok)">⬇ CSV événements</button>' +
-        '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV produits</button>' +
+      // TOPBAR with action buttons regrouped at right
+      '<div class="topbar">' +
+        '<div style="display:flex;align-items:center;gap:.5rem;">' +
+          '<div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>' +
+          '<div><h1>Analytiques</h1><p>Statistiques et rapports</p></div>' +
+        '</div>' +
+        '<div class="topbar-right">' +
+          '<button class="btn-add btn-sm" onclick="SytamAdmin.syncAnalytics()" style="font-size:.75rem">🔄 Synchroniser</button>' +
+          '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportCSVFile()" style="font-size:.75rem;background:var(--ok)">⬇ CSV événements</button>' +
+          '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV produits</button>' +
+        '</div>' +
       '</div>' +
       // SECTION 1: KPIs
       '<div class="stats-grid">' +
@@ -410,7 +412,7 @@ const SytamAnalytics = {
     var maxVal = 1;
     dataPoints.forEach(function(p) { maxVal = Math.max(maxVal, p.visits, p.clicks, p.carts); });
     if (maxVal < 5) maxVal = 5;
-    var W = 400, H = 160, pad = { top: 10, right: 10, bottom: 20, left: 30 };
+    var W = 500, H = 200, pad = { top: 14, right: 14, bottom: 24, left: 36 };
     var chartW = W - pad.left - pad.right;
     var chartH = H - pad.top - pad.bottom;
     var scaleX = function(i) { return pad.left + (i / (days.length - 1)) * chartW; };
@@ -444,7 +446,7 @@ const SytamAnalytics = {
     var legend = lines.map(function(line) {
       return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:.7rem;color:var(--tl);margin-right:12px"><span style="display:inline-block;width:10px;height:3px;background:' + line.color + ';border-radius:2px"></span>' + line.label + '</span>';
     }).join('');
-    return '<div><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-height:160px">' + paths + dots + labels + yLabels + '</svg><div style="margin-top:4px;text-align:center">' + legend + '</div></div>';
+    return '<div><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">' + paths + dots + labels + yLabels + '</svg><div style="margin-top:6px;text-align:center">' + legend + '</div></div>';
   },
 
   _renderCustomerTracking() {
@@ -523,9 +525,10 @@ const SytamAnalytics = {
           Object.keys(p.stocks[col]).forEach(function(tail) { stockTotal += parseInt(p.stocks[col][tail] || 0); });
         });
       }
+      var hasRemoveTracking = removes && removes[id];
       return {
         id: id, name: c.name || a.name || r.name || id,
-        clicks: c.count || 0, cart: a.count || 0, remove: r.count || 0,
+        clicks: c.count || 0, cart: a.count || 0, remove: r.count || 0, hasRemoveTracking: hasRemoveTracking,
         img: p && p.images && p.images[0] ? p.images[0] : '',
         colors: p && p.colors ? p.colors : [],
         prix: p ? p.prix : 0, stockTotal: stockTotal,
@@ -538,7 +541,7 @@ const SytamAnalytics = {
       var abandon = item.clicks > 0 ? Math.round((1 - item.cart / item.clicks) * 100) : 0;
       var conversion = item.clicks > 0 ? ((item.cmdCount / item.clicks) * 100).toFixed(1) + '%' : '—';
       var imgHtml = item.img ? '<img src="' + item.img + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">' : '';
-      var stockLabel = item.stockTotal > 0 ? '<span style="color:var(--ok)">' + item.stockTotal + '</span>' : '<span style="color:var(--ko)">Épuisé</span>';
+      var stockLabel = item.stockTotal > 0 ? '<span style="color:var(--ok)">' + item.stockTotal + '</span>' : '<span style="color:var(--er)">Épuisé</span>';
       // Détail par couleur
       var colorRows = '';
       var colNames = Object.keys(item.colorStats);
@@ -563,7 +566,7 @@ const SytamAnalytics = {
         '<td style="padding:6px 8px;font-size:.82rem">' + imgHtml + '<span style="font-weight:600">' + item.name + '</span><br><span style="font-size:.7rem;color:var(--tl)">' + _fmtAnalytics(item.prix) + ' FCFA</span>' + colorRows + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap">' + item.clicks + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap;color:var(--ok)">' + item.cart + '</td>' +
-        '<td style="padding:6px 8px;text-align:center;font-size:.82rem;white-space:nowrap;color:var(--er)">' + (item.remove || '—') + '</td>' +
+        '<td style="padding:6px 8px;text-align:center;font-size:.82rem;white-space:nowrap;color:var(--er)">' + (item.hasRemoveTracking ? item.remove : '—') + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-weight:600;font-size:.82rem;white-space:nowrap;color:var(--gold)">' + conversion + '</td>' +
         '<td style="padding:6px 8px;text-align:center;font-size:.82rem;white-space:nowrap">' + stockLabel + '</td>' +
       '</tr>';
@@ -606,21 +609,31 @@ const SytamAnalytics = {
     if (!dailyStats) return '';
     var days = Object.keys(dailyStats).sort().reverse();
     if (days.length === 0) return '';
+    var orders = this._getOrders();
+    var ordersByDate = {};
+    orders.forEach(function(o) {
+      if (!o.created_at) return;
+      var d = o.created_at.slice(0, 10);
+      if (!ordersByDate[d]) ordersByDate[d] = 0;
+      ordersByDate[d]++;
+    });
     var rows = days.map(function(date) {
       var day = dailyStats[date];
+      var cmdCount = ordersByDate[date] || 0;
       return '<tr>' +
         '<td style="padding:4px 6px;white-space:nowrap;font-weight:500;font-size:.78rem">' + date.slice(5) + '</td>' +
         '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.visits || 0) + '</td>' +
         '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.clicks || 0) + '</td>' +
         '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + (day.addToCart || 0) + '</td>' +
         '<td style="padding:4px 6px;text-align:center;font-size:.72rem;white-space:nowrap;color:var(--er)">' + (day.removeFromCart || 0) + '</td>' +
+        '<td style="padding:4px 6px;text-align:center;font-size:.78rem;white-space:nowrap;font-weight:600;color:var(--ok)">' + cmdCount + '</td>' +
         '<td style="padding:4px 6px;text-align:center;font-size:.72rem;white-space:nowrap;color:var(--tl)">' + (day.timeSeconds ? SytamAnalytics._fmtTime(day.timeSeconds) : '—') + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
       '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Date</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Vues</th>' +
       '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Clics</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Panier+</th>' +
-      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Retiré</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Temps</th>' +
+      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Retiré</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Cmd</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Temps</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   },
 

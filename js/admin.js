@@ -439,6 +439,7 @@
   }
 
   function toggleSidebar() {
+    if (window.innerWidth > 768) return;
     qs('.sidebar').classList.toggle('open');
     var o = qs('.sb-overlay');
     if (o) o.classList.toggle('open');
