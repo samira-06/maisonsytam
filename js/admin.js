@@ -1426,166 +1426,348 @@
       SupabaseAPI.upsert('store_data', { key: 'sytam_product_costs', value: costs }).catch(function(){});
     }
   }
+  function _fmt(n) { return (n || 0).toLocaleString('fr-FR'); }
+
+  function _periodFilter(orders, period, startDate, endDate) {
+    var now = new Date();
+    var filter = period;
+    if (period === '7days') {
+      var d = new Date(now); d.setDate(d.getDate() - 7);
+      return orders.filter(function(o) { return o.created_at && new Date(o.created_at) >= d; });
+    }
+    if (period === 'month') {
+      return orders.filter(function(o) {
+        if (!o.created_at) return false;
+        var d = new Date(o.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+    }
+    if (period === 'year') {
+      return orders.filter(function(o) { return o.created_at && new Date(o.created_at).getFullYear() === now.getFullYear(); });
+    }
+    if (period === 'custom' && startDate && endDate) {
+      var s = new Date(startDate), e = new Date(endDate); e.setHours(23,59,59);
+      return orders.filter(function(o) { var d = new Date(o.created_at); return d >= s && d <= e; });
+    }
+    return orders;
+  }
 
   function loadFinance() {
     var tab = document.getElementById('tab-finance');
     if (!tab) return;
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var allOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var confirmedOrders = allOrders.filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
     var costs = _getCosts();
+    var period = localStorage.getItem('sytam_finance_period') || 'month';
+    var customStart = localStorage.getItem('sytam_finance_start') || '';
+    var customEnd = localStorage.getItem('sytam_finance_end') || '';
+    var filteredOrders = _periodFilter(confirmedOrders, period, customStart, customEnd);
 
-    // Revenus par période
-    var periodFilter = localStorage.getItem('sytam_finance_period') || 'mois';
-    var now = new Date();
-    var periodRevenue = 0, periodOrders = 0, periodCount = 0;
-    var periodLabels = [], periodValues = [];
-    var revenueByPeriod = {};
+    // CA total période
+    var totalCA = filteredOrders.reduce(function(s,o) { return s + (o.total||0); }, 0);
+    var totalCmd = filteredOrders.length;
 
-    orders.filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; }).forEach(function(o) {
-      if (!o.created_at) return;
-      var d = new Date(o.created_at);
-      var key;
-      if (periodFilter === 'annee') {
-        key = d.getFullYear().toString();
-      } else if (periodFilter === 'semaine') {
-        var start = new Date(d);
-        start.setDate(d.getDate() - d.getDay());
-        key = start.toISOString().slice(0, 10);
-      } else {
-        key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-      }
-      if (!revenueByPeriod[key]) revenueByPeriod[key] = { revenue: 0, orders: 0 };
-      revenueByPeriod[key].revenue += (o.total || 0);
-      revenueByPeriod[key].orders++;
+    // Coûts totaux période (basés sur produits vendus dans la période)
+    var totalCouts = 0;
+    var prodPeriodData = {};
+    filteredOrders.forEach(function(o) {
+      if (!o.items) return;
+      o.items.forEach(function(item) {
+        var pid = item.productId || '';
+        if (!pid) {
+          products.forEach(function(p) { if (item.nom === p.nom) pid = p.id; });
+        }
+        if (!pid) return;
+        var q = parseInt(item.qte || item.qty || 1);
+        if (!prodPeriodData[pid]) prodPeriodData[pid] = { qty: 0, rev: 0 };
+        prodPeriodData[pid].qty += q;
+        prodPeriodData[pid].rev += (item.prix||0) * q;
+      });
+    });
+    Object.keys(prodPeriodData).forEach(function(pid) {
+      var c = costs[pid] || {};
+      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      totalCouts += unitCost * prodPeriodData[pid].qty;
     });
 
-    var sortedPeriods = Object.keys(revenueByPeriod).sort();
-    periodLabels = sortedPeriods;
-    periodValues = sortedPeriods.map(function(k) { return revenueByPeriod[k]; });
+    var benefice = totalCA - totalCouts;
+    var beneficeColor = benefice >= 0 ? '#3B6D11' : '#A32D2D';
 
-    if (sortedPeriods.length) {
-      var last = revenueByPeriod[sortedPeriods[sortedPeriods.length - 1]];
-      periodRevenue = last.revenue;
-      periodOrders = last.orders;
+    // Produit le plus rentable
+    var bestMarge = -Infinity, bestProd = null;
+    products.forEach(function(p) {
+      var c = costs[p.id] || {};
+      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      if (unitCost <= 0) return;
+      var m = ((p.prix||0) - unitCost) / (p.prix||1) * 100;
+      if (m > bestMarge) { bestMarge = m; bestProd = p; }
+    });
+    var bestProdHtml = bestProd ? bestProd.nom + ' (' + bestMarge.toFixed(1) + '%)' : '—';
+
+    // Graphique groupé par mois (toujours par mois pour le chart)
+    var chartMonths = {};
+    confirmedOrders.forEach(function(o) {
+      if (!o.created_at) return;
+      var d = new Date(o.created_at);
+      var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      if (!chartMonths[key]) chartMonths[key] = { ca: 0, couts: 0, items: [] };
+      chartMonths[key].ca += (o.total||0);
+      if (o.items) {
+        o.items.forEach(function(item) {
+          chartMonths[key].items.push(item);
+        });
+      }
+    });
+    // Calculer coûts par mois
+    Object.keys(chartMonths).forEach(function(m) {
+      var monthData = chartMonths[m];
+      monthData.items.forEach(function(item) {
+        var pid = item.productId || '';
+        if (!pid) {
+          products.forEach(function(p) { if (item.nom === p.nom) pid = p.id; });
+        }
+        if (!pid) return;
+        var c = costs[pid] || {};
+        var unit = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+        monthData.couts += unit * parseInt(item.qte||item.qty||1);
+      });
+      monthData.benefice = monthData.ca - monthData.couts;
+    });
+    var chartKeys = Object.keys(chartMonths).sort();
+    var maxChartVal = chartKeys.reduce(function(m, k) { return Math.max(m, chartMonths[k].ca, chartMonths[k].couts, chartMonths[k].benefice||0); }, 1);
+    if (maxChartVal < 1000) maxChartVal = 1000;
+    var chartW = 700, chartH = 220, padL = 48, padR = 16, padT = 16, padB = 30;
+    var innerW = chartW - padL - padR, innerH = chartH - padT - padB;
+    var barW = chartKeys.length > 0 ? Math.min(28, (innerW / chartKeys.length - 6) / 3) : 20;
+    var groupW = barW * 3 + 8;
+
+    var chartBars = chartKeys.map(function(k, i) {
+      var d = chartMonths[k];
+      var x0 = padL + i * (groupW + 4) + (innerW - chartKeys.length * (groupW + 4) + 4) / 2;
+      var yCa = padT + innerH - (d.ca / maxChartVal) * innerH;
+      var yCout = padT + innerH - (d.couts / maxChartVal) * innerH;
+      var yBen = d.benefice >= 0 ? padT + innerH - (d.benefice / maxChartVal) * innerH : padT + innerH;
+      var hCa = (d.ca / maxChartVal) * innerH;
+      var hCout = (d.couts / maxChartVal) * innerH;
+      var hBen = d.benefice >= 0 ? (d.benefice / maxChartVal) * innerH : 0;
+      var label = k.slice(5);
+      return '<rect x="' + x0 + '" y="' + yCa + '" width="' + barW + '" height="' + hCa + '" fill="#B8935A" rx="2" ry="2" opacity="0.9"/>' +
+        '<rect x="' + (x0 + barW + 2) + '" y="' + yCout + '" width="' + barW + '" height="' + hCout + '" fill="#D4B896" rx="2" ry="2" opacity="0.9"/>' +
+        '<rect x="' + (x0 + 2*barW + 4) + '" y="' + yBen + '" width="' + barW + '" height="' + (d.benefice >= 0 ? hBen : 0) + '" fill="#3B6D11" rx="2" ry="2" opacity="0.9"/>' +
+        '<text x="' + (x0 + barW*1.5 + 2) + '" y="' + (chartH - 6) + '" text-anchor="middle" font-size="7" fill="var(--tl)">' + label + '</text>';
+    }).join('');
+
+    // Y axis labels
+    var yLabels = '';
+    var steps = Math.ceil(maxChartVal / 4);
+    if (steps < 1) steps = 1;
+    for (var yv = 0; yv <= maxChartVal; yv += steps) {
+      var yy = padT + innerH - (yv / maxChartVal) * innerH;
+      yLabels += '<text x="' + (padL - 4) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="7" fill="var(--tl)">' + _fmt(yv) + '</text>';
+      yLabels += '<line x1="' + padL + '" y1="' + yy + '" x2="' + chartW + '" y2="' + yy + '" stroke="#eee" stroke-width="0.5"/>';
     }
 
-    // Rentabilité par produit
-    var totalRevenue = 0, totalCost = 0;
-    var productRows = products.map(function(p) {
+    // Form coûts par produit (Section 3)
+    var costFormRows = products.map(function(p) {
       var c = costs[p.id] || {};
-      var purchaseCost = c.purchaseCost || 0;
-      var materialCost = c.materialCost || 0;
-      var packagingCost = c.packagingCost || 0;
-      var otherCost = c.otherCost || 0;
-      var totalCostPerUnit = purchaseCost + materialCost + packagingCost + otherCost;
-
-      // Commandes de ce produit
-      var qtySold = 0, revenueGen = 0;
-      orders.forEach(function(o) {
-        if (o.statut !== 'confirmee' && o.statut !== 'livree') return;
-        if (o.items) o.items.forEach(function(item) {
-          if (item.productId === p.id || item.nom === p.nom) {
-            qtySold += parseInt(item.qte || item.qty || 1);
-            revenueGen += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
-          }
-        });
-      });
-
-      var totalProductCost = totalCostPerUnit * qtySold;
-      var marge = revenueGen - totalProductCost;
-      var margePct = revenueGen > 0 ? ((marge / revenueGen) * 100).toFixed(1) : '—';
+      var coutAchat = c.coutAchat || 0;
+      var coutMatieres = c.coutMatieres || 0;
+      var coutPackaging = c.coutPackaging || 0;
+      var coutLivraison = c.coutLivraison || 0;
+      var coutTotal = coutAchat + coutMatieres + coutPackaging + coutLivraison;
       var prixVente = p.prix || 0;
-      var suggestionPrix = totalCostPerUnit > 0 ? Math.round(totalCostPerUnit * 2.5) : 0;
-
-      totalRevenue += revenueGen;
-      totalCost += totalProductCost;
-
-      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px">' : '';
-      return '<tr>' +
-        '<td style="padding:5px 6px;font-size:.78rem;white-space:nowrap">' + img + '<span style="font-weight:500">' + p.nom + '</span></td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap">' + fmt(prixVente) + ' F</td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap"><span contenteditable="true" onblur="SytamAdmin._saveProductCost(\'' + p.id + '\',\'purchaseCost\',this)" style="background:var(--cr);padding:2px 4px;border-radius:3px;min-width:40px;display:inline-block">' + fmt(purchaseCost) + '</span></td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap"><span contenteditable="true" onblur="SytamAdmin._saveProductCost(\'' + p.id + '\',\'materialCost\',this)" style="background:var(--cr);padding:2px 4px;border-radius:3px;min-width:40px;display:inline-block">' + fmt(materialCost) + '</span></td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap"><span contenteditable="true" onblur="SytamAdmin._saveProductCost(\'' + p.id + '\',\'packagingCost\',this)" style="background:var(--cr);padding:2px 4px;border-radius:3px;min-width:40px;display:inline-block">' + fmt(packagingCost) + '</span></td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap;font-weight:600">' + fmt(totalCostPerUnit) + ' F</td>' +
-        '<td style="padding:5px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + qtySold + '</td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap;color:var(--ok);font-weight:600">' + fmt(revenueGen) + ' F</td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap;color:' + (marge >= 0 ? 'var(--ok)' : 'var(--er)') + ';font-weight:700">' + fmt(marge) + ' F</td>' +
-        '<td style="padding:5px 6px;text-align:center;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + (margePct !== '—' && parseFloat(margePct) > 0 ? 'var(--ok)' : 'var(--er)') + '">' + (margePct !== '—' ? margePct + '%' : '—') + '</td>' +
-        '<td style="padding:5px 6px;text-align:right;font-size:.78rem;white-space:nowrap;color:var(--gold);font-weight:600">' + fmt(suggestionPrix) + ' F</td>' +
+      var margeNette = prixVente - coutTotal;
+      var margePct = prixVente > 0 ? ((margeNette / prixVente) * 100) : 0;
+      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:26px;height:26px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
+      return '<tr style="background:#FAF6EF">' +
+        '<td style="padding:4px 5px;font-size:.75rem;white-space:nowrap">' + img + '<span style="font-weight:500">' + p.nom + '</span></td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:#B8935A;font-weight:600">' + _fmt(prixVente) + ' F</td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutAchat" type="number" min="0" value="' + coutAchat + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutMatieres" type="number" min="0" value="' + coutMatieres + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutPackaging" type="number" min="0" value="' + coutPackaging + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutLivraison" type="number" min="0" value="' + coutLivraison + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;font-weight:700;white-space:nowrap">' + _fmt(coutTotal) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + (margeNette >= 0 ? '#3B6D11' : '#A32D2D') + ';font-weight:600">' + _fmt(margeNette) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + (margePct > 0 ? '#3B6D11' : '#A32D2D') + '">' + margePct.toFixed(1) + '%</td>' +
       '</tr>';
     }).join('');
 
-    var margeGlobale = totalRevenue - totalCost;
-    var margeGlobalePct = totalRevenue > 0 ? ((margeGlobale / totalRevenue) * 100).toFixed(1) : '—';
-    var margeColor = margeGlobale >= 0 ? 'var(--ok)' : 'var(--er)';
+    // Prix suggérés (Section 4)
+    var suggestionsHtml = products.map(function(p) {
+      var c = costs[p.id] || {};
+      var coutTotal = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      if (coutTotal <= 0) return '';
+      var minPrix = Math.ceil(coutTotal / 0.80);
+      var recPrix = Math.ceil(coutTotal / 0.60);
+      var premPrix = Math.ceil(coutTotal / 0.40);
+      var currentPrice = p.prix || 0;
+      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:24px;height:24px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
+      return '<div style="background:#FAF6EF;border:1px solid #e8ddce;border-radius:8px;padding:10px;margin-bottom:8px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+          '<span>' + img + '<strong style="font-size:.85rem">' + p.nom + '</strong></span>' +
+          '<span style="font-size:.75rem;color:var(--tl)">Actuel: <strong style="color:#B8935A">' + _fmt(currentPrice) + ' F</strong></span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #A32D2D;border-radius:6px;padding:6px 8px;text-align:center">' +
+            '<div style="font-size:.7rem;color:#A32D2D;font-weight:600">Minimum (20%)</div>' +
+            '<div style="font-size:.9rem;font-weight:700;color:#A32D2D;margin:2px 0">' + _fmt(minPrix) + ' F</div>' +
+            '<div style="font-size:.6rem;color:var(--tl)">Prix plancher, tu couvres juste tes coûts</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:120px;background:#fff;border:2px solid #B8935A;border-radius:6px;padding:6px 8px;text-align:center;position:relative">' +
+            '<span style="position:absolute;top:-8px;right:6px;background:#B8935A;color:#fff;font-size:.55rem;padding:1px 6px;border-radius:4px;font-weight:600">Recommandé</span>' +
+            '<div style="font-size:.7rem;color:#B8935A;font-weight:600">Recommandé (40%)</div>' +
+            '<div style="font-size:.9rem;font-weight:700;color:#B8935A;margin:2px 0">' + _fmt(recPrix) + ' F</div>' +
+            '<div style="font-size:.6rem;color:var(--tl)">Prix optimal pour Maison Sytam</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #3B6D11;border-radius:6px;padding:6px 8px;text-align:center">' +
+            '<div style="font-size:.7rem;color:#3B6D11;font-weight:600">Premium (60%)</div>' +
+            '<div style="font-size:.9rem;font-weight:700;color:#3B6D11;margin:2px 0">' + _fmt(premPrix) + ' F</div>' +
+            '<div style="font-size:.6rem;color:var(--tl)">Positionnement luxe, adapté à Maison Sytam</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).filter(function(s) { return s; }).join('') || '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun coût saisi — remplissez le tableau ci-dessus pour voir les suggestions.</p>';
 
-    // Graphique barres par période
-    var chartSvg = '';
-    if (sortedPeriods.length) {
-      var maxRev = Math.max.apply(null, periodValues.map(function(p) { return p.revenue; }));
-      if (maxRev < 1) maxRev = 1;
-      var barH = 18, gap = 5, padL = 80, padR = 30, W = 600;
-      var totalH = sortedPeriods.length * (barH + gap) + 10;
-      var bars = sortedPeriods.map(function(k, i) {
-        var v = revenueByPeriod[k];
-        var bw = (v.revenue / maxRev) * (W - padL - padR);
-        var y = 10 + i * (barH + gap);
-        var color = 'hsl(' + (140 - i * 8) + ', 40%, 55%)';
-        var label = k;
-        if (periodFilter === 'semaine') label = 'Sem. ' + k.slice(5);
-        return '<rect x="' + padL + '" y="' + y + '" width="' + bw + '" height="' + barH + '" fill="' + color + '" rx="3" ry="3"/>' +
-          '<text x="' + (padL - 4) + '" y="' + (y + barH - 4) + '" text-anchor="end" font-size="9" fill="var(--tl)">' + label + '</text>' +
-          '<text x="' + (padL + bw + 4) + '" y="' + (y + barH - 4) + '" font-size="9" fill="var(--tx)" font-weight="600">' + fmt(v.revenue) + ' F</text>' +
-          '<text x="' + (padL + bw + 4) + '" y="' + (y + barH + 6) + '" font-size="7" fill="var(--tl)">' + v.orders + ' cmd</text>';
-      }).join('');
-      chartSvg = '<svg viewBox="0 0 ' + W + ' ' + totalH + '" style="max-width:100%;height:auto">' + bars + '</svg>';
-    }
+    // Tableau rentabilité (Section 5)
+    var totalVendusAll = 0;
+    var prodFullData = products.map(function(p) {
+      var c = costs[p.id] || {};
+      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      var qtySold = 0, revenueGen = 0;
+      allOrders.forEach(function(o) {
+        if (o.statut !== 'confirmee' && o.statut !== 'livree') return;
+        if (!o.items) return;
+        o.items.forEach(function(item) {
+          if (item.productId === p.id || item.nom === p.nom) {
+            var q = parseInt(item.qte || item.qty || 1);
+            qtySold += q;
+            revenueGen += (item.prix||0) * q;
+          }
+        });
+      });
+      totalVendusAll += qtySold;
+      var totalCout = unitCost * qtySold;
+      var beneficeTotal = revenueGen - totalCout;
+      var margePct = revenueGen > 0 ? (beneficeTotal / revenueGen) * 100 : 0;
+      return { p: p, unitCost: unitCost, qtySold: qtySold, revenueGen: revenueGen, beneficeTotal: beneficeTotal, margePct: margePct };
+    });
+    prodFullData.sort(function(a, b) { return b.beneficeTotal - a.beneficeTotal; });
+    var maxBenef = prodFullData.length ? prodFullData[0].beneficeTotal : 1;
+    var minBenef = prodFullData.length ? prodFullData[prodFullData.length-1].beneficeTotal : 0;
+
+    var rentRows = prodFullData.map(function(d, i) {
+      var p = d.p;
+      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:26px;height:26px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
+      var barPct = maxBenef > 0 ? Math.max(0, (d.beneficeTotal / maxBenef) * 100) : 0;
+      var statut, statBg, statColor;
+      if (d.qtySold === 0) { statut = 'Faible vente'; statBg = '#fce4e4'; statColor = '#A32D2D'; }
+      else if (d.beneficeTotal >= maxBenef * 0.8) { statut = 'Top vente'; statBg = '#e4f0da'; statColor = '#3B6D11'; }
+      else { statut = 'Moyen'; statBg = '#fdf0d8'; statColor = '#854F0B'; }
+
+      var margeColor = d.margePct > 30 ? '#3B6D11' : (d.margePct > 0 ? '#854F0B' : '#A32D2D');
+      return '<tr>' +
+        '<td style="padding:4px 5px;font-size:.7rem;color:var(--tl);white-space:nowrap">#' + (i+1) + '</td>' +
+        '<td style="padding:4px 5px;font-size:.75rem;white-space:nowrap">' + img + '<span style="font-weight:500">' + p.nom + '</span></td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:#B8935A;font-weight:600">' + _fmt(p.prix||0) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap">' + _fmt(d.unitCost) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + margeColor + ';font-weight:600">' + _fmt((p.prix||0) - d.unitCost) + ' F</td>' +
+        '<td style="padding:4px 5px;min-width:100px">' +
+          '<div style="display:flex;align-items:center;gap:4px">' +
+            '<div style="flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden">' +
+              '<div style="height:6px;width:' + Math.min(100, d.margePct) + '%;background:' + margeColor + ';border-radius:3px"></div>' +
+            '</div>' +
+            '<span style="font-size:.68rem;font-weight:600;color:' + margeColor + ';white-space:nowrap">' + d.margePct.toFixed(1) + '%</span>' +
+          '</div>' +
+        '</td>' +
+        '<td style="padding:4px 5px;text-align:center;font-size:.75rem;white-space:nowrap">' + d.qtySold + '</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:#B8935A;font-weight:600">' + _fmt(d.revenueGen) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;font-weight:700;color:' + (d.beneficeTotal >= 0 ? '#3B6D11' : '#A32D2D') + '">' + _fmt(d.beneficeTotal) + ' F</td>' +
+        '<td style="padding:4px 5px;text-align:center;white-space:nowrap"><span style="font-size:.62rem;font-weight:600;padding:2px 8px;border-radius:10px;background:' + statBg + ';color:' + statColor + '">' + statut + '</span></td>' +
+      '</tr>';
+    }).join('');
 
     tab.innerHTML =
+      // TOPBAR
       '<div class="topbar">' +
         '<div style="display:flex;align-items:center;gap:.5rem;">' +
           '<div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div>' +
           '<div><h1>Finance &amp; Rentabilité</h1><p>Gestion des coûts, marges et suggestions de prix</p></div>' +
         '</div>' +
-        '<div class="topbar-right">' +
-          '<select class="form-input" style="width:auto;padding:.4rem .6rem;font-size:.78rem" onchange="SytamAdmin._setFinancePeriod(this.value)">' +
-            '<option value="mois"' + (periodFilter === 'mois' ? ' selected' : '') + '>Par mois</option>' +
-            '<option value="semaine"' + (periodFilter === 'semaine' ? ' selected' : '') + '>Par semaine</option>' +
-            '<option value="annee"' + (periodFilter === 'annee' ? ' selected' : '') + '>Par année</option>' +
+        '<div class="topbar-right" style="display:flex;align-items:center;gap:6px">' +
+          '<select class="form-input" style="width:auto;padding:.35rem .5rem;font-size:.75rem" onchange="SytamAdmin._setFinancePeriod(this.value)">' +
+            '<option value="7days"' + (period === '7days' ? ' selected' : '') + '>7 jours</option>' +
+            '<option value="month"' + (period === 'month' ? ' selected' : '') + '>Ce mois</option>' +
+            '<option value="year"' + (period === 'year' ? ' selected' : '') + '>Cette année</option>' +
+            '<option value="custom"' + (period === 'custom' ? ' selected' : '') + '>Personnalisé</option>' +
           '</select>' +
+          (period === 'custom' ? '<input type="date" class="form-input" style="width:auto;padding:.35rem .5rem;font-size:.75rem" value="' + customStart + '" onchange="SytamAdmin._setFinanceCustom()" id="fi-start">' : '') +
+          (period === 'custom' ? '<span style="font-size:.75rem;color:var(--tl)">→</span>' : '') +
+          (period === 'custom' ? '<input type="date" class="form-input" style="width:auto;padding:.35rem .5rem;font-size:.75rem" value="' + customEnd + '" onchange="SytamAdmin._setFinanceCustom()" id="fi-end">' : '') +
         '</div>' +
       '</div>' +
-      // KPIs
+      // SECTION 1 — KPIs
       '<div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">' +
-        '<div class="stat-card"><div class="stat-val" style="color:var(--ok)">' + fmt(totalRevenue) + ' F</div><div class="stat-lbl">Revenu total (commandes)</div></div>' +
-        '<div class="stat-card"><div class="stat-val" style="color:var(--er)">' + fmt(totalCost) + ' F</div><div class="stat-lbl">Coût total (fabrication)</div></div>' +
-        '<div class="stat-card"><div class="stat-val" style="color:' + margeColor + ';font-weight:700">' + fmt(margeGlobale) + ' F</div><div class="stat-lbl">Marge brute globale</div></div>' +
-        '<div class="stat-card"><div class="stat-val" style="color:' + margeColor + '">' + margeGlobalePct + '%</div><div class="stat-lbl">Taux de marge</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:#B8935A">' + _fmt(totalCA) + ' F</div><div class="stat-lbl">Chiffre d\'affaires</div><div class="stat-sub">' + totalCmd + ' commandes</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:#A32D2D">' + _fmt(totalCouts) + ' F</div><div class="stat-lbl">Total coûts</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:' + beneficeColor + ';font-weight:700">' + _fmt(benefice) + ' F</div><div class="stat-lbl">Bénéfice net</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:#3B6D11;font-size:.85rem">' + bestProdHtml + '</div><div class="stat-lbl">Produit le plus rentable</div></div>' +
       '</div>' +
-      // Graphique revenus par période
+      // SECTION 2 — Graphique groupé CA / Coûts / Bénéfice
       '<div class="card">' +
-        '<div class="card-title">Évolution du chiffre d\'affaires <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(' + (periodFilter === 'annee' ? 'par année' : periodFilter === 'semaine' ? 'par semaine' : 'par mois') + ')</span></div>' +
-        (chartSvg || '<p style="color:var(--tl);padding:20px 0;text-align:center">Aucune donnée de vente</p>') +
+        '<div class="card-title">Évolution mensuelle <span style="font-weight:400;font-size:.75rem;color:var(--tl)">CA / Coûts / Bénéfice</span></div>' +
+        '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">' +
+          '<svg viewBox="0 0 ' + chartW + ' ' + chartH + '" style="max-width:100%;height:auto;flex-shrink:0">' + yLabels + chartBars + '</svg>' +
+          '<div style="font-size:.72rem;color:var(--tl);padding-top:4px">' +
+            '<div style="font-weight:600;margin-bottom:4px">Légende</div>' +
+            '<div><span style="display:inline-block;width:12px;height:12px;background:#B8935A;border-radius:2px;vertical-align:middle;margin-right:4px"></span> CA</div>' +
+            '<div><span style="display:inline-block;width:12px;height:12px;background:#D4B896;border-radius:2px;vertical-align:middle;margin-right:4px"></span> Coûts</div>' +
+            '<div><span style="display:inline-block;width:12px;height:12px;background:#3B6D11;border-radius:2px;vertical-align:middle;margin-right:4px"></span> Bénéfice</div>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
-      // Tableau des coûts par produit
+      // SECTION 3 — Formulaire coûts par produit
       '<div class="card">' +
-        '<div class="card-title">Coûts par produit <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(cliquez sur une case pour modifier)</span></div>' +
-        '<div class="tbl-wrap"><table style="font-size:.78rem">' +
+        '<div class="card-title">Saisie des coûts par produit</div>' +
+        '<div class="tbl-wrap"><table style="font-size:.75rem">' +
           '<thead><tr>' +
-            '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Produit</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Prix vente</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Achat</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Matières</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Packaging</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Coût unit.</th>' +
-            '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Vendus</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Revenu</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Marge</th>' +
-            '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Taux</th>' +
-            '<th style="text-align:right;padding:4px 6px;font-size:.6rem">Prix suggéré</th>' +
-          '</tr></thead><tbody>' + (productRows || '<tr><td colspan="11" class="empty-row">Aucun produit</td></tr>') + '</tbody></table></div>' +
-        '<p style="font-size:.7rem;color:var(--tl);margin:8px 0 0;padding:0">Le <strong>prix suggéré</strong> = coût unitaire × 2.5 (marge de 60%). Ajustez les coûts pour recalculer automatiquement.</p>' +
+            '<th style="text-align:left;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Produit</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Prix vente</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Achat</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Matières</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Packaging</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Livraison</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Coût total</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Marge</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">%</th>' +
+          '</tr></thead><tbody>' + (costFormRows || '<tr><td colspan="9" class="empty-row">Aucun produit</td></tr>') + '</tbody></table></div>' +
+        '<div style="display:flex;gap:8px;margin-top:10px;align-items:center">' +
+          '<button class="btn-add" onclick="SytamAdmin._saveFinanceCosts()" style="font-size:.78rem">💾 Sauvegarder tous les coûts</button>' +
+          '<span id="fi-save-msg" style="font-size:.75rem;color:#3B6D11"></span>' +
+        '</div>' +
+      '</div>' +
+      // SECTION 4 — Suggestions de prix
+      '<div class="card">' +
+        '<div class="card-title">Suggestions de prix de vente</div>' +
+        '<p style="font-size:.72rem;color:var(--tl);margin:0 0 8px;padding:0">Basé sur le coût total unitaire de chaque produit. Trois niveaux de marge :</p>' +
+        suggestionsHtml +
+      '</div>' +
+      // SECTION 5 — Tableau rentabilité
+      '<div class="card">' +
+        '<div class="card-title">Rentabilité par produit <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(trié par bénéfice total)</span></div>' +
+        '<div class="tbl-wrap"><table style="font-size:.75rem">' +
+          '<thead><tr>' +
+            '<th style="width:24px;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">#</th>' +
+            '<th style="text-align:left;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Produit</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Prix vente</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Coût unit.</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Marge unit.</th>' +
+            '<th style="text-align:left;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">% Marge</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Vendus</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">CA généré</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Bénéfice total</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Statut</th>' +
+          '</tr></thead><tbody>' + (rentRows || '<tr><td colspan="10" class="empty-row">Aucun produit</td></tr>') + '</tbody></table></div>' +
       '</div>';
   }
 
@@ -1593,14 +1775,26 @@
     localStorage.setItem('sytam_finance_period', period);
     loadFinance();
   }
-
-  function _saveProductCost(productId, field, el) {
-    var val = parseInt(el.textContent.replace(/\s/g, '').replace(/F$/, '')) || 0;
-    el.textContent = val.toLocaleString('fr-FR');
+  function _setFinanceCustom() {
+    var s = document.getElementById('fi-start');
+    var e = document.getElementById('fi-end');
+    if (s && s.value) localStorage.setItem('sytam_finance_start', s.value);
+    if (e && e.value) localStorage.setItem('sytam_finance_end', e.value);
+    loadFinance();
+  }
+  function _saveFinanceCosts() {
+    var inputs = document.querySelectorAll('.fi-cost-input');
     var costs = _getCosts();
-    if (!costs[productId]) costs[productId] = {};
-    costs[productId][field] = val;
+    inputs.forEach(function(inp) {
+      var pid = inp.dataset.pid;
+      var field = inp.dataset.field;
+      var val = parseInt(inp.value) || 0;
+      if (!costs[pid]) costs[pid] = {};
+      costs[pid][field] = val;
+    });
     _saveCosts(costs);
+    var msg = document.getElementById('fi-save-msg');
+    if (msg) { msg.textContent = '✓ Coûts sauvegardés !'; setTimeout(function() { msg.textContent = ''; }, 3000); }
   }
 
   function syncAnalytics() {
@@ -1632,7 +1826,7 @@
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
     loadAnalytics, syncAnalytics, loadFinance,
-    _setFinancePeriod, _saveProductCost, _getCosts,
+    _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _getCosts,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);
