@@ -656,9 +656,9 @@
     var discount = _appliedPromo ? Math.round(subtotal * _appliedPromo.reduction / 100) : 0;
     var total = Math.max(0, subtotal - discount) + delivery;
     el.innerHTML =
-      '<div style="border-top:1px solid var(--bd);padding-top:12px;margin-bottom:8px">' +
+      '<div style="border-top:1px solid var(--bd);padding-top:8px;margin-bottom:6px;max-height:160px;overflow-y:auto;scrollbar-width:thin">' +
         items.map(function(i) {
-          return '<div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px"><span>' + i.productName + (i.variantLabel ? ' (' + i.variantLabel + ')' : '') + ' x' + i.qty + '</span><span>' + fmt(i.price * i.qty) + ' FCFA</span></div>';
+          return '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px"><span>' + i.productName + (i.variantLabel ? ' (' + i.variantLabel + ')' : '') + ' x' + i.qty + '</span><span>' + fmt(i.price * i.qty) + ' FCFA</span></div>';
         }).join('') +
       '</div>' +
       '<div class="cart-summary-row"><span>Sous-total</span><span>' + fmt(subtotal) + ' FCFA</span></div>' +
