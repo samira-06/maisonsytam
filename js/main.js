@@ -229,6 +229,7 @@
 
   // ---- MODALE PRODUIT ----
   function quickView(id) {
+    document.body.classList.remove('menu-open');
     state.selectedProduct = DB.getById(id);
     if (!state.selectedProduct) return;
     if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackProductClick(id, state.selectedProduct.nom, state.selectedVariant ? state.selectedVariant.name : '');
@@ -895,6 +896,13 @@
       }
     });
     window.addEventListener('hashchange', () => navigate(window.location.hash.slice(1) || 'home'));
+    var _scrollTimer;
+    window.addEventListener('scroll', function() {
+      if (document.body.classList.contains('menu-open')) {
+        clearTimeout(_scrollTimer);
+        _scrollTimer = setTimeout(function() { document.body.classList.remove('menu-open'); }, 150);
+      }
+    }, { passive: true });
   }
 
   // ---- HERO SLIDER ----
