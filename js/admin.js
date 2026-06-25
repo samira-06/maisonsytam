@@ -20,7 +20,6 @@
     $('adminDate').textContent = 'Bienvenue ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' });
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     loadNtfyTopic();
-    loadSettings();
     DB.onReady(function() {
       syncAllFromSupabase(function() {
         DB.reloadFromLocal();
@@ -340,39 +339,9 @@
   }
 
   function saveSettings() {
-    var data = {
-      id: 'default',
-      name: ($('shop-name') && $('shop-name').value) || 'Maison SYTAM',
-      email: ($('shop-email') && $('shop-email').value) || 'contact@maisonsytam.com',
-      phone: ($('shop-phone') && $('shop-phone').value) || '+221 77 478 98 75',
-    };
-    localStorage.setItem('sytam_admin_settings', JSON.stringify(data));
-    SupabaseAPI.upsert('admin_settings', data)
+    SupabaseAPI.upsert('admin_settings', { id: 'default', phone: ($('shop-phone') && $('shop-phone').value) || '+221 77 478 98 75' })
       .then(function() { showToast('✓ Paramètres sauvegardés' + (SupabaseApp.ready ? ' sur Supabase' : ' (local)')); })
       .catch(function() { showToast('Erreur', 'Impossible de sauvegarder'); });
-  }
-  function loadSettings() {
-    var local = localStorage.getItem('sytam_admin_settings');
-    if (local) {
-      try {
-        var d = JSON.parse(local);
-        if (d.name && $('shop-name')) $('shop-name').value = d.name;
-        if (d.email && $('shop-email')) $('shop-email').value = d.email;
-        if (d.phone && $('shop-phone')) $('shop-phone').value = d.phone;
-      } catch(e) {}
-    }
-    // Charger depuis Supabase pour avoir la dernière version
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.get('admin_settings?id=eq.default').then(function(r) {
-        if (r && r.length && r[0]) {
-          var d = r[0];
-          if (d.name && $('shop-name')) $('shop-name').value = d.name;
-          if (d.email && $('shop-email')) $('shop-email').value = d.email;
-          if (d.phone && $('shop-phone')) $('shop-phone').value = d.phone;
-          localStorage.setItem('sytam_admin_settings', JSON.stringify(d));
-        }
-      }).catch(function() {});
-    }
   }
 
   function saveNtfyTopic() {
