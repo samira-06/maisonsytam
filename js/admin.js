@@ -1184,8 +1184,6 @@
           return '<tr><td><strong>' + r.code + '</strong></td><td>-' + r.reduction + '%</td><td>' + (r.used || 0) + ' utilisations</td><td><button class="btn-del btn-sm" onclick="SytamAdmin.deleteReferral(\'' + r.id + '\')">✕</button></td></tr>';
         }).join('')
       : '<tr><td colspan="4" class="empty-row">Aucun code créé.</td></tr>';
-    // Also render flash list if visible
-    renderFlashList();
   }
 
   function openReferralModal() {
@@ -1433,7 +1431,7 @@
     var tab = document.getElementById('tab-finance');
     if (!tab) return;
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    var products = DB.list();
+    var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
     var costs = _getCosts();
 
     // Revenus par période

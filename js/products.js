@@ -337,6 +337,7 @@ const DB = {
   },
 
   getAll() { return this._data ? [...this._data] : []; },
+  list() { return this.getAll(); },
   getById(id) { return this._data ? this._data.find(function(p) { return p.id === id; }) : null; },
   getByCategory(cat) { return this._data ? this._data.filter(function(p) { return p.categorie === cat; }) : []; },
   getFeatured() { return this._data ? this._data.filter(function(p) { return (p.tag === 'nouveau') || p.en_avant; }) : []; },
