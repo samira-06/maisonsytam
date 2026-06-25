@@ -1583,13 +1583,13 @@
       return '<tr style="background:#FAF6EF">' +
         '<td style="padding:4px 5px;font-size:.75rem;white-space:nowrap">' + img + '<span style="font-weight:500">' + p.nom + '</span></td>' +
         '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:#B8935A;font-weight:600">' + _fmt(prixVente) + ' F</td>' +
-        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutAchat" type="number" min="0" value="' + coutAchat + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
-        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutMatieres" type="number" min="0" value="' + coutMatieres + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
-        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutPackaging" type="number" min="0" value="' + coutPackaging + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
-        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutLivraison" type="number" min="0" value="' + coutLivraison + '" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
-        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;font-weight:700;white-space:nowrap">' + _fmt(coutTotal) + ' F</td>' +
-        '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + (margeNette >= 0 ? '#3B6D11' : '#A32D2D') + ';font-weight:600">' + _fmt(margeNette) + ' F</td>' +
-        '<td style="padding:4px 5px;text-align:right;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + (margePct > 0 ? '#3B6D11' : '#A32D2D') + '">' + margePct.toFixed(1) + '%</td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutAchat" type="number" min="0" value="' + coutAchat + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutMatieres" type="number" min="0" value="' + coutMatieres + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutPackaging" type="number" min="0" value="' + coutPackaging + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutLivraison" type="number" min="0" value="' + coutLivraison + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
+        '<td class="fi-total" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.75rem;font-weight:700;white-space:nowrap">' + _fmt(coutTotal) + ' F</td>' +
+        '<td class="fi-marge" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + (margeNette >= 0 ? '#3B6D11' : '#A32D2D') + ';font-weight:600">' + _fmt(margeNette) + ' F</td>' +
+        '<td class="fi-pct" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + (margePct > 0 ? '#3B6D11' : '#A32D2D') + '">' + margePct.toFixed(1) + '%</td>' +
       '</tr>';
     }).join('');
 
@@ -1782,6 +1782,26 @@
     if (e && e.value) localStorage.setItem('sytam_finance_end', e.value);
     loadFinance();
   }
+  function _updateFinanceRow(inp) {
+    var tr = inp.closest('tr');
+    if (!tr) return;
+    var pid = inp.dataset.pid;
+    var inputs = tr.querySelectorAll('.fi-cost-input');
+    var total = 0;
+    inputs.forEach(function(i) { total += parseInt(i.value) || 0; });
+    var prixVente = 0;
+    var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
+    products.forEach(function(p) { if (p.id === pid) prixVente = p.prix || 0; });
+    var margeNette = prixVente - total;
+    var margePct = prixVente > 0 ? (margeNette / prixVente) * 100 : 0;
+    var totalEl = tr.querySelector('.fi-total');
+    var margeEl = tr.querySelector('.fi-marge');
+    var pctEl = tr.querySelector('.fi-pct');
+    if (totalEl) { totalEl.textContent = _fmt(total) + ' F'; }
+    if (margeEl) { margeEl.textContent = _fmt(margeNette) + ' F'; margeEl.style.color = margeNette >= 0 ? '#3B6D11' : '#A32D2D'; }
+    if (pctEl) { pctEl.textContent = margePct.toFixed(1) + '%'; pctEl.style.color = margePct > 0 ? '#3B6D11' : '#A32D2D'; }
+  }
+
   function _saveFinanceCosts() {
     var inputs = document.querySelectorAll('.fi-cost-input');
     var costs = _getCosts();
@@ -1793,8 +1813,7 @@
       costs[pid][field] = val;
     });
     _saveCosts(costs);
-    var msg = document.getElementById('fi-save-msg');
-    if (msg) { msg.textContent = '✓ Coûts sauvegardés !'; setTimeout(function() { msg.textContent = ''; }, 3000); }
+    loadFinance();
   }
 
   function syncAnalytics() {
@@ -1826,7 +1845,7 @@
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
     loadAnalytics, syncAnalytics, loadFinance,
-    _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _getCosts,
+    _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);
