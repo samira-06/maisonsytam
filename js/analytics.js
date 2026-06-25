@@ -464,18 +464,23 @@ const SytamAnalytics = {
         '<div class="card-title">Détails par produit</div>' +
         '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
       '</div>' +
-      // SECTION 5 — Comportement session
+      // SECTION 5 — Quartiers les plus livrés
+      '<div class="card">' +
+        '<div class="card-title">Quartiers les plus livrés <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes confirmées)</span></div>' +
+        '<div id="analyticsQuartiers">' + this._renderQuartierChart() + '</div>' +
+      '</div>' +
+      // SECTION 6 — Comportement session
       '<div class="card">' +
         '<div class="card-title">Comportement client (par session) <span style="font-weight:400;font-size:.75rem;color:var(--tl)">50 dernières sessions</span></div>' +
         '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">La durée est calculée entre le 1er et le dernier clic de chaque session. Les sessions &gt;4h sont notées <span style="color:var(--er)">(plusieurs visites)</span> — le visiteur est revenu sans recharger la page.</p>' +
         '<div id="analyticsSessions">' + this._renderSessionBehavior() + '</div>' +
       '</div>' +
-      // SECTION 6 — Suivi clients
+      // SECTION 7 — Suivi clients
       '<div class="card">' +
         '<div class="card-title">Suivi clients</div>' +
         '<div id="analyticsCustomers">' + this._renderCustomerTracking() + '</div>' +
       '</div>' +
-      // SECTION 7 — Journal temps réel
+      // SECTION 8 — Journal temps réel
       '<div class="card">' +
         '<div class="card-title">Journal d\'activité <span style="font-size:.6rem;background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;vertical-align:middle;animation:pulse 1.5s infinite">EN DIRECT</span></div>' +
         '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">Les actions des visiteurs (clics, ajouts au panier, commandes) apparaissent ici automatiquement, sans recharger la page.</p>' +
@@ -722,6 +727,55 @@ const SytamAnalytics = {
       '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Ajoutés</th><th style="text-align:left;padding:4px 6px;font-size:.6rem">Retirés</th>' +
       '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Résultat</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  },
+
+  _renderQuartierChart() {
+    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande confirmée</p>';
+    var counts = {};
+    var quartierNotFound = 0;
+    orders.forEach(function(o) {
+      var q = '';
+      if (o.quartier) {
+        q = o.quartier;
+      } else if (o.adresse) {
+        var addr = o.adresse.split(',')[0].trim();
+        q = addr;
+      }
+      if (q) {
+        if (!counts[q]) counts[q] = 0;
+        counts[q]++;
+      } else {
+        quartierNotFound++;
+      }
+    });
+    var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+    if (!sorted.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun quartier trouvé</p>';
+    var top = sorted.slice(0, 12);
+    var maxVal = counts[top[0]] || 1;
+    var barH = 20, gap = 6, padLeft = 140, padRight = 40, charW = 600;
+    var totalH = top.length * (barH + gap) + 10;
+    var bars = top.map(function(q, i) {
+      var v = counts[q];
+      var pct = (v / maxVal) * 100;
+      var barW = (v / maxVal) * (charW - padLeft - padRight);
+      var y = 10 + i * (barH + gap);
+      var color = 'hsl(' + (220 - i * 12) + ', 45%, 55%)';
+      return '<rect x="' + padLeft + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3" ry="3"/>' +
+        '<text x="' + (padLeft - 6) + '" y="' + (y + barH - 4) + '" text-anchor="end" font-size="10" fill="var(--tl)">' + q + '</text>' +
+        '<text x="' + (padLeft + barW + 4) + '" y="' + (y + barH - 4) + '" font-size="10" fill="var(--tx)" font-weight="600">' + v + '</text>';
+    }).join('');
+    var svgH = totalH;
+    var html =
+      '<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">' +
+        '<svg viewBox="0 0 ' + charW + ' ' + svgH + '" style="max-width:100%;height:auto;flex-shrink:0">' + bars + '</svg>' +
+        '<div style="font-size:.72rem;color:var(--tl);padding-top:4px;flex-shrink:0">' +
+          '<div style="font-weight:600;margin-bottom:4px;color:var(--tx)">Légende</div>' +
+          '<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:hsl(220,45%,55%);vertical-align:middle;margin-right:4px"></span> Nombre de commandes par quartier</div>' +
+          (quartierNotFound > 0 ? '<div style="margin-top:4px;color:var(--er)">⚠️ ' + quartierNotFound + ' commande(s) sans quartier (anciennes)</div>' : '') +
+        '</div>' +
+      '</div>';
+    return html;
   },
 
   _renderCustomerTracking() {

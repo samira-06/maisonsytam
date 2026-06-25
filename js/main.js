@@ -686,6 +686,43 @@
     for (var i = 0; i < refs.length; i++) {
       if (refs[i].code === code) { found = refs[i]; break; }
     }
+    if (!found && typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.get('store_data?key=eq.sytam_referrals&select=value').then(function(result) {
+        try {
+          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+            var remoteRefs = result[0].value;
+            var merged = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
+            var seen = {};
+            remoteRefs.forEach(function(r) { if (r && r.id) seen[r.id] = r; });
+            merged.forEach(function(r) { if (r && r.id && !seen[r.id]) seen[r.id] = r; });
+            var all = Object.values(seen);
+            localStorage.setItem('sytam_referrals', JSON.stringify(all));
+            for (var j = 0; j < all.length; j++) {
+              if (all[j].code === code) { found = all[j]; break; }
+            }
+            if (found) {
+              _appliedPromo = found;
+              msg.textContent = '✓ Code ' + code + ' : -' + found.reduction + '%';
+              msg.style.color = 'var(--ok)';
+              renderCheckoutSummary();
+            } else {
+              msg.textContent = 'Code de parrainage invalide';
+              msg.style.color = 'var(--er)';
+            }
+          } else {
+            msg.textContent = 'Code de parrainage invalide';
+            msg.style.color = 'var(--er)';
+          }
+        } catch(e) {
+          msg.textContent = 'Code de parrainage invalide';
+          msg.style.color = 'var(--er)';
+        }
+      }).catch(function() {
+        msg.textContent = 'Code de parrainage invalide';
+        msg.style.color = 'var(--er)';
+      });
+      return;
+    }
     if (!found) { msg.textContent = 'Code de parrainage invalide'; msg.style.color = 'var(--er)'; return; }
     _appliedPromo = found;
     msg.textContent = '✓ Code ' + code + ' : -' + found.reduction + '%';
@@ -725,11 +762,14 @@
 
       var total = Math.max(0, subtotal - discount) + delivery;
 
+      var quartier = formData.region === 'Dakar' ? formData.address : '';
       var order = {
         id: 'CMD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase(),
         client: formData.name,
         telephone: formData.phone,
         adresse: formData.address + (formData.address_detail ? ', ' + formData.address_detail : '') + (formData.region ? ' (' + formData.region + ')' : ''),
+        quartier: quartier,
+        region: formData.region || '',
         zone_livraison: _neighborhoodZone(),
         frais_livraison: delivery,
         mode_paiement: formData.payment,
