@@ -1597,12 +1597,20 @@
     var suggestionsHtml = products.map(function(p) {
       var c = costs[p.id] || {};
       var coutTotal = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
-      if (coutTotal <= 0) return '';
+      var currentPrice = p.prix || 0;
+      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:24px;height:24px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
+      if (coutTotal <= 0) {
+        return '<div style="background:#FAF6EF;border:1px dashed #d4c9b8;border-radius:8px;padding:10px;margin-bottom:8px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<span>' + img + '<strong style="font-size:.85rem">' + p.nom + '</strong></span>' +
+            '<span style="font-size:.72rem;color:var(--tl)">Actuel: <strong style="color:#B8935A">' + _fmt(currentPrice) + ' F</strong></span>' +
+          '</div>' +
+          '<p style="font-size:.72rem;color:var(--tl);margin:6px 0 0;padding:0">Saisissez les coûts ci-dessus pour voir les suggestions de prix.</p>' +
+        '</div>';
+      }
       var minPrix = Math.ceil(coutTotal / 0.80);
       var recPrix = Math.ceil(coutTotal / 0.60);
       var premPrix = Math.ceil(coutTotal / 0.40);
-      var currentPrice = p.prix || 0;
-      var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:24px;height:24px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
       return '<div style="background:#FAF6EF;border:1px solid #e8ddce;border-radius:8px;padding:10px;margin-bottom:8px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
           '<span>' + img + '<strong style="font-size:.85rem">' + p.nom + '</strong></span>' +
@@ -1627,7 +1635,7 @@
           '</div>' +
         '</div>' +
       '</div>';
-    }).filter(function(s) { return s; }).join('') || '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun coût saisi — remplissez le tableau ci-dessus pour voir les suggestions.</p>';
+    }).join('');
 
     // Tableau rentabilité (Section 5)
     var totalVendusAll = 0;
