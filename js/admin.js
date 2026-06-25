@@ -1208,6 +1208,9 @@
     var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
     refs.push({ id: Date.now().toString(36), code: code, reduction: reduction, used: 0, actif: actif });
     localStorage.setItem('sytam_referrals', JSON.stringify(refs));
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.upsert('store_data', { key: 'sytam_referrals', value: refs }).catch(function(){});
+    }
     closeModal();
     loadReferrals();
     showToast('✓ Code ' + code + ' créé');
@@ -1217,6 +1220,9 @@
     var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
     refs = refs.filter(function(r) { return r.id !== id; });
     localStorage.setItem('sytam_referrals', JSON.stringify(refs));
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+      SupabaseAPI.upsert('store_data', { key: 'sytam_referrals', value: refs }).catch(function(){});
+    }
     loadReferrals();
   }
 
@@ -1226,28 +1232,6 @@
   function _rebuildLoyaltyFromOrders(loyalty) {
     try {
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-      var changed = false;
-      orders.forEach(function(o) {
-        if (o.statut === 'confirmee' || o.statut === 'livree') {
-          var phone = o.telephone || o.client_phone || '';
-          if (phone) {
-            var clean = phone.replace(/[^0-9+]/g, '');
-            if (clean) {
-              if (!loyalty[clean]) { loyalty[clean] = { orders: 0, total: 0 }; }
-              var found = false;
-              if (loyalty[clean]._orders && Array.isArray(loyalty[clean]._orders)) {
-                found = loyalty[clean]._orders.indexOf(o.id) !== -1;
-              }
-              if (!found) {
-                loyalty[clean].orders = Math.max(loyalty[clean].orders || 0, 1);
-                // compter vraiment : on parcourt toutes les commandes
-                changed = true;
-              }
-            }
-          }
-        }
-      });
-      // Recompter proprement depuis zéro
       var recount = {};
       orders.forEach(function(o) {
         if (o.statut === 'confirmee' || o.statut === 'livree') {
@@ -1261,6 +1245,12 @@
             }
           }
         }
+      });
+      // Nettoyer les entrées qui n'ont plus de commandes
+      var changed = false;
+      Object.keys(loyalty).forEach(function(p) {
+        if (p === '_orders') return;
+        if (!recount[p]) { delete loyalty[p]; changed = true; }
       });
       Object.keys(recount).forEach(function(p) {
         if (!loyalty[p] || loyalty[p].orders !== recount[p].orders || loyalty[p].total !== recount[p].total) {

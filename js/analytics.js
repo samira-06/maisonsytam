@@ -8,6 +8,7 @@ const SytamAnalytics = {
   _sessionId: null,
   _sessionStart: null,
   _timer: null,
+  _logTimer: null,
 
   init() {
     this._sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -180,6 +181,22 @@ const SytamAnalytics = {
         }
       }
     }, 30000);
+  },
+
+  _startLogTimer() {
+    if (this._logTimer) clearInterval(this._logTimer);
+    this._logTimer = setInterval(function() {
+      var el = document.getElementById('analyticsEventLog');
+      if (el) {
+        el.innerHTML = SytamAnalytics._renderEventLog();
+      } else {
+        clearInterval(SytamAnalytics._logTimer);
+        SytamAnalytics._logTimer = null;
+      }
+    }, 3000);
+  },
+  _stopLogTimer() {
+    if (this._logTimer) { clearInterval(this._logTimer); this._logTimer = null; }
   },
 
   _bindEvents() {
@@ -372,6 +389,11 @@ const SytamAnalytics = {
     result.forEach(function(s) {
       var diff = new Date(s.end) - new Date(s.start);
       s.duration = Math.round(diff / 1000);
+      // Limiter les sessions aberrantes (> 4h) — probablement un visiteur revenu sans recharger la page
+      if (s.duration > 14400) {
+        s.duration = 14400;
+        s.durationNote = '≥4h (plusieurs visites)';
+      }
       if (s.hasOrder) s.result = 'Commande confirmée';
       else if (s.hasCheckout) s.result = 'Abandon';
       else s.result = 'Navigation seule';
@@ -381,6 +403,7 @@ const SytamAnalytics = {
   },
 
   renderAdminAnalytics() {
+    this._stopLogTimer();
     var tab = document.getElementById('tab-analytics');
     if (!tab || !this._agg) return;
     var d = this._agg;
@@ -444,6 +467,7 @@ const SytamAnalytics = {
       // SECTION 5 — Comportement session
       '<div class="card">' +
         '<div class="card-title">Comportement client (par session) <span style="font-weight:400;font-size:.75rem;color:var(--tl)">50 dernières sessions</span></div>' +
+        '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">La durée est calculée entre le 1er et le dernier clic de chaque session. Les sessions &gt;4h sont notées <span style="color:var(--er)">(plusieurs visites)</span> — le visiteur est revenu sans recharger la page.</p>' +
         '<div id="analyticsSessions">' + this._renderSessionBehavior() + '</div>' +
       '</div>' +
       // SECTION 6 — Suivi clients
@@ -453,9 +477,11 @@ const SytamAnalytics = {
       '</div>' +
       // SECTION 7 — Journal temps réel
       '<div class="card">' +
-        '<div class="card-title">Journal d\'activité en temps réel</div>' +
+        '<div class="card-title">Journal d\'activité <span style="font-size:.6rem;background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;vertical-align:middle;animation:pulse 1.5s infinite">EN DIRECT</span></div>' +
+        '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">Les actions des visiteurs (clics, ajouts au panier, commandes) apparaissent ici automatiquement, sans recharger la page.</p>' +
         '<div id="analyticsEventLog" style="max-height:400px;overflow-y:auto">' + this._renderEventLog() + '</div>' +
       '</div>';
+    this._startLogTimer();
   },
 
   _setChartRange(days) {
@@ -558,7 +584,7 @@ const SytamAnalytics = {
       '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Date</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Vues</th>' +
       '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Clics</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Panier+</th>' +
       '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Retiré</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Cmd</th>' +
-      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Conv.</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Temps</th>' +
+      '<th style="text-align:center;padding:4px 6px;font-size:.6rem" title="Taux de conversion = Commandes ÷ Vues">Conv.<br><span style="font-weight:400;font-size:.55rem">Cmd/Vues</span></th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Temps</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   },
 
@@ -671,7 +697,7 @@ const SytamAnalytics = {
     if (!sessions.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune session enregistrée</p>';
     var rows = sessions.map(function(s) {
       var dateStr = s.start ? new Date(s.start).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-      var durationStr = SytamAnalytics._fmtTime(s.duration);
+      var durationStr = SytamAnalytics._fmtTime(s.duration) + (s.durationNote ? ' <span style="font-size:.6rem;color:var(--er)">(' + s.durationNote + ')</span>' : '');
       var nbPages = s.pages.length;
       var clickedStr = s.productsClicked.length > 0 ? s.productsClicked.join(', ') : '—';
       var addedStr = s.productsAdded.length > 0 ? s.productsAdded.join(', ') : '—';
@@ -781,47 +807,71 @@ const SytamAnalytics = {
 
   _renderEventLog() {
     var events = this._events.slice(-100).reverse();
-    if (!events.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun événement enregistré</p>';
-    var labels = {
-      page_visit: 'Visite', product_click: 'Clic produit', add_to_cart: 'Ajout panier',
-      remove_from_cart: 'Retrait panier', qty_change: 'Qté changée',
-      search: 'Recherche', checkout_start: 'Checkout', order_placed: 'Commande confirmée',
-    };
-    var icons = {
-      page_visit: '📄', product_click: '👆', add_to_cart: '🛒',
-      remove_from_cart: '🗑', qty_change: '🔢',
-      search: '🔍', checkout_start: '💳', order_placed: '✅',
-    };
+    if (!events.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun événement pour le moment — les actions des visiteurs apparaîtront ici en direct.</p>';
     var rows = events.slice(0, 80).map(function(e) {
-      var label = labels[e.t] || e.t;
-      var ico = icons[e.t] || '•';
-      var detail = '';
-      if (e.d && e.d.productName) {
-        detail = e.d.productName;
-        if (e.d.variant) detail += ' (' + e.d.variant + ')';
-        if (e.d.qty && e.d.qty > 1) detail += ' x' + e.d.qty;
-      } else if (e.d && e.d.total) {
-        detail = _fmtAnalytics(e.d.total) + ' FCFA';
-        if (e.d.orderId) detail += ' (#' + e.d.orderId + ')';
-      } else if (e.d && e.d.query) detail = '"' + e.d.query + '"';
-      else if (e.d && e.d.page) detail = e.d.page;
       var time = e.ts ? e.ts.slice(11, 19) : '';
-      var rowColor = '';
-      if (e.t === 'order_placed') rowColor = 'style="background:#e8f5e9"';
-      else if (e.t === 'checkout_start') rowColor = 'style="background:#fff3e0"';
-      else if (e.t === 'remove_from_cart') rowColor = 'style="background:#ffebee"';
-      return '<tr ' + rowColor + '>' +
+      var d = e.d || {};
+      var msg = '';
+      var detail = '';
+      switch (e.t) {
+        case 'page_visit':
+          msg = '📄 Un visiteur a ouvert la page';
+          detail = d.page || 'accueil';
+          break;
+        case 'product_click':
+          msg = '👆 Un visiteur a cliqué sur';
+          detail = d.productName || '';
+          if (d.variant) detail += ' (' + d.variant + ')';
+          break;
+        case 'add_to_cart':
+          msg = '🛒 Un visiteur a ajouté au panier';
+          detail = d.productName || '';
+          if (d.variant) detail += ' (' + d.variant + ')';
+          if (d.qty && d.qty > 1) detail += ' x' + d.qty;
+          break;
+        case 'remove_from_cart':
+          msg = '🗑 Un visiteur a retiré du panier';
+          detail = d.productName || '';
+          if (d.variant) detail += ' (' + d.variant + ')';
+          break;
+        case 'qty_change':
+          msg = '🔢 Quantité modifiée';
+          detail = (d.productName || '') + ' : ' + (d.oldQty || '?') + ' → ' + (d.newQty || '?');
+          break;
+        case 'search':
+          msg = '🔍 Un visiteur a recherché';
+          detail = '"' + (d.query || '') + '"';
+          break;
+        case 'checkout_start':
+          msg = '💳 Un visiteur a commencé le paiement';
+          detail = '';
+          break;
+        case 'order_placed':
+          msg = '✅ Nouvelle commande passée';
+          detail = '';
+          if (d.total) detail = _fmtAnalytics(d.total) + ' FCFA';
+          if (d.orderId) detail += (detail ? ' — ' : '') + '#' + d.orderId;
+          break;
+        default:
+          msg = '• ' + (e.t || 'événement');
+          detail = d.productName || d.query || d.page || '';
+      }
+      var rowBg = '';
+      if (e.t === 'order_placed') rowBg = 'style="background:#e8f5e9"';
+      else if (e.t === 'checkout_start') rowBg = 'style="background:#fff3e0"';
+      else if (e.t === 'remove_from_cart') rowBg = 'style="background:#ffebee"';
+      return '<tr ' + rowBg + '>' +
         '<td style="padding:3px 6px;font-size:.7rem;color:var(--tl);white-space:nowrap">' + time + '</td>' +
-        '<td style="padding:3px 6px;font-size:.75rem;white-space:nowrap">' + ico + ' ' + label + '</td>' +
-        '<td style="padding:3px 6px;font-size:.75rem;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detail + '</td>' +
+        '<td style="padding:3px 6px;font-size:.75rem">' + msg + '</td>' +
+        '<td style="padding:3px 6px;font-size:.72rem;color:var(--tl);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + detail + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="tbl-wrap"><table style="font-size:.82rem"><thead><tr>' +
-      '<th style="width:55px;padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Heure</th>' +
-      '<th style="padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Type</th>' +
+      '<th style="width:48px;padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Heure</th>' +
+      '<th style="padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Action</th>' +
       '<th style="padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Détail</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    (events.length > 80 ? '<p style="font-size:.72rem;color:var(--tl);padding:6px;text-align:center">80 derniers événements sur ' + events.length + '</p>' : '');
+    (events.length > 80 ? '<p style="font-size:.72rem;color:var(--tl);padding:6px;text-align:center">80 derniers — ' + events.length + ' événements au total</p>' : '');
   },
 
   exportCSVFile() {

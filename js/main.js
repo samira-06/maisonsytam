@@ -1060,6 +1060,22 @@
         }
       } catch(e) {}
     }).catch(function() {});
+    // Références : merger les codes de parrainage distants
+    SupabaseAPI.get('store_data?key=eq.sytam_referrals&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+          var remoteRefs = result[0].value;
+          var localRefs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
+          var seen = {};
+          remoteRefs.forEach(function(r) { if (r && r.id) seen[r.id] = r; });
+          localRefs.forEach(function(r) {
+            if (r && r.id && !seen[r.id]) { seen[r.id] = r; }
+          });
+          var merged = Object.values(seen);
+          if (merged.length) localStorage.setItem('sytam_referrals', JSON.stringify(merged));
+        }
+      } catch(e) {}
+    }).catch(function() {});
     // Produits : merger les données distantes (préserver les stocks locaux)
     SupabaseAPI.get('store_data?key=eq.sytam_products_v4&select=value').then(function(result) {
       try {
