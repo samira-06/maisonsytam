@@ -655,14 +655,15 @@
     var delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : zone.tarif;
     var discount = _appliedPromo ? Math.round(subtotal * _appliedPromo.reduction / 100) : 0;
     var total = Math.max(0, subtotal - discount) + delivery;
+    var itemsHtml = items.map(function(i) {
+      var label = i.productName;
+      if (i.variantLabel) label += ' — ' + i.variantLabel;
+      return '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + label + ' <span style="color:var(--text-light)">x' + i.qty + '</span></span><span style="white-space:nowrap;flex-shrink:0">' + fmt(i.price * i.qty) + ' FCFA</span></div>';
+    }).join('');
     el.innerHTML =
-      '<div style="border-top:1px solid var(--bd);padding-top:8px;margin-bottom:6px;max-height:160px;overflow-y:auto;scrollbar-width:thin">' +
-        items.map(function(i) {
-          return '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px"><span>' + i.productName + (i.variantLabel ? ' (' + i.variantLabel + ')' : '') + ' x' + i.qty + '</span><span>' + fmt(i.price * i.qty) + ' FCFA</span></div>';
-        }).join('') +
-      '</div>' +
+      '<div style="max-height:200px;overflow-y:auto;scrollbar-width:thin;margin-bottom:6px">' + itemsHtml + '</div>' +
       '<div class="cart-summary-row"><span>Sous-total</span><span>' + fmt(subtotal) + ' FCFA</span></div>' +
-      '<div class="cart-summary-row"><span>Livraison</span><span>' + (delivery === 0 ? 'Offerter' : fmt(delivery) + ' FCFA') + '</span></div>' +
+      '<div class="cart-summary-row"><span>Livraison</span><span>' + (delivery === 0 ? 'Offerte' : fmt(delivery) + ' FCFA') + '</span></div>' +
       (discount > 0 ? '<div class="cart-summary-row" style="color:var(--ok)"><span>Réduction (' + _appliedPromo.code + ')</span><span>-' + fmt(discount) + ' FCFA</span></div>' : '') +
       '<div class="cart-summary-row total"><span>Total</span><span>' + fmt(total) + ' FCFA</span></div>';
   }
