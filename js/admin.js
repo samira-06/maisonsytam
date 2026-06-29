@@ -64,6 +64,7 @@
     else if (_currentTab === 'messages') loadMessages();
     else if (_currentTab === 'promos') loadReferrals();
     else if (_currentTab === 'products') loadProducts();
+    else if (_currentTab === 'clients') loadClients();
   }
   function resetProducts() {
     if (!confirm('Réinitialiser TOUS les produits aux valeurs par défaut ? Les produits ajoutés seront perdus.')) return;
@@ -103,7 +104,7 @@
       if (cb) cb(); return;
     }
     updateSupabaseStatus('...', 'Synchronisation...');
-    var keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4', 'sytam_deleted_products', 'sytam_product_costs'];
+    var keys = ['sytam_accounts', 'sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_products_v4', 'sytam_deleted_products', 'sytam_product_costs'];
     var total = keys.length + 1; // +1 pour analytics
     var done = 0;
     keys.forEach(function(k) {
@@ -185,6 +186,14 @@
             // Garder les produits locaux qui ne sont ni dans Supabase ni supprimés
             localItems.forEach(function(item) {
               if (item && item.id && !seen[item.id] && !deletedMap[item.id]) seen[item.id] = item;
+            });
+            supabaseItems = Object.values(seen);
+          } else if (k === 'sytam_accounts') {
+            // Accounts use "phone" as unique key, not "id"
+            var seen = {};
+            supabaseItems.forEach(function(item) { if (item && item.phone) seen[item.phone] = item; });
+            localItems.forEach(function(item) {
+              if (item && item.phone && !seen[item.phone]) seen[item.phone] = item;
             });
             supabaseItems = Object.values(seen);
           } else {
@@ -427,6 +436,7 @@
     else if (tab === 'messages') loadMessages();
     else if (tab === 'products') loadProducts();
     else if (tab === 'promos') loadReferrals();
+    else if (tab === 'clients') loadClients();
     else if (tab === 'loyalty') loadLoyalty();
     else if (tab === 'analytics') loadAnalytics();
     else if (tab === 'finance') loadFinance();
@@ -1824,6 +1834,91 @@
     loadFinance();
   }
 
+  function loadClients() {
+    var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
+
+    // Comptes inscrits
+    var clHtml = '';
+    if (accounts.length) {
+      accounts.forEach(function(acc) {
+        var clientOrders = orders.filter(function(o) {
+          return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone;
+        });
+        var wlCount = (acc.wishlist || []).length;
+        clHtml += '<tr>' +
+          '<td>' + acc.phone + '</td>' +
+          '<td>' + (acc.name || '—') + '</td>' +
+          '<td>' + (acc.email || '—') + '</td>' +
+          '<td>' + (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+          '<td>' + clientOrders.length + '</td>' +
+          '<td>' + wlCount + '</td>' +
+        '</tr>';
+      });
+    } else {
+      clHtml = '<tr><td colspan="6" class="empty-state">Aucun client inscrit</td></tr>';
+    }
+    var clTbl = document.getElementById('clientsTable');
+    if (clTbl) clTbl.innerHTML = clHtml;
+
+    // Paniers abandonnés (commandes en_attente datant de + de 24h)
+    var abandoned = orders.filter(function(o) {
+      return o && o.statut === 'en_attente' && o.created_at;
+    });
+    abandoned.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    var abHtml = '';
+    if (abandoned.length) {
+      abHtml = '<div class="tbl-wrap"><table><thead><tr><th>Commande</th><th>Client</th><th>Téléphone</th><th>Date</th><th>Total</th></tr></thead><tbody>';
+      abandoned.forEach(function(o) {
+        abHtml += '<tr>' +
+          '<td>' + (o.id || '—') + '</td>' +
+          '<td>' + (o.client || '—') + '</td>' +
+          '<td>' + (o.telephone || '—') + '</td>' +
+          '<td>' + (o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+          '<td>' + (o.total || 0).toLocaleString('fr-FR') + ' FCFA</td>' +
+        '</tr>';
+      });
+      abHtml += '</tbody></table></div>';
+    } else {
+      abHtml = '<p class="empty-state">Aucun panier abandonné</p>';
+    }
+    var abEl = document.getElementById('abandonedCarts');
+    if (abEl) abEl.innerHTML = abHtml;
+
+    // Commandes par client
+    var clientMap = {};
+    accounts.forEach(function(acc) {
+      var clientOrders = orders.filter(function(o) {
+        return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone;
+      });
+      var total = clientOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      clientMap[acc.phone] = { name: acc.name || acc.phone, count: clientOrders.length, total: total };
+    });
+    // Add non-registered clients from orders
+    orders.forEach(function(o) {
+      if (o && o.telephone) {
+        var phone = o.telephone.replace(/[^0-9]/g, '');
+        if (!clientMap[phone]) clientMap[phone] = { name: o.client || phone, count: 0, total: 0 };
+        clientMap[phone].count += 1;
+        clientMap[phone].total += o.total || 0;
+      }
+    });
+    var coHtml = '';
+    Object.keys(clientMap).forEach(function(phone) {
+      var c = clientMap[phone];
+      coHtml += '<tr>' +
+        '<td>' + c.name + '</td>' +
+        '<td>' + phone + '</td>' +
+        '<td>' + c.count + '</td>' +
+        '<td>' + (c.total || 0).toLocaleString('fr-FR') + ' FCFA</td>' +
+      '</tr>';
+    });
+    if (!coHtml) coHtml = '<tr><td colspan="4" class="empty-state">Aucune commande</td></tr>';
+    var coTbl = document.getElementById('clientOrdersTable');
+    if (coTbl) coTbl.innerHTML = coHtml;
+  }
+
   function syncAnalytics() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
       showToast('Supabase', 'Supabase pas prêt');
@@ -1852,7 +1947,7 @@
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
-    loadAnalytics, syncAnalytics, loadFinance,
+    loadAnalytics, syncAnalytics, loadFinance, loadClients,
     _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
   };
 

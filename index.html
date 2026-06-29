@@ -17,6 +17,7 @@
       <a href="#home" class="active" data-page="home" onclick="SytamApp.navigate('home')">Accueil</a>
       <a href="#shop" data-page="shop" onclick="SytamApp.navigate('shop')">Boutique</a>
       <a href="#track" data-page="track" onclick="SytamApp.navigate('track')">Suivre</a>
+      <a href="#account" data-page="account" onclick="SytamApp.navigate('account')">Compte</a>
       <a href="#contact" data-page="contact" onclick="SytamApp.navigate('contact')">Contact</a>
     </nav>
     <div class="header-actions">
@@ -29,6 +30,10 @@
 </header>
 
 <main id="page-content">
+<div id="account-banner" class="account-banner" style="display:none">
+  <span>Créez votre compte pour suivre vos commandes et gérer vos favoris</span>
+  <a href="#account" onclick="SytamApp.navigate('account')">Mon compte →</a>
+</div>
 <!-- ==================== PAGE ACCUEIL ==================== -->
 <section class="page active" id="page-home">
 
@@ -174,6 +179,15 @@
     </div>
     <div id="track-result" style="display:none"></div>
   </div>
+</section>
+
+<!-- ==================== PAGE COMPTE ==================== -->
+<section class="page" id="page-account">
+  <div class="shop-header" style="background:linear-gradient(135deg,var(--bg-dark),var(--accent-dark))">
+    <h1>Mon Compte</h1>
+    <p>Gérez vos commandes, vos favoris et votre profil.</p>
+  </div>
+  <div class="container" id="account-content" style="min-height:400px;padding-top:20px;padding-bottom:40px"></div>
 </section>
 
 <!-- ==================== CART PANEL ==================== -->
@@ -337,6 +351,7 @@
 <script src="js/drum-picker.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/main.js"></script>
+<script src="js/account.js"></script>
 <script>
 function toggleFaq(el) {
   el.classList.toggle('open');

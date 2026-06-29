@@ -447,3 +447,4 @@ select.form-input { cursor: pointer; }
   .topbar h1 { font-size: .85rem; }
 }
 @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+.empty-state { text-align: center; padding: 24px; color: var(--tl); font-size: .85rem; }

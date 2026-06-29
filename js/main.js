@@ -50,6 +50,7 @@
 
   function init() {
     if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.init();
+    if (typeof AccountApp !== 'undefined') AccountApp.init();
     _renderFromData(SEED_PRODUCTS || []);
     var _doRender = function() {
       DB.onReady(function() {
@@ -111,6 +112,7 @@
   function navigate(page) {
     state.currentPage = page;
     if (page === 'shop') renderShop();
+    if (page === 'account' && typeof AccountApp !== 'undefined') AccountApp.renderAccount();
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);
     if (t) t.classList.add('active');
@@ -207,11 +209,13 @@
     const vs = getEffectiveVariants(p);
     const totalS = vs.reduce(function(s, v) { return s + (v.stock || 0); }, 0);
     const img = p.images[0];
+    var inWish = (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn()) ? AccountApp.isInWishlist(p.id) : false;
     var placeholdersvg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500"><rect width="400" height="500" fill="#F5EFE8"/><text x="200" y="250" font-family="Arial,sans-serif" font-size="16" fill="#B8956A" text-anchor="middle" dominant-baseline="middle">' + p.nom + '</text></svg>');
     return `
       <div class="product-card" onclick="SytamApp.quickView('${p.id}')">
         <div class="product-card-img">
           <img src="${img}" alt="${p.nom}" onerror="this.src='${placeholdersvg}'">
+          <button class="wishlist-heart${inWish ? ' active' : ''}" onclick="event.stopPropagation();if(!AccountApp.isLoggedIn()){SytamApp.navigate('account')}else{AccountApp.toggleWishlist('${p.id}');this.classList.toggle('active');this.textContent=this.classList.contains('active')?'♥':'♡'}">${inWish ? '♥' : '♡'}</button>
           ${p.promo_pct ? '<span class="badge" style="background:var(--danger);left:auto;right:10px">-' + p.promo_pct + '%</span>' : ''}
           ${p.tag === 'nouveau' ? '<span class="badge">Nouveau</span>' : ''}
           ${p.tag === 'tendance' ? '<span class="badge" style="background:var(--gold);color:#fff">Populaire</span>' : ''}
@@ -310,6 +314,7 @@
           <div class="modal-info">
             <span class="modal-cat-badge">${p.categorie}</span>
             <h2>${p.nom}</h2>
+            ${typeof AccountApp !== 'undefined' ? '<button class="modal-wishlist-heart" onclick="if(!AccountApp.isLoggedIn()){SytamApp.navigate(\'account\')}else{AccountApp.toggleWishlist(\'' + p.id + '\');var i=AccountApp.isInWishlist(\'' + p.id + '\');if(i){this.classList.add(\'active\');this.textContent=\'\u2665\'}else{this.classList.remove(\'active\');this.textContent=\'\u2661\'}}">' + (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn() && AccountApp.isInWishlist(p.id) ? '\u2665' : '\u2661') + '</button>' : ''}
             <p class="modal-price">${promoPriceHtml(p)}</p>
             <div class="modal-desc">${p.description}</div>
             ${html}
@@ -1038,7 +1043,7 @@
   // Périodiquement, pousse les données locales vers Supabase
   function _periodicSync() {
     if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_analytics_v1', 'sytam_product_costs'];
+    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_analytics_v1', 'sytam_product_costs', 'sytam_accounts'];
     _keys.forEach(function(k) {
       var d = localStorage.getItem(k);
       if (d) {
@@ -1113,6 +1118,21 @@
           });
           var merged = Object.values(seen);
           if (merged.length) localStorage.setItem('sytam_referrals', JSON.stringify(merged));
+        }
+      } catch(e) {}
+    }).catch(function() {});
+    // Comptes : merger les données distantes (déduplication par téléphone)
+    SupabaseAPI.get('store_data?key=eq.sytam_accounts&select=value').then(function(result) {
+      try {
+        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+          var remoteAccounts = result[0].value;
+          var localAccounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
+          var phoneMap = {};
+          remoteAccounts.forEach(function(a) { if (a && a.phone) phoneMap[a.phone] = a; });
+          localAccounts.forEach(function(a) {
+            if (a && a.phone && !phoneMap[a.phone]) phoneMap[a.phone] = a;
+          });
+          localStorage.setItem('sytam_accounts', JSON.stringify(Object.values(phoneMap)));
         }
       } catch(e) {}
     }).catch(function() {});

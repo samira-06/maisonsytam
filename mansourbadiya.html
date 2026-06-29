@@ -64,6 +64,10 @@
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
         Promotions
       </div>
+      <div class="sb-item" data-tab="clients" onclick="SytamAdmin.goTab('clients',this)">
+        <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        Clients
+      </div>
       <div class="sb-item" data-tab="analytics" onclick="SytamAdmin.goTab('analytics',this)">
         <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
         Analytiques
@@ -200,6 +204,25 @@
           <div class="card-title">Codes de parrainage</div>
           <div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Réduction</th><th>Utilisations</th><th>Actions</th></tr></thead><tbody id="referralTable"></tbody></table></div>
         </div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="tab" id="tab-clients">
+      <div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Clients</h1><p>Comptes inscrits et paniers abandonnés</p></div></div></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Comptes inscrits</div>
+          <div class="tbl-wrap"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Commandes</th><th>Favoris</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Paniers abandonnés</div>
+          <div id="abandonedCarts"><p class="empty-state">Aucun panier abandonné pour le moment</p></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Commandes par client</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th></tr></thead><tbody id="clientOrdersTable"></tbody></table></div>
       </div>
     </div>
 
