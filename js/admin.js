@@ -1438,6 +1438,14 @@
   }
   function _fmt(n) { return (n || 0).toLocaleString('fr-FR'); }
 
+  function _getUnitCost(c) {
+    if (!c) return 0;
+    var total = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+    var qty = parseInt(c.stockAchete) || 0;
+    if (qty > 0) return total / qty;
+    return total; // fallback: total = unitaire si pas de quantité
+  }
+
   function _periodFilter(orders, period, startDate, endDate) {
     var now = new Date();
     var filter = period;
@@ -1497,7 +1505,7 @@
     });
     Object.keys(prodPeriodData).forEach(function(pid) {
       var c = costs[pid] || {};
-      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      var unitCost = _getUnitCost(c);
       totalCouts += unitCost * prodPeriodData[pid].qty;
     });
 
@@ -1508,7 +1516,7 @@
     var bestMarge = -Infinity, bestProd = null;
     products.forEach(function(p) {
       var c = costs[p.id] || {};
-      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      var unitCost = _getUnitCost(c);
       if (unitCost <= 0) return;
       var m = ((p.prix||0) - unitCost) / (p.prix||1) * 100;
       if (m > bestMarge) { bestMarge = m; bestProd = p; }
@@ -1539,7 +1547,7 @@
         }
         if (!pid) return;
         var c = costs[pid] || {};
-        var unit = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+        var unit = _getUnitCost(c);
         monthData.couts += unit * parseInt(item.qte||item.qty||1);
       });
       monthData.benefice = monthData.ca - monthData.couts;
@@ -1585,31 +1593,37 @@
       var coutMatieres = c.coutMatieres || 0;
       var coutPackaging = c.coutPackaging || 0;
       var coutLivraison = c.coutLivraison || 0;
+      var stockAchete = parseInt(c.stockAchete) || 0;
       var coutTotal = coutAchat + coutMatieres + coutPackaging + coutLivraison;
+      var coutUnitaire = stockAchete > 0 ? coutTotal / stockAchete : coutTotal;
       var prixVente = p.prix || 0;
-      var margeNette = prixVente - coutTotal;
-      var margePct = prixVente > 0 ? ((margeNette / prixVente) * 100) : 0;
+      var margeUnitaire = prixVente - coutUnitaire;
+      var margePct = prixVente > 0 ? ((margeUnitaire / prixVente) * 100) : 0;
+      var stockLabel = stockAchete > 0 ? '(' + stockAchete + ' pcs, ' + _fmt(coutUnitaire) + ' F/pc)' : '(coûts totaux)';
       var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:26px;height:26px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
       return '<tr style="background:#FAF6EF">' +
         '<td style="padding:4px 5px;font-size:.75rem;white-space:nowrap">' + img + '<span style="font-weight:500">' + p.nom + '</span></td>' +
         '<td style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:#B8935A;font-weight:600">' + _fmt(prixVente) + ' F</td>' +
+        '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="stockAchete" type="number" min="0" value="' + stockAchete + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:50px;padding:3px 4px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right" title="Qté achetée"></td>' +
         '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutAchat" type="number" min="0" value="' + coutAchat + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
         '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutMatieres" type="number" min="0" value="' + coutMatieres + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
         '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutPackaging" type="number" min="0" value="' + coutPackaging + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
         '<td style="padding:4px 5px"><input class="fi-cost-input" data-pid="' + p.id + '" data-field="coutLivraison" type="number" min="0" value="' + coutLivraison + '" oninput="SytamAdmin._updateFinanceRow(this)" style="width:80px;padding:3px 6px;font-size:.72rem;border:1px solid #d4c9b8;border-radius:4px;background:#fff;text-align:right"></td>' +
         '<td class="fi-total" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.75rem;font-weight:700;white-space:nowrap">' + _fmt(coutTotal) + ' F</td>' +
-        '<td class="fi-marge" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + (margeNette >= 0 ? '#3B6D11' : '#A32D2D') + ';font-weight:600">' + _fmt(margeNette) + ' F</td>' +
+        '<td class="fi-unit" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.72rem;white-space:nowrap;color:var(--tl)">' + _fmt(coutUnitaire) + ' F</td>' +
+        '<td class="fi-marge" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.75rem;white-space:nowrap;color:' + (margeUnitaire >= 0 ? '#3B6D11' : '#A32D2D') + ';font-weight:600">' + _fmt(margeUnitaire) + ' F</td>' +
         '<td class="fi-pct" data-pid="' + p.id + '" style="padding:4px 5px;text-align:right;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + (margePct > 0 ? '#3B6D11' : '#A32D2D') + '">' + margePct.toFixed(1) + '%</td>' +
+        '<td style="padding:4px 5px;font-size:.65rem;color:var(--tl);white-space:nowrap" class="fi-stock-label">' + stockLabel + '</td>' +
       '</tr>';
     }).join('');
 
     // Prix suggérés (Section 4)
     var suggestionsHtml = products.map(function(p) {
       var c = costs[p.id] || {};
-      var coutTotal = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      var coutUnitaire = _getUnitCost(c);
       var currentPrice = p.prix || 0;
       var img = p.images && p.images[0] ? '<img src="' + p.images[0] + '" style="width:24px;height:24px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:5px">' : '';
-      if (coutTotal <= 0) {
+      if (coutUnitaire <= 0) {
         return '<div style="background:#FAF6EF;border:1px dashed #d4c9b8;border-radius:8px;padding:10px;margin-bottom:8px">' +
           '<div style="display:flex;justify-content:space-between;align-items:center">' +
             '<span>' + img + '<strong style="font-size:.85rem">' + p.nom + '</strong></span>' +
@@ -1618,9 +1632,9 @@
           '<p style="font-size:.72rem;color:var(--tl);margin:6px 0 0;padding:0">Saisissez les coûts ci-dessus pour voir les suggestions de prix.</p>' +
         '</div>';
       }
-      var minPrix = Math.ceil(coutTotal / 0.80);
-      var recPrix = Math.ceil(coutTotal / 0.60);
-      var premPrix = Math.ceil(coutTotal / 0.40);
+      var minPrix = Math.ceil(coutUnitaire / 0.80);
+      var recPrix = Math.ceil(coutUnitaire / 0.60);
+      var premPrix = Math.ceil(coutUnitaire / 0.40);
       return '<div style="background:#FAF6EF;border:1px solid #e8ddce;border-radius:8px;padding:10px;margin-bottom:8px">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
           '<span>' + img + '<strong style="font-size:.85rem">' + p.nom + '</strong></span>' +
@@ -1651,7 +1665,7 @@
     var totalVendusAll = 0;
     var prodFullData = products.map(function(p) {
       var c = costs[p.id] || {};
-      var unitCost = (c.coutAchat||0) + (c.coutMatieres||0) + (c.coutPackaging||0) + (c.coutLivraison||0);
+      var unitCost = _getUnitCost(c);
       var qtySold = 0, revenueGen = 0;
       allOrders.forEach(function(o) {
         if (o.statut !== 'confirmee' && o.statut !== 'livree') return;
@@ -1751,14 +1765,17 @@
           '<thead><tr>' +
             '<th style="text-align:left;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Produit</th>' +
             '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Prix vente</th>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase" title="Quantité achetée">Stock</th>' +
             '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Achat</th>' +
             '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Matières</th>' +
             '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Packaging</th>' +
             '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Livraison</th>' +
             '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Coût total</th>' +
-            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Marge</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Coût unit.</th>' +
+            '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Marge unit.</th>' +
             '<th style="text-align:right;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">%</th>' +
-          '</tr></thead><tbody>' + (costFormRows || '<tr><td colspan="9" class="empty-row">Aucun produit</td></tr>') + '</tbody></table></div>' +
+            '<th style="text-align:center;padding:4px 5px;font-size:.58rem;color:var(--tl);text-transform:uppercase">Info</th>' +
+          '</tr></thead><tbody>' + (costFormRows || '<tr><td colspan="12" class="empty-row">Aucun produit</td></tr>') + '</tbody></table></div>' +
         '<div style="display:flex;gap:8px;margin-top:10px;align-items:center">' +
           '<button class="btn-add" onclick="SytamAdmin._saveFinanceCosts()" style="font-size:.78rem">💾 Sauvegarder tous les coûts</button>' +
           '<span id="fi-save-msg" style="font-size:.75rem;color:#3B6D11"></span>' +
@@ -1804,20 +1821,33 @@
     var tr = inp.closest('tr');
     if (!tr) return;
     var pid = inp.dataset.pid;
-    var inputs = tr.querySelectorAll('.fi-cost-input');
-    var total = 0;
-    inputs.forEach(function(i) { total += parseInt(i.value) || 0; });
+    // Read all cost inputs including stockAchete
+    var costs = {};
+    tr.querySelectorAll('.fi-cost-input').forEach(function(i) {
+      costs[i.dataset.field] = parseInt(i.value) || 0;
+    });
+    var coutTotal = (costs.coutAchat||0) + (costs.coutMatieres||0) + (costs.coutPackaging||0) + (costs.coutLivraison||0);
+    var stockAchete = costs.stockAchete || 0;
+    var coutUnitaire = stockAchete > 0 ? coutTotal / stockAchete : coutTotal;
     var prixVente = 0;
     var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
     products.forEach(function(p) { if (p.id === pid) prixVente = p.prix || 0; });
-    var margeNette = prixVente - total;
-    var margePct = prixVente > 0 ? (margeNette / prixVente) * 100 : 0;
+    var margeUnitaire = prixVente - coutUnitaire;
+    var margePct = prixVente > 0 ? (margeUnitaire / prixVente) * 100 : 0;
+
+    // Update cells
     var totalEl = tr.querySelector('.fi-total');
     var margeEl = tr.querySelector('.fi-marge');
     var pctEl = tr.querySelector('.fi-pct');
-    if (totalEl) { totalEl.textContent = _fmt(total) + ' F'; }
-    if (margeEl) { margeEl.textContent = _fmt(margeNette) + ' F'; margeEl.style.color = margeNette >= 0 ? '#3B6D11' : '#A32D2D'; }
+    var unitEl = tr.querySelector('.fi-unit');
+    var stockEl = tr.querySelector('.fi-stock-label');
+    if (totalEl) { totalEl.textContent = _fmt(coutTotal) + ' F'; }
+    if (unitEl) { unitEl.textContent = _fmt(coutUnitaire) + ' F'; }
+    if (margeEl) { margeEl.textContent = _fmt(margeUnitaire) + ' F'; margeEl.style.color = margeUnitaire >= 0 ? '#3B6D11' : '#A32D2D'; }
     if (pctEl) { pctEl.textContent = margePct.toFixed(1) + '%'; pctEl.style.color = margePct > 0 ? '#3B6D11' : '#A32D2D'; }
+    if (stockEl) {
+      stockEl.textContent = stockAchete > 0 ? '(' + stockAchete + ' pcs, ' + _fmt(coutUnitaire) + ' F/pc)' : '(coûts totaux)';
+    }
   }
 
   function _saveFinanceCosts() {
