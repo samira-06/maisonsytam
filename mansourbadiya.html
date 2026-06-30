@@ -259,6 +259,15 @@
           </p>
           <button class="btn-add" onclick="SytamAdmin.saveNtfyTopic()">Sauvegarder</button>
         </div>
+        <div class="card">
+          <div class="card-title">Email (EmailJS) — Mot de passe oublié</div>
+          <p style="font-size:.72rem;color:var(--tl);margin:0 0 8px">Créez un compte gratuit sur <a href="https://emailjs.com" target="_blank" style="color:var(--ac)">emailjs.com</a>, créez un template d'email avec les variables <code>{{link}}</code> et <code>{{email}}</code>, puis collez les clés ici.</p>
+          <div class="form-group"><label class="form-label">Clé publique (Public Key)</label><input class="form-input" id="emailjs-pubkey" placeholder="Ex: xxxx_xxxxxxxxxxxxx"></div>
+          <div class="form-group"><label class="form-label">Service ID</label><input class="form-input" id="emailjs-service" placeholder="Ex: service_xxxxxxx"></div>
+          <div class="form-group"><label class="form-label">Template ID</label><input class="form-input" id="emailjs-template" placeholder="Ex: template_xxxxxxx"></div>
+          <button class="btn-add" onclick="SytamAdmin.saveEmailJsConfig()">Sauvegarder</button>
+          <span id="emailjs-msg" style="font-size:.75rem;color:var(--ok);margin-left:8px"></span>
+        </div>
         </div>
         <div class="card" style="margin-top:20px">
           <div class="card-title">🔄 Transfert de données</div>

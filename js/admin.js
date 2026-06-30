@@ -20,6 +20,7 @@
     $('adminDate').textContent = 'Bienvenue ' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', month: 'long', day: 'numeric' });
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     loadNtfyTopic();
+    loadEmailJsConfig();
     DB.onReady(function() {
       syncAllFromSupabase(function() {
         DB.reloadFromLocal();
@@ -362,6 +363,31 @@
   function loadNtfyTopic() {
     var saved = localStorage.getItem('sytam_ntfy_topic');
     if (saved && $('ntfy-topic')) $('ntfy-topic').value = saved;
+  }
+
+  function saveEmailJsConfig() {
+    var pubkey = ($('emailjs-pubkey') && $('emailjs-pubkey').value.trim()) || '';
+    var service = ($('emailjs-service') && $('emailjs-service').value.trim()) || '';
+    var template = ($('emailjs-template') && $('emailjs-template').value.trim()) || '';
+    localStorage.setItem('sytam_emailjs_pubkey', pubkey);
+    localStorage.setItem('sytam_emailjs_service', service);
+    localStorage.setItem('sytam_emailjs_template', template);
+    // Initialiser EmailJS avec la nouvelle clé
+    if (pubkey && typeof emailjs !== 'undefined') {
+      try { emailjs.init(pubkey); } catch(e) {}
+    }
+    var msg = $('emailjs-msg');
+    if (msg) {
+      msg.textContent = '✓ Sauvegardé';
+      setTimeout(function() { msg.textContent = ''; }, 3000);
+    }
+    showToast('✓ Configuration EmailJS sauvegardée');
+  }
+
+  function loadEmailJsConfig() {
+    if ($('emailjs-pubkey')) $('emailjs-pubkey').value = localStorage.getItem('sytam_emailjs_pubkey') || '';
+    if ($('emailjs-service')) $('emailjs-service').value = localStorage.getItem('sytam_emailjs_service') || '';
+    if ($('emailjs-template')) $('emailjs-template').value = localStorage.getItem('sytam_emailjs_template') || '';
   }
 
   function restoreDefaults() {
@@ -2021,7 +2047,7 @@
     deleteProduct, addColor, saveProduct, closeModal, closeModalOut, uploadImage, uploadColorImage, removeImage,
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
-    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic,
+    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic, saveEmailJsConfig,
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,

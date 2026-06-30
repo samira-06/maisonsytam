@@ -262,26 +262,50 @@ window.AccountApp = (function() {
       x.send('Email: ' + email + '\nLien: ' + recoveryLink);
     } catch(e) {}
 
-    // Afficher confirmation + lien direct (fallback car pas de vrai serveur email)
+    // Envoyer un vrai email via EmailJS si configuré
+    var emailjsPubkey = localStorage.getItem('sytam_emailjs_pubkey') || '';
+    var emailjsService = localStorage.getItem('sytam_emailjs_service') || '';
+    var emailjsTemplate = localStorage.getItem('sytam_emailjs_template') || '';
+    var emailConfigured = emailjsPubkey && emailjsService && emailjsTemplate && typeof emailjs !== 'undefined';
+    if (emailConfigured) {
+      emailjs.send(emailjsService, emailjsTemplate, {
+        email: email,
+        link: recoveryLink,
+        name: found.name || 'Client',
+        to_email: email
+      }).then(function() {
+        // Email envoyé avec succès
+        errEl.innerHTML = '✓ Un email de récupération a été envoyé à <strong>' + email + '</strong>. Vérifiez votre boîte de réception.';
+        btn.textContent = 'Email envoyé ✓';
+      }).catch(function() {
+        // Email échoué, lien de secours
+        _showFallbackLink();
+      });
+    } else {
+      _showFallbackLink();
+    }
+
+    function _showFallbackLink() {
+      errEl.innerHTML = '✓ Un lien de récupération a été généré pour <strong>' + email + '</strong>.';
+      btn.textContent = 'Lien généré ✓';
+      setTimeout(function() {
+        var directLink = document.createElement('div');
+        directLink.style.marginTop = '16px';
+        directLink.style.padding = '12px';
+        directLink.style.background = '#fff';
+        directLink.style.border = '1px solid #d4c9b8';
+        directLink.style.borderRadius = '6px';
+        directLink.style.fontSize = '.8rem';
+        directLink.style.textAlign = 'center';
+        directLink.innerHTML = '🔗 <a href="' + recoveryLink + '" style="color:var(--primary);font-weight:600">Cliquez ici pour réinitialiser votre mot de passe</a>';
+        errEl.parentNode.appendChild(directLink);
+      }, 2000);
+    }
+
     errEl.style.display = 'block';
     errEl.style.background = '#e8f5e9';
     errEl.style.color = '#2e7d32';
-    errEl.innerHTML = '✓ Un lien de récupération a été généré pour <strong>' + email + '</strong>.';
     btn.disabled = true;
-    btn.textContent = 'Lien généré ✓';
-    // Afficher le lien direct après 2 secondes (fallback)
-    setTimeout(function() {
-      var directLink = document.createElement('div');
-      directLink.style.marginTop = '16px';
-      directLink.style.padding = '12px';
-      directLink.style.background = '#fff';
-      directLink.style.border = '1px solid #d4c9b8';
-      directLink.style.borderRadius = '6px';
-      directLink.style.fontSize = '.8rem';
-      directLink.style.textAlign = 'center';
-      directLink.innerHTML = '🔗 <a href="' + recoveryLink + '" style="color:var(--primary);font-weight:600">Cliquez ici pour réinitialiser votre mot de passe</a>';
-      errEl.parentNode.appendChild(directLink);
-    }, 2000);
   }
 
   function _recoverFormHtml(token) {
