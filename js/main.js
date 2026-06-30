@@ -113,6 +113,10 @@
     state.currentPage = page;
     if (page === 'shop') renderShop();
     if (page === 'account' && typeof AccountApp !== 'undefined') AccountApp.renderAccount();
+    if (page.indexOf('account-recover') === 0 && typeof AccountApp !== 'undefined') {
+      page = 'account';
+      setTimeout(function() { if (AccountApp.checkRecoveryToken) AccountApp.checkRecoveryToken(); }, 50);
+    }
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);
     if (t) t.classList.add('active');

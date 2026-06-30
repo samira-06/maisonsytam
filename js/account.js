@@ -198,14 +198,20 @@ window.AccountApp = (function() {
     document.getElementById('ac-tab-register').classList.add('active');
   }
 
+  function _generateToken() {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var token = '';
+    for (var i = 0; i < 32; i++) token += chars.charAt(Math.floor(Math.random() * chars.length));
+    return token + '_' + Date.now();
+  }
+
   function _forgotPasswordHtml() {
     return '<form class="account-form" onsubmit="AccountApp._handleForgotPassword(event)">' +
       '<h3>Mot de passe oublié</h3>' +
-      '<p class="account-form-sub">Entrez votre numéro de téléphone pour réinitialiser votre mot de passe</p>' +
-      '<div class="form-group"><label>Téléphone</label><input type="tel" class="form-input" id="ac-forgot-phone" placeholder="77 xxx xx xx" required></div>' +
-      '<div class="form-group" id="ac-forgot-new-group" style="display:none"><label>Nouveau mot de passe</label><input type="password" class="form-input" id="ac-forgot-new" placeholder="Min 4 caractères" minlength="4"></div>' +
+      '<p class="account-form-sub">Entrez votre email pour recevoir un lien de récupération</p>' +
+      '<div class="form-group"><label>Email</label><input type="email" class="form-input" id="ac-forgot-email" placeholder="votre@email.com" required></div>' +
       '<div id="ac-forgot-error" class="account-error" style="display:none"></div>' +
-      '<button type="submit" class="btn btn-primary btn-block" id="ac-forgot-btn">Vérifier mon compte</button>' +
+      '<button type="submit" class="btn btn-primary btn-block" id="ac-forgot-btn">Envoyer le lien de récupération</button>' +
       '<p class="account-form-foot"><a href="#" onclick="AccountApp._showLoginForm();return false">Retour à la connexion</a></p>' +
     '</form>';
   }
@@ -219,41 +225,141 @@ window.AccountApp = (function() {
 
   function _handleForgotPassword(e) {
     e.preventDefault();
-    var phone = document.getElementById('ac-forgot-phone').value.replace(/[^0-9]/g, '');
+    var email = document.getElementById('ac-forgot-email').value.trim().toLowerCase();
     var accounts = _getAccounts();
     var found = null;
     for (var i = 0; i < accounts.length; i++) {
-      if (accounts[i].phone === phone) { found = accounts[i]; break; }
+      if ((accounts[i].email || '').toLowerCase() === email) { found = accounts[i]; break; }
     }
     var errEl = document.getElementById('ac-forgot-error');
-    var newGroup = document.getElementById('ac-forgot-new-group');
-    var newInput = document.getElementById('ac-forgot-new');
     var btn = document.getElementById('ac-forgot-btn');
+
     if (!found) {
-      errEl.textContent = 'Aucun compte trouvé avec ce numéro.';
+      errEl.textContent = 'Aucun compte trouvé avec cet email.';
       errEl.style.display = 'block';
       return;
     }
-    // Si l'utilisateur n'a pas encore saisi le nouveau mot de passe
-    if (newGroup.style.display === 'none') {
-      errEl.style.display = 'none';
-      newGroup.style.display = 'block';
-      btn.textContent = 'Réinitialiser mon mot de passe';
-    } else {
-      var pwd = newInput.value;
-      if (pwd.length < 4) {
-        errEl.textContent = 'Mot de passe (min 4 caractères)';
-        errEl.style.display = 'block';
-        return;
+
+    // Générer un token de récupération valable 1h
+    var token = _generateToken();
+    if (!found.recoveryTokens) found.recoveryTokens = [];
+    found.recoveryTokens.push({ token: token, expires: Date.now() + 3600000 });
+    // Garder seulement les tokens valides (nettoyer les expirés)
+    found.recoveryTokens = found.recoveryTokens.filter(function(t) { return t.expires > Date.now(); });
+    _saveAccounts(accounts);
+
+    // Construire le lien de récupération
+    var baseUrl = window.location.origin + window.location.pathname.replace('mansourbadiya.html', 'index.html');
+    var recoveryLink = baseUrl + '#account-recover?token=' + encodeURIComponent(token);
+
+    // Envoyer via ntfy si configuré (notification admin)
+    var ntfyTopic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
+    try {
+      var x = new XMLHttpRequest();
+      x.open('POST', 'https://ntfy.sh/' + encodeURIComponent(ntfyTopic), true);
+      x.setRequestHeader('Title', '🔐 Demande de réinitialisation mot de passe');
+      x.setRequestHeader('Priority', 'default');
+      x.send('Email: ' + email + '\nLien: ' + recoveryLink);
+    } catch(e) {}
+
+    // Afficher confirmation
+    errEl.style.display = 'block';
+    errEl.style.background = '#e8f5e9';
+    errEl.style.color = '#2e7d32';
+    errEl.innerHTML = '✓ Un email de récupération a été envoyé à <strong>' + email + '</strong>. Vérifiez votre boîte de réception.';
+    btn.disabled = true;
+    btn.textContent = 'Email envoyé ✓';
+  }
+
+  function _recoverFormHtml(token) {
+    return '<form class="account-form" onsubmit="AccountApp._handleRecover(event)">' +
+      '<h3>Réinitialiser mon mot de passe</h3>' +
+      '<p class="account-form-sub">Choisissez un nouveau mot de passe</p>' +
+      '<input type="hidden" id="ac-recover-token" value="' + token + '">' +
+      '<div class="form-group"><label>Nouveau mot de passe</label><input type="password" class="form-input" id="ac-recover-pwd" placeholder="Min 4 caractères" required minlength="4"></div>' +
+      '<div class="form-group"><label>Confirmer le mot de passe</label><input type="password" class="form-input" id="ac-recover-pwd2" placeholder="Identique au ci-dessus" required minlength="4"></div>' +
+      '<div id="ac-recover-error" class="account-error" style="display:none"></div>' +
+      '<button type="submit" class="btn btn-primary btn-block" id="ac-recover-btn">Réinitialiser mon mot de passe</button>' +
+      '<p class="account-form-foot"><a href="#" onclick="AccountApp._showLoginForm();return false" style="color:var(--primary)">Retour à la connexion</a></p>' +
+    '</form>';
+  }
+
+  function _handleRecover(e) {
+    e.preventDefault();
+    var token = document.getElementById('ac-recover-token').value;
+    var pwd = document.getElementById('ac-recover-pwd').value;
+    var pwd2 = document.getElementById('ac-recover-pwd2').value;
+    var errEl = document.getElementById('ac-recover-error');
+    var btn = document.getElementById('ac-recover-btn');
+
+    if (pwd !== pwd2) {
+      errEl.textContent = 'Les mots de passe ne correspondent pas.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (pwd.length < 4) {
+      errEl.textContent = 'Mot de passe (min 4 caractères)';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    var accounts = _getAccounts();
+    var found = null;
+    var foundIdx = -1;
+    for (var i = 0; i < accounts.length; i++) {
+      var tokens = accounts[i].recoveryTokens || [];
+      for (var j = 0; j < tokens.length; j++) {
+        var expectedToken = tokens[j].token;
+        var tokenBase = token.indexOf('_') > -1 ? token : token;
+        if (tokens[j].token === token && tokens[j].expires > Date.now()) {
+          found = accounts[i];
+          foundIdx = i;
+          break;
+        }
       }
-      found.password = _hash(pwd);
-      _saveAccounts(accounts);
-      errEl.style.display = 'none';
-      btn.textContent = '✓ Mot de passe réinitialisé';
-      btn.disabled = true;
-      setTimeout(function() {
-        _showLoginForm();
-      }, 1500);
+      if (found) break;
+    }
+
+    if (!found) {
+      errEl.textContent = 'Ce lien est invalide ou expiré. Veuillez refaire une demande.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    found.password = _hash(pwd);
+    found.recoveryTokens = []; // clear all tokens after successful reset
+    _saveAccounts(accounts);
+
+    errEl.style.display = 'block';
+    errEl.style.background = '#e8f5e9';
+    errEl.style.color = '#2e7d32';
+    errEl.innerHTML = '✓ Mot de passe réinitialisé avec succès !';
+    btn.disabled = true;
+    btn.textContent = '✓ Réinitialisé';
+
+    setTimeout(function() {
+      _showLoginForm();
+    }, 2000);
+  }
+
+  // Vérifier si on arrive avec un token de récupération dans l'URL
+  function checkRecoveryToken() {
+    var hash = window.location.hash;
+    if (hash.indexOf('#account-recover') === 0) {
+      var params = {};
+      hash.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
+        params[key] = decodeURIComponent(value);
+      });
+      var token = params.token;
+      if (token) {
+        var container = document.getElementById('account-content');
+        if (container) {
+          container.innerHTML =
+            '<div class="account-form-wrap">' +
+              _recoverFormHtml(token) +
+            '</div>';
+        }
+      }
     }
   }
 
@@ -504,6 +610,8 @@ window.AccountApp = (function() {
         .catch(function() {});
     }
     _updateBanner();
+    // Vérifier token de récupération dans l'URL
+    setTimeout(checkRecoveryToken, 100);
   }
 
   return {
@@ -522,6 +630,8 @@ window.AccountApp = (function() {
     _showRegisterForm: _showRegisterForm,
     _showForgotPassword: _showForgotPassword,
     _handleForgotPassword: _handleForgotPassword,
+    _handleRecover: _handleRecover,
+    checkRecoveryToken: checkRecoveryToken,
     _handleLogin: _handleLogin,
     _handleRegister: _handleRegister,
     _saveProfile: _saveProfile,
