@@ -50,6 +50,7 @@ window.AccountApp = (function() {
       password: _hash(password),
       name: name || '',
       email: email || '',
+      address: { name: '', phone: phone, region: 'Dakar', quartier: '', address_detail: '' },
       wishlist: [],
       linkedOrders: [],
       created_at: new Date().toISOString()
@@ -65,7 +66,7 @@ window.AccountApp = (function() {
 
     accounts.push(account);
     _saveAccounts(accounts);
-    _saveSession({ phone: phone, name: account.name, email: account.email });
+    _saveSession({ phone: phone, name: account.name, email: account.email, address: account.address });
     return { success: true };
   }
 
@@ -78,7 +79,7 @@ window.AccountApp = (function() {
     }
     if (!found) return { error: 'Aucun compte trouvé avec ce numéro.' };
     if (found.password !== _hash(password)) return { error: 'Mot de passe incorrect.' };
-    _saveSession({ phone: found.phone, name: found.name, email: found.email });
+    _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
     return { success: true };
   }
 
@@ -164,6 +165,7 @@ window.AccountApp = (function() {
       '<div class="form-group"><label>Mot de passe</label><input type="password" class="form-input" id="ac-login-pwd" placeholder="••••" required></div>' +
       '<div id="ac-login-error" class="account-error" style="display:none"></div>' +
       '<button type="submit" class="btn btn-primary btn-block">Se connecter</button>' +
+      '<p style="text-align:center;margin-top:8px"><a href="#" onclick="AccountApp._showForgotPassword();return false" style="font-size:.8rem;color:var(--text-lighter)">Mot de passe oublié ?</a></p>' +
       '<p class="account-form-foot">Pas encore de compte ? <a href="#" onclick="AccountApp._showRegisterForm();return false">S\'inscrire</a></p>' +
     '</form>';
   }
@@ -194,6 +196,65 @@ window.AccountApp = (function() {
     if (el) el.innerHTML = _registerFormHtml();
     document.getElementById('ac-tab-login').classList.remove('active');
     document.getElementById('ac-tab-register').classList.add('active');
+  }
+
+  function _forgotPasswordHtml() {
+    return '<form class="account-form" onsubmit="AccountApp._handleForgotPassword(event)">' +
+      '<h3>Mot de passe oublié</h3>' +
+      '<p class="account-form-sub">Entrez votre numéro de téléphone pour réinitialiser votre mot de passe</p>' +
+      '<div class="form-group"><label>Téléphone</label><input type="tel" class="form-input" id="ac-forgot-phone" placeholder="77 xxx xx xx" required></div>' +
+      '<div class="form-group" id="ac-forgot-new-group" style="display:none"><label>Nouveau mot de passe</label><input type="password" class="form-input" id="ac-forgot-new" placeholder="Min 4 caractères" minlength="4"></div>' +
+      '<div id="ac-forgot-error" class="account-error" style="display:none"></div>' +
+      '<button type="submit" class="btn btn-primary btn-block" id="ac-forgot-btn">Vérifier mon compte</button>' +
+      '<p class="account-form-foot"><a href="#" onclick="AccountApp._showLoginForm();return false">Retour à la connexion</a></p>' +
+    '</form>';
+  }
+
+  function _showForgotPassword() {
+    var el = document.getElementById('ac-form-content');
+    if (el) el.innerHTML = _forgotPasswordHtml();
+    document.getElementById('ac-tab-login').classList.add('active');
+    document.getElementById('ac-tab-register').classList.remove('active');
+  }
+
+  function _handleForgotPassword(e) {
+    e.preventDefault();
+    var phone = document.getElementById('ac-forgot-phone').value.replace(/[^0-9]/g, '');
+    var accounts = _getAccounts();
+    var found = null;
+    for (var i = 0; i < accounts.length; i++) {
+      if (accounts[i].phone === phone) { found = accounts[i]; break; }
+    }
+    var errEl = document.getElementById('ac-forgot-error');
+    var newGroup = document.getElementById('ac-forgot-new-group');
+    var newInput = document.getElementById('ac-forgot-new');
+    var btn = document.getElementById('ac-forgot-btn');
+    if (!found) {
+      errEl.textContent = 'Aucun compte trouvé avec ce numéro.';
+      errEl.style.display = 'block';
+      return;
+    }
+    // Si l'utilisateur n'a pas encore saisi le nouveau mot de passe
+    if (newGroup.style.display === 'none') {
+      errEl.style.display = 'none';
+      newGroup.style.display = 'block';
+      btn.textContent = 'Réinitialiser mon mot de passe';
+    } else {
+      var pwd = newInput.value;
+      if (pwd.length < 4) {
+        errEl.textContent = 'Mot de passe (min 4 caractères)';
+        errEl.style.display = 'block';
+        return;
+      }
+      found.password = _hash(pwd);
+      _saveAccounts(accounts);
+      errEl.style.display = 'none';
+      btn.textContent = '✓ Mot de passe réinitialisé';
+      btn.disabled = true;
+      setTimeout(function() {
+        _showLoginForm();
+      }, 1500);
+    }
   }
 
   function _handleLogin(e) {
@@ -280,6 +341,7 @@ window.AccountApp = (function() {
   }
 
   function _profileHtml(session, acc, myOrders, loyaltyData) {
+    var addr = (acc && acc.address) ? acc.address : { phone: session.phone, region: 'Dakar', quartier: '', address_detail: '', name: session.name || '' };
     return '<div class="ac-card">' +
       '<h3>Bonjour ' + (session.name || 'Client') + ' 👋</h3>' +
       '<p class="ac-welcome">Bienvenue dans votre espace client</p>' +
@@ -288,11 +350,44 @@ window.AccountApp = (function() {
         '<div class="ac-stat"><span class="ac-stat-num">' + (acc ? (acc.wishlist || []).length : 0) + '</span><span class="ac-stat-lbl">Favoris</span></div>' +
         '<div class="ac-stat"><span class="ac-stat-num">' + loyaltyData.orders + '</span><span class="ac-stat-lbl">Achats</span></div>' +
       '</div>' +
-      '<h4 style="margin-top:20px">Informations personnelles</h4>' +
-      '<div class="ac-info"><span>Téléphone</span><span>' + session.phone + '</span></div>' +
-      '<div class="ac-info"><span>Nom</span><span>' + (session.name || '—') + '</span></div>' +
-      '<div class="ac-info"><span>Email</span><span>' + (session.email || '—') + '</span></div>' +
+      '<form class="ac-profile-form" onsubmit="AccountApp._saveProfile(event)">' +
+        '<h4 style="margin-top:16px">Mes informations</h4>' +
+        '<div class="form-group"><label>Nom & Prénom</label><input type="text" class="form-input" id="ac-prof-name" value="' + (session.name || '') + '"></div>' +
+        '<div class="form-group"><label>Téléphone</label><input type="tel" class="form-input" value="' + session.phone + '" disabled style="background:#f5f5f5"></div>' +
+        '<div class="form-group"><label>Email</label><input type="email" class="form-input" id="ac-prof-email" value="' + (session.email || '') + '"></div>' +
+        '<h4 style="margin-top:16px">Adresse par défaut</h4>' +
+        '<p style="font-size:.78rem;color:var(--text-lighter);margin-bottom:10px">Cette adresse sera pré-remplie lors de vos prochaines commandes</p>' +
+        '<div class="form-group"><label>Nom du destinataire</label><input type="text" class="form-input" id="ac-prof-addr-name" value="' + (addr.name || '') + '"></div>' +
+        '<div class="form-group"><label>Téléphone du destinataire</label><input type="tel" class="form-input" id="ac-prof-addr-phone" value="' + (addr.phone || '') + '"></div>' +
+        '<div class="form-group"><label>Région</label><select class="form-input" id="ac-prof-region"><option value="Dakar"' + (addr.region === 'Dakar' ? ' selected' : '') + '>Dakar</option><option value="Banlieue"' + (addr.region === 'Banlieue' ? ' selected' : '') + '>Banlieue</option><option value="Régions"' + (addr.region && addr.region !== 'Dakar' && addr.region !== 'Banlieue' ? ' selected' : '') + '>Régions</option></select></div>' +
+        '<div class="form-group"><label>Quartier / Ville</label><input type="text" class="form-input" id="ac-prof-quartier" value="' + (addr.quartier || '') + '"></div>' +
+        '<div class="form-group"><label>Adresse complète</label><input type="text" class="form-input" id="ac-prof-addr-detail" value="' + (addr.address_detail || '') + '" placeholder="Rue, villa, n°..."></div>' +
+        '<div id="ac-prof-error" class="account-error" style="display:none"></div>' +
+        '<button type="submit" class="btn btn-primary">Enregistrer</button>' +
+      '</form>' +
     '</div>';
+  }
+
+  function _saveProfile(e) {
+    e.preventDefault();
+    var acc = getCurrentAccount();
+    if (!acc) return;
+    var errEl = document.getElementById('ac-prof-error');
+    acc.name = document.getElementById('ac-prof-name').value;
+    acc.email = document.getElementById('ac-prof-email').value;
+    if (!acc.address) acc.address = {};
+    acc.address.name = document.getElementById('ac-prof-addr-name').value;
+    acc.address.phone = document.getElementById('ac-prof-addr-phone').value;
+    acc.address.region = document.getElementById('ac-prof-region').value;
+    acc.address.quartier = document.getElementById('ac-prof-quartier').value;
+    acc.address.address_detail = document.getElementById('ac-prof-addr-detail').value;
+    _saveAccount(acc);
+    _saveSession({ phone: acc.phone, name: acc.name, email: acc.email, address: acc.address });
+    errEl.textContent = '✓ Profil mis à jour';
+    errEl.style.display = 'block';
+    errEl.style.background = '#e8f5e9';
+    errEl.style.color = '#2e7d32';
+    setTimeout(function() { errEl.style.display = 'none'; }, 3000);
   }
 
   function _ordersHtml(orders) {
@@ -380,6 +475,15 @@ window.AccountApp = (function() {
     '</div>';
   }
 
+  // --- Default address for checkout ---
+  function getDefaultAddress() {
+    var session = _loadSession();
+    var acc = getCurrentAccount();
+    if (acc && acc.address) return acc.address;
+    if (session) return session.address || { phone: session.phone, region: 'Dakar', quartier: '', address_detail: '' };
+    return null;
+  }
+
   // --- Banner ---
   function _updateBanner() {
     var banner = document.getElementById('account-banner');
@@ -413,10 +517,14 @@ window.AccountApp = (function() {
     isInWishlist: isInWishlist,
     renderAccount: renderAccount,
     getCurrentAccount: getCurrentAccount,
+    getDefaultAddress: getDefaultAddress,
     _showLoginForm: _showLoginForm,
     _showRegisterForm: _showRegisterForm,
+    _showForgotPassword: _showForgotPassword,
+    _handleForgotPassword: _handleForgotPassword,
     _handleLogin: _handleLogin,
     _handleRegister: _handleRegister,
+    _saveProfile: _saveProfile,
     _switchAcTab: _switchAcTab
   };
 })();

@@ -1839,44 +1839,55 @@
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
 
-    // Comptes inscrits
-    var clHtml = '';
-    if (accounts.length) {
-      accounts.forEach(function(acc) {
-        var clientOrders = orders.filter(function(o) {
-          return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone;
-        });
-        var wlCount = (acc.wishlist || []).length;
-        clHtml += '<tr>' +
-          '<td>' + acc.phone + '</td>' +
-          '<td>' + (acc.name || '—') + '</td>' +
-          '<td>' + (acc.email || '—') + '</td>' +
-          '<td>' + (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
-          '<td>' + clientOrders.length + '</td>' +
-          '<td>' + wlCount + '</td>' +
-        '</tr>';
+    // --- Comptes inscrits avec recherche ---
+    var searchVal = '';
+    var searchInput = document.getElementById('clients-search');
+    if (searchInput) searchVal = searchInput.value.toLowerCase().trim();
+    var clHtml = '<table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Commandes</th><th>Favoris</th><th>Wishlist</th></tr></thead><tbody>';
+    var foundAny = false;
+    accounts.forEach(function(acc) {
+      if (searchVal && acc.phone.indexOf(searchVal) === -1 && (acc.name || '').toLowerCase().indexOf(searchVal) === -1) return;
+      foundAny = true;
+      var clientOrders = orders.filter(function(o) {
+        return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone;
       });
-    } else {
-      clHtml = '<tr><td colspan="6" class="empty-state">Aucun client inscrit</td></tr>';
-    }
+      var wlIds = acc.wishlist || [];
+      var wlNames = wlIds.map(function(id) {
+        for (var pi = 0; pi < products.length; pi++) { if (products[pi].id === id) return products[pi].nom; }
+        return null;
+      }).filter(Boolean).join(', ') || '—';
+      clHtml += '<tr class="client-row" onclick="SytamAdmin._viewClientOrders(\'' + acc.phone + '\')" style="cursor:pointer">' +
+        '<td>' + acc.phone + '</td>' +
+        '<td>' + (acc.name || '—') + '</td>' +
+        '<td>' + (acc.email || '—') + '</td>' +
+        '<td>' + (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+        '<td>' + clientOrders.length + '</td>' +
+        '<td>' + wlIds.length + '</td>' +
+        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + wlNames + '">' + wlNames + '</td>' +
+      '</tr>';
+    });
+    if (!foundAny) clHtml += '<tr><td colspan="7" class="empty-state">Aucun client' + (searchVal ? ' trouvé pour "' + searchVal + '"' : ' inscrit') + '</td></tr>';
+    clHtml += '</tbody></table>';
     var clTbl = document.getElementById('clientsTable');
     if (clTbl) clTbl.innerHTML = clHtml;
 
-    // Paniers abandonnés (commandes en_attente datant de + de 24h)
+    // --- Paniers abandonnés ---
     var abandoned = orders.filter(function(o) {
       return o && o.statut === 'en_attente' && o.created_at;
     });
     abandoned.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
     var abHtml = '';
     if (abandoned.length) {
-      abHtml = '<div class="tbl-wrap"><table><thead><tr><th>Commande</th><th>Client</th><th>Téléphone</th><th>Date</th><th>Total</th></tr></thead><tbody>';
+      abHtml = '<div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table><thead><tr><th>Commande</th><th>Client</th><th>Téléphone</th><th>Date</th><th>Total</th><th>Items</th></tr></thead><tbody>';
       abandoned.forEach(function(o) {
+        var itemsSummary = (o.items || []).map(function(it) { return it.nom + (it.qte > 1 ? ' x' + it.qte : ''); }).join(', ');
         abHtml += '<tr>' +
-          '<td>' + (o.id || '—') + '</td>' +
+          '<td><a href="#" onclick="SytamAdmin.viewOrder(\'' + (o.id || '') + '\');return false" style="color:var(--gold)">' + (o.id || '—') + '</a></td>' +
           '<td>' + (o.client || '—') + '</td>' +
           '<td>' + (o.telephone || '—') + '</td>' +
           '<td>' + (o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
           '<td>' + (o.total || 0).toLocaleString('fr-FR') + ' FCFA</td>' +
+          '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + itemsSummary + '">' + (itemsSummary || '—') + '</td>' +
         '</tr>';
       });
       abHtml += '</tbody></table></div>';
@@ -1886,37 +1897,75 @@
     var abEl = document.getElementById('abandonedCarts');
     if (abEl) abEl.innerHTML = abHtml;
 
-    // Commandes par client
+    // --- Commandes par client (avec total et détail) ---
     var clientMap = {};
+    // First, from registered accounts
     accounts.forEach(function(acc) {
       var clientOrders = orders.filter(function(o) {
         return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone;
       });
       var total = clientOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-      clientMap[acc.phone] = { name: acc.name || acc.phone, count: clientOrders.length, total: total };
+      var lastOrder = clientOrders.length ? clientOrders[0].created_at : '';
+      clientMap[acc.phone] = { name: acc.name || acc.phone, count: clientOrders.length, total: total, lastOrder: lastOrder, orders: clientOrders };
     });
-    // Add non-registered clients from orders
+    // Then from all orders (including non-registered)
     orders.forEach(function(o) {
       if (o && o.telephone) {
         var phone = o.telephone.replace(/[^0-9]/g, '');
-        if (!clientMap[phone]) clientMap[phone] = { name: o.client || phone, count: 0, total: 0 };
+        if (!clientMap[phone]) clientMap[phone] = { name: o.client || phone, count: 0, total: 0, lastOrder: '', orders: [] };
         clientMap[phone].count += 1;
         clientMap[phone].total += o.total || 0;
+        if (o.created_at && (!clientMap[phone].lastOrder || o.created_at > clientMap[phone].lastOrder)) {
+          clientMap[phone].lastOrder = o.created_at;
+        }
+        clientMap[phone].orders.push(o);
       }
     });
-    var coHtml = '';
-    Object.keys(clientMap).forEach(function(phone) {
+    // Sort by total descending
+    var sortedClients = Object.keys(clientMap).map(function(phone) {
       var c = clientMap[phone];
-      coHtml += '<tr>' +
+      return { phone: phone, name: c.name, count: c.count, total: c.total, lastOrder: c.lastOrder, orders: c.orders };
+    });
+    sortedClients.sort(function(a, b) { return b.total - a.total; });
+    var coHtml = '<div class="tbl-wrap" style="max-height:400px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th><th>Dernière commande</th></tr></thead><tbody>';
+    sortedClients.forEach(function(c) {
+      coHtml += '<tr class="client-row" onclick="SytamAdmin._viewClientOrders(\'' + c.phone + '\')" style="cursor:pointer">' +
         '<td>' + c.name + '</td>' +
-        '<td>' + phone + '</td>' +
+        '<td>' + c.phone + '</td>' +
         '<td>' + c.count + '</td>' +
         '<td>' + (c.total || 0).toLocaleString('fr-FR') + ' FCFA</td>' +
+        '<td>' + (c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '—') + '</td>' +
       '</tr>';
     });
-    if (!coHtml) coHtml = '<tr><td colspan="4" class="empty-state">Aucune commande</td></tr>';
+    if (!sortedClients.length) coHtml += '<tr><td colspan="5" class="empty-state">Aucune commande</td></tr>';
+    coHtml += '</tbody></table></div>';
     var coTbl = document.getElementById('clientOrdersTable');
     if (coTbl) coTbl.innerHTML = coHtml;
+  }
+
+  function _viewClientOrders(phone) {
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var clientOrders = orders.filter(function(o) {
+      return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === phone;
+    });
+    if (!clientOrders.length) { showToast('Info', 'Aucune commande pour ce client'); return; }
+    var html = '<div class="card"><div class="card-title">Commandes de ' + phone + '</div><div style="max-height:400px;overflow-y:auto">';
+    clientOrders.forEach(function(o) {
+      var itemsHtml = (o.items || []).map(function(it) {
+        return '<div style="display:flex;justify-content:space-between;font-size:.78rem;padding:2px 0"><span>' + it.nom + (it.variantLabel ? ' (' + it.variantLabel + ')' : '') + ' x' + (it.qte || 1) + '</span><span>' + (it.prix || 0).toLocaleString('fr-FR') + ' F</span></div>';
+      }).join('');
+      html += '<div style="border:1px solid var(--bd);border-radius:6px;padding:10px;margin-bottom:8px">' +
+        '<div style="display:flex;justify-content:space-between;font-weight:600;font-size:.85rem">' +
+          '<span>' + (o.id || '—') + '</span>' +
+          '<span style="color:' + (o.statut === 'livree' ? 'var(--ok)' : 'var(--wa)') + '">' + (o.statut || 'en_attente') + '</span>' +
+        '</div>' +
+        '<div style="font-size:.78rem;color:var(--tl);margin-bottom:4px">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') : '—') + '</div>' +
+        itemsHtml +
+        '<div style="border-top:1px solid var(--bd);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:600"><span>Total</span><span>' + (o.total || 0).toLocaleString('fr-FR') + ' FCFA</span></div>' +
+      '</div>';
+    });
+    html += '</div></div>';
+    openModal(html);
   }
 
   function syncAnalytics() {
@@ -1947,7 +1996,7 @@
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
-    loadAnalytics, syncAnalytics, loadFinance, loadClients,
+    loadAnalytics, syncAnalytics, loadFinance, loadClients, _viewClientOrders,
     _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
   };
 

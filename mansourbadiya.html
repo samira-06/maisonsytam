@@ -213,7 +213,8 @@
       <div class="grid-2">
         <div class="card">
           <div class="card-title">Comptes inscrits</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Commandes</th><th>Favoris</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
+          <div style="margin-bottom:12px"><input class="form-input" id="clients-search" placeholder="Rechercher par nom ou téléphone..." oninput="SytamAdmin.loadClients()" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid var(--bd);border-radius:6px;font-size:.85rem"></div>
+          <div class="tbl-wrap" style="max-height:400px;overflow-y:auto"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Commandes</th><th>Favoris</th><th>Wishlist</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
         </div>
         <div class="card">
           <div class="card-title">Paniers abandonnés</div>

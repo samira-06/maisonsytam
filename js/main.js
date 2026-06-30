@@ -619,10 +619,13 @@
     if (typeof SytamAnalytics !== 'undefined') SytamAnalytics.trackCheckout();
     state.showingCart = false;
     document.body.classList.remove('cart-open');
-    // Render checkout content BEFORE opening modal
     renderCheckoutSummary();
     document.getElementById('checkout-modal').classList.add('open');
     document.body.style.overflow = 'hidden';
+    // Pre-fill from account if logged in
+    if (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn()) {
+      _prefillCheckout();
+    }
     setTimeout(function() {
       var cc = document.querySelector('.checkout-content');
       if (cc) cc.scrollTop = cc.scrollHeight;
@@ -630,6 +633,31 @@
     document.querySelectorAll('.checkout-content input, .checkout-content select, .checkout-content textarea').forEach(function(el) {
       el.addEventListener('focus', function() { this.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     });
+  }
+
+  function _prefillCheckout() {
+    var addr = AccountApp.getDefaultAddress();
+    if (!addr) return;
+    var nameInput = document.querySelector('#checkout-form [name="name"]');
+    var phoneInput = document.querySelector('#checkout-form [name="phone"]');
+    var regionInput = document.getElementById('region-input');
+    var regionTrigger = document.querySelector('#region-trigger span');
+    var quartierTrigger = document.querySelector('#quartier-trigger span');
+    var quartierHidden = document.querySelector('#checkout-form [name="address"]');
+    var addrDetail = document.getElementById('address-detail-input');
+    if (nameInput && addr.name) nameInput.value = addr.name;
+    if (phoneInput && addr.phone) phoneInput.value = addr.phone;
+    if (regionInput && addr.region) {
+      regionInput.value = addr.region;
+      if (regionTrigger) regionTrigger.textContent = addr.region;
+      if (typeof handleRegionChange === 'function') handleRegionChange(addr.region);
+    }
+    if (quartierTrigger && addr.quartier) {
+      quartierTrigger.textContent = addr.quartier;
+      if (quartierHidden) quartierHidden.value = addr.quartier;
+    }
+    if (addrDetail && addr.address_detail) addrDetail.value = addr.address_detail;
+    renderCheckoutSummary();
   }
 
   function _neighborhoodZone() {
