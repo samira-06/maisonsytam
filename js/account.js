@@ -268,8 +268,9 @@ window.AccountApp = (function() {
     var emailjsTemplate = localStorage.getItem('sytam_emailjs_template') || '';
     var emailConfigured = emailjsPubkey && emailjsService && emailjsTemplate && typeof emailjs !== 'undefined';
     if (emailConfigured) {
+      // Réinitialiser EmailJS avec la clé (au cas où la page a été chargée avant la config)
+      if (typeof emailjs !== 'undefined') { try { emailjs.init(emailjsPubkey); } catch(e) {} }
       emailjs.send(emailjsService, emailjsTemplate, {
-        email: email,
         link: recoveryLink,
         name: found.name || 'Client',
         to_email: email
