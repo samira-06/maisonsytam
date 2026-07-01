@@ -211,38 +211,48 @@
     <div class="tab" id="tab-clients">
       <div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Clients</h1><p>Comptes inscrits et gestion clientèle</p></div></div></div>
       <div style="padding:12px">
-        <div class="stat-row" id="clientsKpiRow" style="gap:8px"></div>
+        <div class="stat-row" id="clientsKpiRow"></div>
         <div class="client-subtabs">
-          <button class="client-subtab active" data-clist="all" onclick="SytamAdmin._switchClientSubtab('all')">📋 Toutes les clientes</button>
-          <button class="client-subtab" data-clist="relance" onclick="SytamAdmin._switchClientSubtab('relance')">🔔 À relancer</button>
+          <button class="client-subtab active" data-clist="all" onclick="SytamAdmin._switchClientSubtab('all')">Toutes les clientes</button>
+          <button class="client-subtab" data-clist="relance" onclick="SytamAdmin._switchClientSubtab('relance')">À relancer</button>
         </div>
         <div id="clientsSubContent">
-          <div class="section-divider"><hr><span>── Filtres ──</span><hr></div>
-          <div class="pill-filters" id="pillFilters"></div>
-          <div class="section-divider"><hr><span>── Liste des clientes ──</span><hr></div>
-          <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px">
-            <input class="form-input" id="clients-search" placeholder="🔍 Nom, téléphone..." oninput="SytamAdmin.loadClients()" style="max-width:180px;padding:5px 10px;font-size:.72rem">
-            <select class="sort-select" onchange="SytamAdmin._setClientSort(this.value)" style="padding:4px 8px;font-size:.7rem">
-              <option value="total">Total ↓</option>
-              <option value="count">Nb cmd ↓</option>
-              <option value="last">Dernière ↓</option>
-              <option value="alpha">A→Z</option>
-            </select>
-            <button class="btn-sm btn-add" onclick="SytamAdmin._exportClientsCSV()" style="font-size:.65rem">⬇ CSV</button>
+          <div class="card">
+            <div class="card-title" style="border:none;margin:0;padding:0 0 8px">
+              Commandes par cliente
+              <span style="font-weight:400;font-size:.75rem;color:var(--tl);margin-left:6px">(cliquez "Détail" pour tout l'historique)</span>
+              <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
+                <button class="filter-btn active" data-cfilter="all" onclick="SytamAdmin._setClientFilter('all')">Toutes</button>
+                <button class="filter-btn" data-cfilter="nouveau" onclick="SytamAdmin._setClientFilter('nouveau')">Nouvelles</button>
+                <button class="filter-btn" data-cfilter="regulier" onclick="SytamAdmin._setClientFilter('regulier')">Régulières</button>
+                <button class="filter-btn" data-cfilter="vip" onclick="SytamAdmin._setClientFilter('vip')">VIP</button>
+                <button class="filter-btn" data-cfilter="inactive" onclick="SytamAdmin._setClientFilter('inactive')">Inactives</button>
+                <button class="filter-btn" data-cfilter="compte" onclick="SytamAdmin._setClientFilter('compte')">Avec compte</button>
+              </span>
+              <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
+                <select class="sort-select" onchange="SytamAdmin._setClientSort(this.value)">
+                  <option value="total">Total dépensé ↓</option>
+                  <option value="count">Nb commandes ↓</option>
+                  <option value="last">Dernière commande ↓</option>
+                  <option value="alpha">A→Z</option>
+                </select>
+                <input class="form-input" id="clients-search" placeholder="🔍 Nom, téléphone..." oninput="SytamAdmin.loadClients()" style="max-width:160px;padding:4px 8px;font-size:.7rem">
+                <button class="btn-sm btn-add" onclick="SytamAdmin._exportClientsCSV()" style="font-size:.65rem">⬇ CSV Premium</button>
+              </span>
+            </div>
+            <div class="tbl-wrap" style="max-height:500px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th><th>Panier moyen</th><th>Statut</th><th>Produit favori</th><th>Dernière commande</th><th>Action</th></tr></thead><tbody id="clientOrdersTable"></tbody></table></div>
           </div>
-          <div id="clientsCards"></div>
-          <div class="section-divider"><hr><span>── Comptes inscrits ──</span><hr></div>
-          <div class="card" style="margin-top:0">
-            <div class="tbl-wrap" style="max-height:350px;overflow-y:auto"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Dernière connexion</th><th>Commandes</th><th>Panier moyen</th><th>Jours</th><th>Statut</th><th>Wishlist</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Comptes inscrits <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(avec email et wishlist)</span></div>
+            <div class="tbl-wrap" style="max-height:350px;overflow-y:auto"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Dernière connexion</th><th>Commandes</th><th>Statut</th><th>Favoris</th><th>Wishlist</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
           </div>
-          <div class="section-divider"><hr><span>── Paniers abandonnés ──</span><hr></div>
-          <div class="card" style="margin-top:0">
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Paniers abandonnés <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes en attente de paiement)</span></div>
             <div id="abandonedCarts"><p class="empty-state">Aucun panier abandonné pour le moment</p></div>
           </div>
         </div>
         <div id="relanceContent" style="display:none">
-          <div class="section-divider"><hr><span>── Clientes à relancer ──</span><hr></div>
-          <div id="relanceList"><p class="empty-state">Aucune cliente à relancer</p></div>
+          <div class="card"><div class="card-title">Clientes à relancer</div><div id="relanceList"><p class="empty-state">Aucune cliente à relancer</p></div></div>
         </div>
       </div>
       <!-- Drawer client -->
