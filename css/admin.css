@@ -454,21 +454,21 @@ select.form-input { cursor: pointer; }
 .client-list-view.hidden { display: none; }
 .client-dossier-view { display: none; }
 .client-dossier-view.open { display: block; }
-.client-card { background: #FAF6EF; border: 1px solid var(--bd); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: .2s; }
-.client-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+.client-card { background: #FAF6EF; border: 1px solid var(--bd); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: .2s; }
+.client-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important; }
 .client-card .cc-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .client-card .cc-name { font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; color: #3d2b1f; }
 .client-card .cc-phone { font-size: .78rem; color: var(--tl); }
 .client-card .cc-location { font-size: .72rem; color: var(--tl); margin-top: 1px; }
-.client-card .cc-stats { display: flex; gap: 12px; margin: 8px 0 6px; font-size: .78rem; }
-.client-card .cc-stats > div { flex: 1; }
-.client-card .cc-stats .num { font-weight: 700; color: #3d2b1f; font-size: .85rem; }
-.client-card .cc-stats .lbl { font-size: .65rem; color: var(--tl); }
+.client-card .cc-stats { display: flex; gap: 8px; margin: 0; font-size: .78rem; }
+.client-card .cc-stats > div { flex: 1; min-width: 0; }
+.client-card .cc-stats .num { font-weight: 700; color: #3d2b1f; font-size: .8rem; }
+.client-card .cc-stats .lbl { font-size: .58rem; color: var(--tl); text-transform: uppercase; letter-spacing: .3px; }
 .client-card .cc-fav { font-size: .72rem; color: var(--tl); padding-top: 6px; border-top: 1px solid var(--bd); margin: 6px 0 8px; }
 .client-card .cc-fav span { font-weight: 600; color: #3d2b1f; }
 .client-card .cc-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .client-badge { display: inline-block; font-size: .65rem; font-weight: 600; padding: 2px 10px; border-radius: 10px; white-space: nowrap; }
-.client-badge.VIP { background: #B8935A; color: #fff; }
+.client-badge.VIP { background: linear-gradient(135deg, #B8935A, #D4A96A); color: #fff; }
 .client-badge.Regulier { background: rgba(184,147,90,0.2); color: #7A5A2E; border: 1px solid rgba(184,147,90,0.3); }
 .client-badge.Nouveau { background: rgba(59,109,17,0.12); color: #3B6D11; border: 1px solid rgba(59,109,17,0.2); }
 .client-badge.Inactive { background: rgba(163,45,45,0.1); color: #A32D2D; border: 1px solid rgba(163,45,45,0.15); }
