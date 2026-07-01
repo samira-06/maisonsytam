@@ -416,6 +416,53 @@ const SytamAnalytics = {
     var days = Object.keys(d.dailyStats || {}).length;
     var avgTime = d.totalUnique > 0 && d.totalTimeSeconds ? this._fmtTime(Math.round(d.totalTimeSeconds / d.totalUnique)) : '—';
     var chartRange = localStorage.getItem('sytam_chart_range') || '7';
+    var globalPeriod = localStorage.getItem('sytam_analytics_period') || 'all';
+
+    // KPIs supplémentaires
+    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    var ordersAll = this._getOrders();
+    // Produit le plus/moins vendu
+    var prodSales = {};
+    orders.forEach(function(o) { if (o.items) o.items.forEach(function(i) { var pid = i.productId || ''; if (pid) prodSales[pid] = (prodSales[pid] || 0) + parseInt(i.qte || i.qty || 1); }); });
+    var prodSalesSorted = Object.keys(prodSales).sort(function(a, b) { return prodSales[b] - prodSales[a]; });
+    var productsMap = this._getProductsMap();
+    var bestProd = prodSalesSorted.length ? productsMap[prodSalesSorted[0]] : null;
+    var worstProd = prodSalesSorted.length > 1 ? productsMap[prodSalesSorted[prodSalesSorted.length - 1]] : null;
+    var bestName = bestProd ? bestProd.nom : '—';
+    var worstName = worstProd ? worstProd.nom : '—';
+    // Abandon panier
+    var totalAdds = d.totalAddToCart || 0;
+    var totalRemoves = d.totalRemoveFromCart || 0;
+    var abandonRate = totalAdds > 0 ? Math.round(totalRemoves / totalAdds * 100) : 0;
+    // Revenu mois courant
+    var now = new Date();
+    var monthRevenue = 0;
+    ordersAll.forEach(function(o) {
+      if (!o.created_at) return;
+      var od = new Date(o.created_at);
+      if (od.getMonth() === now.getMonth() && od.getFullYear() === now.getFullYear()) monthRevenue += (o.total || 0);
+    });
+    // Produits épuisés
+    var products = []; try { products = JSON.parse(localStorage.getItem('sytam_products_v4') || '[]'); } catch(e) {}
+    var epuises = products.filter(function(p) {
+      if (!p.stock || typeof p.stock !== 'object') return true;
+      var totalStock = 0;
+      Object.keys(p.stock).forEach(function(sz) {
+        var c = p.stock[sz];
+        if (typeof c === 'object') Object.keys(c).forEach(function(col) { totalStock += parseInt(c[col]) || 0; });
+        else totalStock += parseInt(c) || 0;
+      });
+      return totalStock === 0;
+    });
+
+    // Période filtrée pour les sections
+    var filteredOrders = ordersAll;
+    if (globalPeriod !== 'all') {
+      var nowDate = new Date();
+      if (globalPeriod === '7days') { var d7 = new Date(nowDate); d7.setDate(d7.getDate() - 7); filteredOrders = ordersAll.filter(function(o) { return o.created_at && new Date(o.created_at) >= d7; }); }
+      else if (globalPeriod === 'month') { filteredOrders = ordersAll.filter(function(o) { if (!o.created_at) return false; var od = new Date(o.created_at); return od.getMonth() === nowDate.getMonth() && od.getFullYear() === nowDate.getFullYear(); }); }
+      else if (globalPeriod === 'year') { filteredOrders = ordersAll.filter(function(o) { return o.created_at && new Date(o.created_at).getFullYear() === nowDate.getFullYear(); }); }
+    }
 
     tab.innerHTML =
       // TOPBAR
@@ -425,12 +472,18 @@ const SytamAnalytics = {
           '<div><h1>Analytiques</h1><p>Statistiques et rapports</p></div>' +
         '</div>' +
         '<div class="topbar-right">' +
+          '<select class="form-input" style="width:auto;padding:.35rem .5rem;font-size:.72rem" onchange="localStorage.setItem(\'sytam_analytics_period\',this.value);SytamAnalytics.renderAdminAnalytics()">' +
+            '<option value="all"' + (globalPeriod === 'all' ? ' selected' : '') + '>Toutes les périodes</option>' +
+            '<option value="7days"' + (globalPeriod === '7days' ? ' selected' : '') + '>7 jours</option>' +
+            '<option value="month"' + (globalPeriod === 'month' ? ' selected' : '') + '>Ce mois</option>' +
+            '<option value="year"' + (globalPeriod === 'year' ? ' selected' : '') + '>Cette année</option>' +
+          '</select>' +
           '<button class="btn-add btn-sm" onclick="SytamAdmin.syncAnalytics()" style="font-size:.75rem">🔄 Synchroniser</button>' +
           '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportCSVFile()" style="font-size:.75rem;background:var(--ok)">⬇ CSV événements</button>' +
           '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV produits</button>' +
         '</div>' +
       '</div>' +
-      // SECTION 1 — KPIs (9 cards)
+      // SECTION 1 — KPIs élargis (12 cards)
       '<div class="stats-grid">' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="stat-val">' + (d.totalVisits || 0) + '</div><div class="stat-lbl">Vues totales</div><div class="stat-sub">Ajd : ' + (daily.visits || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="stat-val">' + (d.totalUnique || 0) + '</div><div class="stat-lbl">Visiteurs uniques</div></div>' +
@@ -441,8 +494,11 @@ const SytamAnalytics = {
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div><div class="stat-val">' + conversionGlobal + '%</div><div class="stat-lbl">Taux conversion</div><div class="stat-sub">Visites → commandes</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div><div class="stat-val">' + _fmtAnalytics(panierMoyen) + ' F</div><div class="stat-lbl">Panier moyen</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val">' + avgTime + '</div><div class="stat-lbl">Temps moyen / visiteur</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="stat-val">' + (bestName.length > 18 ? bestName.slice(0,16) + '…' : bestName) + '</div><div class="stat-lbl">⭐ Meilleure vente</div><div class="stat-sub">' + (prodSalesSorted.length ? prodSales[prodSalesSorted[0]] : 0) + ' unités</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#c62828" stroke-width="2"><path d="M10 14L21 3M21 3l-7 18-4-7-7-4 18-7z"/></svg></div><div class="stat-val">' + (worstName.length > 18 ? worstName.slice(0,16) + '…' : worstName) + '</div><div class="stat-lbl">⚠ Moins vendue</div><div class="stat-sub">' + (prodSalesSorted.length > 1 ? prodSales[prodSalesSorted[prodSalesSorted.length - 1]] : 0) + ' unités</div></div>' +
+        '<div class="stat-card" onclick="document.querySelector(\'[data-anafilter=\\\'inactif\\\']\').click();document.getElementById(\'anaProdSection\').scrollIntoView({behavior:\'smooth\'})" style="cursor:pointer"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-val">' + epuises.length + '</div><div class="stat-lbl">🚫 Produits épuisés</div><div class="stat-sub">Cliquez pour voir</div></div>' +
       '</div>' +
-      // SECTION 2+3: Graphique (60%) + Historique journalier (40%) côte à côte
+      // SECTION 2+3: Graphique (60%) + Historique journalier (40%)
       '<div class="analytics-chart-grid">' +
         '<div class="card" style="margin-bottom:0">' +
           '<div class="card-title">' +
@@ -459,34 +515,64 @@ const SytamAnalytics = {
           '<div id="analyticsDailyHistory" style="max-height:320px;overflow-y:auto">' + this._renderDailyHistory(d.dailyStats) + '</div>' +
         '</div>' +
       '</div>' +
-      // SECTION 4 — Détails par produit
+      // SECTION 4 — Analyse comportementale par produit (CARTES)
+      '<div class="card" id="anaProdSection">' +
+        '<div class="card-title">' +
+          'Analyse comportementale par produit <span style="font-weight:400;font-size:.75rem;color:var(--tl)">clics, ventes, tailles, couleurs</span>' +
+          '<span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">' +
+            '<button class="btn-sm btn-add" data-anafilter="all" onclick="SytamAnalytics._setProdFilter(\'all\')" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">Tous</button>' +
+            '<button class="btn-sm btn-del" data-anafilter="top" onclick="SytamAnalytics._setProdFilter(\'top\')" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">★ Top</button>' +
+            '<button class="btn-sm btn-del" data-anafilter="actif" onclick="SytamAnalytics._setProdFilter(\'actif\')" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">✓ Actifs</button>' +
+            '<button class="btn-sm btn-del" data-anafilter="faible" onclick="SytamAnalytics._setProdFilter(\'faible\')" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">⚠ Faibles</button>' +
+            '<button class="btn-sm btn-del" data-anafilter="inactif" onclick="SytamAnalytics._setProdFilter(\'inactif\')" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">❄ Inactifs</button>' +
+          '</span>' +
+        '</div>' +
+        '<div id="analyticsProductCards">' + this._renderProductAnalysisCards('all') + '</div>' +
+      '</div>' +
+      // SECTION 5 — Détails par produit (tableau)
       '<div class="card">' +
         '<div class="card-title">Détails par produit</div>' +
         '<div id="analyticsProductDetail">' + this._renderProductDetail(d) + '</div>' +
       '</div>' +
-      // SECTION 5 — Quartiers les plus livrés
+      // SECTION 6 — Quartiers enrichis
       '<div class="card">' +
-        '<div class="card-title">Quartiers les plus livrés <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes confirmées)</span></div>' +
+        '<div class="card-title">Quartiers &amp; régions <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes confirmées)</span></div>' +
         '<div id="analyticsQuartiers">' + this._renderQuartierChart() + '</div>' +
       '</div>' +
-      // SECTION 6 — Comportement session
+      // SECTION 7 — Comportement session
       '<div class="card">' +
-        '<div class="card-title">Comportement client (par session) <span style="font-weight:400;font-size:.75rem;color:var(--tl)">50 dernières sessions</span></div>' +
-        '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">La durée est calculée entre le 1er et le dernier clic de chaque session. Les sessions &gt;4h sont notées <span style="color:var(--er)">(plusieurs visites)</span> — le visiteur est revenu sans recharger la page.</p>' +
+        '<div class="card-title">Comportement client <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(sessions)</span></div>' +
         '<div id="analyticsSessions">' + this._renderSessionBehavior() + '</div>' +
       '</div>' +
-      // SECTION 7 — Suivi clients
+      // SECTION 8 — Suivi clients amélioré
       '<div class="card">' +
         '<div class="card-title">Suivi clients</div>' +
         '<div id="analyticsCustomers">' + this._renderCustomerTracking() + '</div>' +
       '</div>' +
-      // SECTION 8 — Journal temps réel
+      // SECTION 9 — Journal temps réel
       '<div class="card">' +
-        '<div class="card-title">Journal d\'activité <span style="font-size:.6rem;background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;vertical-align:middle;animation:pulse 1.5s infinite">EN DIRECT</span></div>' +
-        '<p style="font-size:.7rem;color:var(--tl);margin:0 0 8px;padding:0">Les actions des visiteurs (clics, ajouts au panier, commandes) apparaissent ici automatiquement, sans recharger la page.</p>' +
+        '<div class="card-title">Journal d\'activité <span style="font-size:.6rem;background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;vertical-align:middle;animation:pulse 1.5s infinite">EN DIRECT</span>' +
+          '<span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px;font-size:.7rem">' +
+            '<button class="btn-sm btn-add" data-logfilter="all" onclick="SytamAnalytics._setLogFilter(\'all\')" style="padding:1px 6px;font-size:.6rem;border:none;border-radius:3px">Tout</button>' +
+            '<button class="btn-sm btn-del" data-logfilter="order" onclick="SytamAnalytics._setLogFilter(\'order\')" style="padding:1px 6px;font-size:.6rem;border:none;border-radius:3px">Commandes</button>' +
+            '<button class="btn-sm btn-del" data-logfilter="abandon" onclick="SytamAnalytics._setLogFilter(\'abandon\')" style="padding:1px 6px;font-size:.6rem;border:none;border-radius:3px">Abandons</button>' +
+            '<button class="btn-sm btn-del" data-logfilter="cart" onclick="SytamAnalytics._setLogFilter(\'cart\')" style="padding:1px 6px;font-size:.6rem;border:none;border-radius:3px">Paniers</button>' +
+          '</span>' +
+        '</div>' +
         '<div id="analyticsEventLog" style="max-height:400px;overflow-y:auto">' + this._renderEventLog() + '</div>' +
       '</div>';
     this._startLogTimer();
+  },
+  _setProdFilter(filter) {
+    var el = document.getElementById('analyticsProductCards');
+    if (el) el.innerHTML = this._renderProductAnalysisCards(filter);
+    document.querySelectorAll('[data-anafilter]').forEach(function(b) { b.className = 'btn-sm ' + (b.dataset.anafilter === filter ? 'btn-add' : 'btn-del'); });
+  },
+  _setLogFilter(filter) {
+    localStorage.setItem('sytam_log_filter', filter);
+    var el = document.getElementById('analyticsEventLog');
+    if (el) el.innerHTML = this._renderEventLog();
+    document.querySelectorAll('[data-logfilter]').forEach(function(b) { b.className = 'btn-sm ' + (b.dataset.logfilter === filter ? 'btn-add' : 'btn-del'); });
   },
 
   _setChartRange(days) {
@@ -698,58 +784,68 @@ const SytamAnalytics = {
   },
 
   _renderSessionBehavior() {
-    var sessions = this._getSessions().slice(0, 50);
+    var sessions = this._getSessions();
     if (!sessions.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune session enregistrée</p>';
-    var rows = sessions.map(function(s) {
+    var total = sessions.length;
+    var withOrder = sessions.filter(function(s) { return s.result === 'Commande confirmée'; }).length;
+    var abandoned = sessions.filter(function(s) { return s.result === 'Abandon'; }).length;
+    var browsing = sessions.filter(function(s) { return s.result === 'Navigation seule'; }).length;
+    var avgDuration = Math.round(sessions.reduce(function(sum, s) { return sum + s.duration; }, 0) / total);
+    var avgPages = Math.round(sessions.reduce(function(sum, s) { return sum + s.pages.length; }, 0) / total * 10) / 10;
+    var convRate = total > 0 ? (withOrder / total * 100).toFixed(1) : 0;
+    var abandonRate = total > 0 ? (abandoned / total * 100).toFixed(1) : 0;
+    var topProducts = {};
+    sessions.forEach(function(s) {
+      s.productsClicked.forEach(function(p) { topProducts[p] = (topProducts[p] || 0) + 1; });
+    });
+    var topSorted = Object.keys(topProducts).sort(function(a, b) { return topProducts[b] - topProducts[a]; }).slice(0, 5);
+    var topList = topSorted.length ? topSorted.map(function(p) { return '<div style="font-size:.72rem;margin:2px 0">✦ ' + p + ' (' + topProducts[p] + ')</div>'; }).join('') : '<span style="color:var(--tl);font-size:.72rem">Aucun</span>';
+
+    // Mini tableau des 10 dernières sessions (simplifié)
+    var recent = sessions.slice(0, 10);
+    var miniRows = recent.map(function(s) {
       var dateStr = s.start ? new Date(s.start).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-      var durationStr = SytamAnalytics._fmtTime(s.duration) + (s.durationNote ? ' <span style="font-size:.6rem;color:var(--er)">(' + s.durationNote + ')</span>' : '');
-      var nbPages = s.pages.length;
-      var clickedStr = s.productsClicked.length > 0 ? s.productsClicked.join(', ') : '—';
-      var addedStr = s.productsAdded.length > 0 ? s.productsAdded.join(', ') : '—';
-      var removedStr = s.productsRemoved.length > 0 ? s.productsRemoved.join(', ') : '—';
-      var resultColor = s.result === 'Commande confirmée' ? 'var(--ok)' : (s.result === 'Abandon' ? 'var(--er)' : 'var(--tl)');
-      clickedStr = clickedStr.length > 40 ? clickedStr.slice(0, 40) + '…' : clickedStr;
-      addedStr = addedStr.length > 40 ? addedStr.slice(0, 40) + '…' : addedStr;
-      removedStr = removedStr.length > 40 ? removedStr.slice(0, 40) + '…' : removedStr;
-      return '<tr>' +
-        '<td style="padding:5px 6px;font-size:.72rem;color:var(--tl);white-space:nowrap">' + dateStr + '</td>' +
-        '<td style="padding:5px 6px;text-align:center;font-size:.72rem;white-space:nowrap">' + durationStr + '</td>' +
-        '<td style="padding:5px 6px;text-align:center;font-size:.78rem;white-space:nowrap">' + nbPages + '</td>' +
-        '<td style="padding:5px 6px;font-size:.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + clickedStr + '</td>' +
-        '<td style="padding:5px 6px;font-size:.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ok)">' + addedStr + '</td>' +
-        '<td style="padding:5px 6px;font-size:.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--er)">' + removedStr + '</td>' +
-        '<td style="padding:5px 6px;text-align:center;font-size:.72rem;white-space:nowrap;font-weight:600;color:' + resultColor + '">' + s.result + '</td>' +
-      '</tr>';
+      var durStr = SytamAnalytics._fmtTime(s.duration);
+      var color = s.result === 'Commande confirmée' ? 'var(--ok)' : (s.result === 'Abandon' ? 'var(--er)' : 'var(--tl)');
+      return '<tr><td style="padding:3px 6px;font-size:.7rem;color:var(--tl)">' + dateStr + '</td>' +
+        '<td style="padding:3px 6px;text-align:center;font-size:.7rem">' + durStr + '</td>' +
+        '<td style="padding:3px 6px;text-align:center;font-size:.7rem">' + s.pages.length + '</td>' +
+        '<td style="padding:3px 6px;text-align:center;font-size:.7rem;font-weight:600;color:' + color + '">' + s.result + '</td></tr>';
     }).join('');
-    return '<div class="tbl-wrap"><table style="font-size:.78rem"><thead><tr>' +
-      '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Date &amp; Heure</th><th style="text-align:center;padding:4px 6px;font-size:.6rem">Durée</th>' +
-      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Pages</th><th style="text-align:left;padding:4px 6px;font-size:.6rem">Produits cliqués</th>' +
-      '<th style="text-align:left;padding:4px 6px;font-size:.6rem">Ajoutés</th><th style="text-align:left;padding:4px 6px;font-size:.6rem">Retirés</th>' +
-      '<th style="text-align:center;padding:4px 6px;font-size:.6rem">Résultat</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+
+    return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--bd)"><div style="font-size:1.2rem;font-weight:700;color:var(--tx)">' + total + '</div><div style="font-size:.7rem;color:var(--tl)">Sessions totales</div></div>' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--ok);"><div style="font-size:1.2rem;font-weight:700;color:var(--ok)">' + convRate + '%</div><div style="font-size:.7rem;color:var(--tl)">Taux de conversion</div><div style="font-size:.65rem;color:var(--tl)">' + withOrder + ' commandes</div></div>' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--er);"><div style="font-size:1.2rem;font-weight:700;color:var(--er)">' + abandonRate + '%</div><div style="font-size:.7rem;color:var(--tl)">Taux d\'abandon</div><div style="font-size:.65rem;color:var(--tl)">' + abandoned + ' paniers</div></div>' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--bd)"><div style="font-size:1.2rem;font-weight:700;color:var(--tx)">' + this._fmtTime(avgDuration) + '</div><div style="font-size:.7rem;color:var(--tl)">Durée moyenne</div></div>' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--bd)"><div style="font-size:1.2rem;font-weight:700;color:var(--tx)">' + avgPages + '</div><div style="font-size:.7rem;color:var(--tl)">Pages vues en moyenne</div></div>' +
+      '<div class="stat-box" style="background:var(--bg-card);padding:12px;border-radius:6px;border:1px solid var(--bd)"><div style="font-size:.7rem;font-weight:600;color:var(--tx);margin-bottom:4px">Top produits cliqués</div>' + topList + '</div>' +
+      '</div>' +
+      '<details style="margin-top:8px"><summary style="font-size:.78rem;font-weight:600;cursor:pointer;color:var(--tx)">📋 10 dernières sessions</summary>' +
+      '<div class="tbl-wrap" style="margin-top:8px"><table style="font-size:.72rem"><thead><tr>' +
+      '<th style="text-align:left;padding:3px 6px;font-size:.6rem">Date</th><th style="text-align:center;padding:3px 6px;font-size:.6rem">Durée</th>' +
+      '<th style="text-align:center;padding:3px 6px;font-size:.6rem">Pages</th><th style="text-align:center;padding:3px 6px;font-size:.6rem">Résultat</th></tr></thead><tbody>' + miniRows + '</tbody></table></div></details>';
   },
 
   _renderQuartierChart() {
     var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande confirmée</p>';
-    var counts = {};
-    var quartierNotFound = 0;
+    // Quartiers + régions
+    var counts = {}, regionCounts = {}, quartierTotals = {}, quartierNotFound = 0;
     orders.forEach(function(o) {
       var q = '';
-      if (o.quartier) {
-        q = o.quartier;
-      } else if (o.adresse) {
-        var addr = o.adresse.split(',')[0].trim();
-        q = addr;
-      }
+      if (o.quartier) { q = o.quartier; } else if (o.adresse) { var addr = o.adresse.split(',')[0].trim(); q = addr; }
       if (q) {
         if (!counts[q]) counts[q] = 0;
         counts[q]++;
-      } else {
-        quartierNotFound++;
-      }
+        if (!quartierTotals[q]) quartierTotals[q] = 0;
+        quartierTotals[q] += (o.total || 0);
+      } else { quartierNotFound++; }
+      var r = o.region || 'Non spécifié';
+      regionCounts[r] = (regionCounts[r] || 0) + 1;
     });
     var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+    var regionsSorted = Object.keys(regionCounts).sort(function(a, b) { return regionCounts[b] - regionCounts[a]; });
     if (!sorted.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun quartier trouvé</p>';
     var top = sorted.slice(0, 12);
     var maxVal = counts[top[0]] || 1;
@@ -757,22 +853,29 @@ const SytamAnalytics = {
     var totalH = top.length * (barH + gap) + 10;
     var bars = top.map(function(q, i) {
       var v = counts[q];
-      var pct = (v / maxVal) * 100;
       var barW = (v / maxVal) * (charW - padLeft - padRight);
       var y = 10 + i * (barH + gap);
       var color = 'hsl(' + (220 - i * 12) + ', 45%, 55%)';
+      var avg = quartierTotals[q] > 0 ? Math.round(quartierTotals[q] / v) : 0;
       return '<rect x="' + padLeft + '" y="' + y + '" width="' + barW + '" height="' + barH + '" fill="' + color + '" rx="3" ry="3"/>' +
         '<text x="' + (padLeft - 6) + '" y="' + (y + barH - 4) + '" text-anchor="end" font-size="10" fill="var(--tl)">' + q + '</text>' +
-        '<text x="' + (padLeft + barW + 4) + '" y="' + (y + barH - 4) + '" font-size="10" fill="var(--tx)" font-weight="600">' + v + '</text>';
+        '<text x="' + (padLeft + barW + 4) + '" y="' + (y + 10) + '" font-size="10" fill="var(--tx)" font-weight="600">' + v + '</text>' +
+        '<text x="' + (padLeft + barW + 4) + '" y="' + (y + barH - 2) + '" font-size="7" fill="var(--tl)">' + _fmtAnalytics(avg) + ' F/ cmd</text>';
     }).join('');
     var svgH = totalH;
+    // Regions cards
+    var regionCards = regionsSorted.slice(0, 5).map(function(r) {
+      return '<div style="background:var(--bg-card);padding:6px 10px;border-radius:4px;text-align:center;min-width:80px"><div style="font-size:.75rem;font-weight:600;color:var(--tx)">' + r + '</div><div style="font-size:1rem;color:var(--tx)">' + regionCounts[r] + '</div><div style="font-size:.6rem;color:var(--tl)">commandes</div></div>';
+    }).join('');
     var html =
-      '<div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">' +
+      '<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">' +
         '<svg viewBox="0 0 ' + charW + ' ' + svgH + '" style="max-width:100%;height:auto;flex-shrink:0">' + bars + '</svg>' +
-        '<div style="font-size:.72rem;color:var(--tl);padding-top:4px;flex-shrink:0">' +
-          '<div style="font-weight:600;margin-bottom:4px;color:var(--tx)">Légende</div>' +
-          '<div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:hsl(220,45%,55%);vertical-align:middle;margin-right:4px"></span> Nombre de commandes par quartier</div>' +
-          (quartierNotFound > 0 ? '<div style="margin-top:4px;color:var(--er)">⚠️ ' + quartierNotFound + ' commande(s) sans quartier (anciennes)</div>' : '') +
+        '<div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;min-width:120px">' +
+          '<div style="font-weight:600;font-size:.75rem;color:var(--tx);margin-bottom:4px">Régions</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px">' + regionCards + '</div>' +
+          '<div style="font-size:.65rem;color:var(--tl);margin-top:8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4a6fa5;vertical-align:middle;margin-right:4px"></span> Nombre commandes</div>' +
+          '<div style="font-size:.65rem;color:var(--tl)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bg-card);vertical-align:middle;margin-right:4px;border:1px solid #ddd"></span> Montant moyen par commande</div>' +
+          (quartierNotFound > 0 ? '<div style="margin-top:4px;color:var(--er);font-size:.7rem">⚠️ ' + quartierNotFound + ' commande(s) sans quartier</div>' : '') +
         '</div>' +
       '</div>';
     return html;
@@ -860,9 +963,14 @@ const SytamAnalytics = {
   },
 
   _renderEventLog() {
-    var events = this._events.slice(-100).reverse();
+    var logFilter = localStorage.getItem('sytam_log_filter') || 'all';
+    var events = this._events.slice(-300).reverse();
     if (!events.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun événement pour le moment — les actions des visiteurs apparaîtront ici en direct.</p>';
-    var rows = events.slice(0, 80).map(function(e) {
+    if (logFilter === 'order') events = events.filter(function(e) { return e.t === 'order_placed'; });
+    else if (logFilter === 'abandon') events = events.filter(function(e) { return e.t === 'checkout_start' || e.t === 'remove_from_cart'; });
+    else if (logFilter === 'cart') events = events.filter(function(e) { return e.t === 'add_to_cart' || e.t === 'remove_from_cart' || e.t === 'qty_change'; });
+    events = events.slice(0, 50);
+    var rows = events.map(function(e) {
       var time = e.ts ? e.ts.slice(11, 19) : '';
       var d = e.d || {};
       var msg = '';
@@ -926,6 +1034,167 @@ const SytamAnalytics = {
       '<th style="padding:4px 6px;font-size:.6rem;text-align:left;text-transform:uppercase;color:var(--tl)">Détail</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
     (events.length > 80 ? '<p style="font-size:.72rem;color:var(--tl);padding:6px;text-align:center">80 derniers — ' + events.length + ' événements au total</p>' : '');
+  },
+
+  // ---- NOUVEAU : Analyse comportementale par produit (cartes détaillées) ----
+  _getTaille(vl) {
+    if (!vl) return '';
+    var m = vl.match(/Taille\s*:\s*(\S+)/i);
+    return m ? m[1] : '';
+  },
+  _renderProductAnalysisCards(filter) {
+    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    var events = this._events;
+    var productsMap = this._getProductsMap();
+    var agg = this._agg || {};
+    var pClicks = agg.productClicks || {};
+    var pCarts = agg.addToCart || {};
+    var pRemoves = agg.removeFromCart || {};
+
+    // Grouper les données par produit
+    var prodData = {};
+    orders.forEach(function(o) {
+      if (!o.items) return;
+      o.items.forEach(function(item) {
+        var pid = item.productId || '';
+        if (!pid) return;
+        if (!prodData[pid]) prodData[pid] = { id: pid, nom: item.nom || pid, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
+        prodData[pid].cmdCount++;
+        prodData[pid].qteTotal += parseInt(item.qte || item.qty || 1);
+        prodData[pid].ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
+        var taille = this._getTaille(item.variantLabel) || 'N/D';
+        var couleur = item.couleur || 'N/D';
+        prodData[pid].tailles[taille] = (prodData[pid].tailles[taille] || 0) + parseInt(item.qte || item.qty || 1);
+        prodData[pid].couleurs[couleur] = (prodData[pid].couleurs[couleur] || 0) + parseInt(item.qte || item.qty || 1);
+      }.bind(this));
+    }.bind(this));
+
+    // Ajouter clics/ajouts/retraits depuis les analytics
+    Object.keys(pClicks).forEach(function(pid) { if (!prodData[pid]) prodData[pid] = { id: pid, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} }; });
+    Object.keys(prodData).forEach(function(pid) {
+      var d = prodData[pid];
+      d.clics = (pClicks[pid] && pClicks[pid].count) || 0;
+      d.ajouts = (pCarts[pid] && pCarts[pid].count) || 0;
+      d.retraits = (pRemoves[pid] && pRemoves[pid].count) || 0;
+      // Taux abandon panier
+      d.tauxAbandon = d.ajouts > 0 ? Math.round(d.retraits / d.ajouts * 100) : 0;
+      // Taux conversion clics → commandes
+      d.tauxConv = d.clics > 0 ? (d.cmdCount / d.clics * 100).toFixed(1) : '0.0';
+      // Badge
+      var maxCmd = 0; Object.keys(prodData).forEach(function(k) { if (prodData[k].cmdCount > maxCmd) maxCmd = prodData[k].cmdCount; });
+      var minCmd = Infinity; Object.keys(prodData).forEach(function(k) { if (prodData[k].cmdCount < minCmd) minCmd = prodData[k].cmdCount; });
+      var isTop = d.cmdCount === maxCmd && maxCmd > 0;
+      var isWeak = d.cmdCount === minCmd && d.cmdCount > 0 && minCmd < maxCmd;
+      var isInactive = d.cmdCount === 0 && d.clics > 0;
+      d.badge = isTop ? '★ Top vente' : isWeak ? '⚠ Faible vente' : isInactive ? '❄ Inactif' : (d.cmdCount > 0 ? '✓ Actif' : '');
+      d.badgeClass = isTop ? 'ok' : isWeak ? 'er' : isInactive ? 'tl' : 'tx';
+    });
+
+    // Cross-sell : produits achetés ensemble
+    var crossSell = {};
+    orders.forEach(function(o) {
+      if (!o.items || o.items.length < 2) return;
+      var ids = o.items.map(function(i) { return i.productId; }).filter(Boolean);
+      for (var i = 0; i < ids.length; i++) {
+        for (var j = i + 1; j < ids.length; j++) {
+          var key = [ids[i], ids[j]].sort().join('_');
+          crossSell[key] = (crossSell[key] || 0) + 1;
+        }
+      }
+    });
+
+    // Appliquer le filtre
+    var list = Object.keys(prodData);
+    if (filter === 'top') list = list.filter(function(k) { return prodData[k].badge === '★ Top vente'; });
+    else if (filter === 'faible') list = list.filter(function(k) { return prodData[k].badge === '⚠ Faible vente'; });
+    else if (filter === 'inactif') list = list.filter(function(k) { return prodData[k].badge === '❄ Inactif'; });
+    else if (filter === 'actif') list = list.filter(function(k) { return prodData[k].cmdCount > 0; });
+
+    if (!list.length) return '<p style="color:var(--tl);font-size:.82rem;padding:16px;text-align:center">Aucun produit dans cette catégorie</p>';
+
+    // Trier par nombre de commandes
+    list.sort(function(a, b) { return prodData[b].cmdCount - prodData[a].cmdCount; });
+
+    var cards = list.map(function(pid) {
+      var d = prodData[pid];
+      var p = productsMap[pid] || {};
+      var img = p.images && p.images[0] ? p.images[0] : '';
+      var nom = d.nom || p.nom || pid;
+
+      // Tailles barres
+      var tailleKeys = Object.keys(d.tailles);
+      var tailleTotal = tailleKeys.reduce(function(s, k) { return s + d.tailles[k]; }, 0);
+      var tailleBars = tailleKeys.sort().map(function(t) {
+        var pct = tailleTotal > 0 ? Math.round(d.tailles[t] / tailleTotal * 100) : 0;
+        var isMax = pct > 0 && pct === Math.max.apply(null, tailleKeys.map(function(k) { return tailleTotal > 0 ? Math.round(d.tailles[k] / tailleTotal * 100) : 0; }));
+        return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
+          '<span style="width:28px;flex-shrink:0;font-weight:600">' + t + '</span>' +
+          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:#B8935A;border-radius:3px;min-width:4px"></div></div>' +
+          '<span style="width:32px;text-align:right;font-size:.65rem;color:var(--tl)">' + pct + '%</span>' +
+          (isMax ? '<span style="font-size:.6rem;color:#B8935A;font-weight:600">★</span>' : '') +
+        '</div>';
+      }).join('');
+
+      // Couleurs barres
+      var coulKeys = Object.keys(d.couleurs);
+      var coulTotal = coulKeys.reduce(function(s, k) { return s + d.couleurs[k]; }, 0);
+      var coulBars = coulKeys.sort().map(function(c) {
+        var pct = coulTotal > 0 ? Math.round(d.couleurs[c] / coulTotal * 100) : 0;
+        var isMax = pct > 0 && pct === Math.max.apply(null, coulKeys.map(function(k) { return coulTotal > 0 ? Math.round(d.couleurs[k] / coulTotal * 100) : 0; }));
+        var colorDot = c.toLowerCase();
+        var dotBg = colorDot === 'noir' ? '#222' : colorDot === 'blanc' ? '#fff' : colorDot === 'beige' ? '#D4B896' : colorDot === 'marron' ? '#8B5E3C' : colorDot === 'rouge' ? '#C0392B' : colorDot === 'bleu' ? '#2980B9' : colorDot === 'vert' ? '#27AE60' : colorDot === 'rose' ? '#E91E63' : colorDot === 'gris' ? '#999' : colorDot === 'doré' ? '#C9A96E' : '#B8935A';
+        return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
+          '<span style="width:12px;height:12px;border-radius:50%;background:' + dotBg + ';border:1px solid #ddd;flex-shrink:0"></span>' +
+          '<span style="width:50px;flex-shrink:0">' + c + '</span>' +
+          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + dotBg + ';border-radius:3px;min-width:4px"></div></div>' +
+          '<span style="width:32px;text-align:right;font-size:.65rem;color:var(--tl)">' + pct + '%</span>' +
+          (isMax ? '<span style="font-size:.6rem;color:#B8935A;font-weight:600">★</span>' : '') +
+        '</div>';
+      }).join('');
+
+      // Cross-sell : produits achetés avec celui-ci
+      var crossList = [];
+      Object.keys(crossSell).forEach(function(key) {
+        var parts = key.split('_');
+        if (parts[0] === pid) crossList.push({ id: parts[1], count: crossSell[key] });
+        else if (parts[1] === pid) crossList.push({ id: parts[0], count: crossSell[key] });
+      });
+      crossList.sort(function(a, b) { return b.count - a.count; });
+      var crossHtml = crossList.slice(0, 3).map(function(c) {
+        var pName = (productsMap[c.id] && productsMap[c.id].nom) || prodData[c.id] && prodData[c.id].nom || c.id;
+        return '<span style="font-size:.68rem;color:var(--tl);display:inline-block;margin:2px 4px 2px 0;background:var(--bg-card);padding:2px 6px;border-radius:3px">' + pName + ' (' + c.count + ')</span>';
+      }).join('') || '<span style="color:var(--tl);font-size:.7rem">Aucun</span>';
+
+      // Badge
+      var badgeHtml = d.badge ? '<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px;background:' + (d.badgeClass === 'ok' ? '#e8f5e9;color:#2e7d32' : d.badgeClass === 'er' ? '#ffebee;color:#c62828' : d.badgeClass === 'tl' ? '#f5f5f5;color:#888' : '#fff8e1;color:#f57f17') + '">' + d.badge + '</span>' : '';
+
+      return '<div class="card" style="overflow:visible;break-inside:avoid">' +
+        '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">' +
+          (img ? '<img src="' + img + '" style="width:56px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0" loading="lazy">' : '<div style="width:56px;height:56px;border-radius:6px;background:var(--bg-card);flex-shrink:0"></div>') +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:.82rem;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + nom + '</div>' +
+            '<div style="font-size:.72rem;color:var(--tl);margin:2px 0">' + _fmtAnalytics(d.prix) + ' FCFA</div>' +
+            badgeHtml +
+          '</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.clics + '</div><div style="font-size:.6rem;color:var(--tl)">Vues</div></div>' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.cmdCount + '</div><div style="font-size:.6rem;color:var(--tl)">Commandes</div></div>' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.tauxConv + '%</div><div style="font-size:.6rem;color:var(--tl)">Conversion</div></div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
+          '<div><div style="font-size:.7rem;font-weight:600;color:var(--tl);margin-bottom:4px">Tailles</div>' + (tailleBars || '<span style="font-size:.7rem;color:var(--tl)">Aucune donnée taille</span>') + '</div>' +
+          '<div><div style="font-size:.7rem;font-weight:600;color:var(--tl);margin-bottom:4px">Couleurs</div>' + (coulBars || '<span style="font-size:.7rem;color:var(--tl)">Aucune donnée couleur</span>') + '</div>' +
+        '</div>' +
+        '<div style="font-size:.68rem;color:var(--tl);padding-top:6px;border-top:1px solid var(--bd)">' +
+          '<div><span style="font-weight:600">Ajouts panier :</span> ' + d.ajouts + ' — <span style="font-weight:600">Retraits :</span> ' + d.retraits + ' <span style="color:var(--er)">(' + d.tauxAbandon + '% abandon)</span></div>' +
+          '<div style="margin-top:2px"><span style="font-weight:600">CA généré :</span> ' + _fmtAnalytics(d.ca) + ' FCFA</div>' +
+          '<div style="margin-top:4px"><span style="font-weight:600">Souvent acheté avec :</span><br>' + crossHtml + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    return '<div style="column-count:2;column-gap:16px">' + cards + '</div>';
   },
 
   exportCSVFile() {
