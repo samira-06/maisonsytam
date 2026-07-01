@@ -266,20 +266,30 @@ window.AccountApp = (function() {
     var emailjsPubkey = localStorage.getItem('sytam_emailjs_pubkey') || '';
     var emailjsService = localStorage.getItem('sytam_emailjs_service') || '';
     var emailjsTemplate = localStorage.getItem('sytam_emailjs_template') || '';
-    var emailConfigured = emailjsPubkey && emailjsService && emailjsTemplate && typeof emailjs !== 'undefined';
+    var emailConfigured = emailjsPubkey && emailjsService && emailjsTemplate;
     if (emailConfigured) {
-      // Réinitialiser EmailJS avec la clé (au cas où la page a été chargée avant la config)
-      if (typeof emailjs !== 'undefined') { try { emailjs.init(emailjsPubkey); } catch(e) {} }
-      emailjs.send(emailjsService, emailjsTemplate, {
-        link: recoveryLink,
-        name: found.name || 'Client',
-        to_email: email
-      }).then(function() {
-        // Email envoyé avec succès
-        errEl.innerHTML = '✓ Un email de récupération a été envoyé à <strong>' + email + '</strong>. Vérifiez votre boîte de réception.';
-        btn.textContent = 'Email envoyé ✓';
-      }).catch(function() {
-        // Email échoué, lien de secours
+      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: emailjsService,
+          template_id: emailjsTemplate,
+          user_id: emailjsPubkey,
+          template_params: {
+            name: found.name || 'Client',
+            link: recoveryLink,
+            to_email: email
+          }
+        })
+      }).then(function(r) {
+        if (r.ok) {
+          errEl.innerHTML = '✓ Un email de récupération a été envoyé à <strong>' + email + '</strong>. Vérifiez votre boîte de réception.';
+          btn.textContent = 'Email envoyé ✓';
+        } else {
+          return r.text().then(function(txt) { console.error('EmailJS error:', txt); _showFallbackLink(); });
+        }
+      }).catch(function(e) {
+        console.error('EmailJS fetch error:', e);
         _showFallbackLink();
       });
     } else {
