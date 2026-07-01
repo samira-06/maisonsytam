@@ -1599,6 +1599,9 @@
       return '<rect x="' + x0 + '" y="' + yCa + '" width="' + barW + '" height="' + hCa + '" fill="#B8935A" rx="2" ry="2" opacity="0.9"/>' +
         '<rect x="' + (x0 + barW + 2) + '" y="' + yCout + '" width="' + barW + '" height="' + hCout + '" fill="#D4B896" rx="2" ry="2" opacity="0.9"/>' +
         '<rect x="' + (x0 + 2*barW + 4) + '" y="' + yBen + '" width="' + barW + '" height="' + (d.benefice >= 0 ? hBen : 0) + '" fill="#3B6D11" rx="2" ry="2" opacity="0.9"/>' +
+        '<text x="' + (x0 + barW/2) + '" y="' + (yCa - 4) + '" text-anchor="middle" font-size="7" fill="#B8935A" font-weight="600">' + _fmt(d.ca) + '</text>' +
+        '<text x="' + (x0 + barW*1.5 + 2) + '" y="' + (yCout - 4) + '" text-anchor="middle" font-size="7" fill="#B8935A">' + _fmt(d.couts) + '</text>' +
+        '<text x="' + (x0 + barW*2.5 + 4) + '" y="' + (yBen - 4) + '" text-anchor="middle" font-size="7" fill="' + (d.benefice >= 0 ? '#3B6D11' : '#A32D2D') + '" font-weight="600">' + _fmt(d.benefice) + '</text>' +
         '<text x="' + (x0 + barW*1.5 + 2) + '" y="' + (chartH - 6) + '" text-anchor="middle" font-size="7" fill="var(--tl)">' + label + '</text>';
     }).join('');
 
