@@ -111,6 +111,10 @@
 
   function navigate(page) {
     state.currentPage = page;
+    // Déverrouiller le compte si on quitte la page account
+    if (page !== 'account' && page.indexOf('account-recover') !== 0 && typeof AccountApp !== 'undefined' && AccountApp._unlockForm) {
+      AccountApp._unlockForm();
+    }
     if (page === 'shop') renderShop();
     if (page.indexOf('account-recover') === 0 && typeof AccountApp !== 'undefined') {
       var parts = page.split('?'), params = {};

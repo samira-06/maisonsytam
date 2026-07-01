@@ -132,7 +132,10 @@ window.AccountApp = (function() {
   }
 
   // --- Rendering ---
+  var _formLock = false;
+
   function renderAccount() {
+    if (_formLock) return;
     var container = document.getElementById('account-content');
     if (!container) return;
     var session = _loadSession();
@@ -185,6 +188,7 @@ window.AccountApp = (function() {
   }
 
   function _showLoginForm() {
+    _formLock = false;
     var el = document.getElementById('ac-form-content');
     if (el) el.innerHTML = _loginFormHtml();
     document.getElementById('ac-tab-login').classList.add('active');
@@ -192,6 +196,7 @@ window.AccountApp = (function() {
   }
 
   function _showRegisterForm() {
+    _formLock = false;
     var el = document.getElementById('ac-form-content');
     if (el) el.innerHTML = _registerFormHtml();
     document.getElementById('ac-tab-login').classList.remove('active');
@@ -217,6 +222,7 @@ window.AccountApp = (function() {
   }
 
   function _showForgotPassword() {
+    _formLock = true;
     var el = document.getElementById('ac-form-content');
     if (el) el.innerHTML = _forgotPasswordHtml();
     document.getElementById('ac-tab-login').classList.add('active');
@@ -393,6 +399,7 @@ window.AccountApp = (function() {
   // Vérifier si on arrive avec un token de récupération dans l'URL
   function checkRecoveryToken(token) {
     if (token) {
+      _formLock = true;
       var container = document.getElementById('account-content');
       if (container) {
         container.innerHTML =
@@ -675,6 +682,7 @@ window.AccountApp = (function() {
     _handleLogin: _handleLogin,
     _handleRegister: _handleRegister,
     _saveProfile: _saveProfile,
-    _switchAcTab: _switchAcTab
+    _switchAcTab: _switchAcTab,
+    _unlockForm: function() { _formLock = false; }
   };
 })();
