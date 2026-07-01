@@ -1951,32 +1951,36 @@
     var retentionNumerator = 0, retentionDenominator = 0;
     var totalAvgValue = 0;
     var abandonedCarts = 0;
+    var bestClientName = '—', bestClientTotal = 0;
+    var newThisMonth = 0;
     Object.keys(clientMap).forEach(function(k) {
       var c = clientMap[k];
       if (c.hasAccount) withAccount++;
       if (c.count >= 5) vipCount++;
       if (c.lastOrder && c.lastOrder >= monthStart) activeThisMonth++;
-      if (c.count >= 2) {
-        retentionNumerator++;
-        if (c.count >= 1) retentionDenominator++;
-      } else if (c.count >= 1) {
-        retentionDenominator++;
-      }
+      if (c.count >= 2) { retentionNumerator++; if (c.count >= 1) retentionDenominator++; }
+      else if (c.count >= 1) { retentionDenominator++; }
       totalAvgValue += c.total;
+      // Best client this month
+      var monthTotal = c.orders.filter(function(o) { return o.created_at && o.created_at >= monthStart; }).reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      if (monthTotal > bestClientTotal) { bestClientTotal = monthTotal; bestClientName = c.name; }
     });
     var retentionRate = retentionDenominator > 0 ? Math.round(retentionNumerator / retentionDenominator * 100) : 0;
     var avgCustomerValue = totalClients > 0 ? Math.round(totalAvgValue / totalClients) : 0;
     orders.forEach(function(o) { if (o && o.statut === 'en_attente' && o.created_at) abandonedCarts++; });
+    accounts.forEach(function(a) { if (a.created_at && a.created_at >= monthStart) newThisMonth++; });
 
     var kpiEl = document.getElementById('clientsKpiRow');
     if (kpiEl) {
       kpiEl.innerHTML =
-        '<div class="stat-card-sm"><div class="val">' + totalClients + '</div><div class="lbl">Total clientes</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + activeThisMonth + '</div><div class="lbl">Actives ce mois</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + vipCount + '</div><div class="lbl">VIP (5+ cmd)</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + retentionRate + '%</div><div class="lbl">Rétention</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + avgCustomerValue.toLocaleString('fr-FR') + ' F</div><div class="lbl">Valeur moyenne</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + abandonedCarts + '</div><div class="lbl">Paniers abandonnés</div></div>';
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">👩‍👩‍👧‍👧</span></div><div class="sc-val">' + totalClients + '</div><div class="sc-lbl">Total clientes</div></div>' +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">📅</span></div><div class="sc-val">' + activeThisMonth + '</div><div class="sc-lbl">Actives ce mois</div></div>' +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">👑</span></div><div class="sc-val">' + vipCount + '</div><div class="sc-lbl">VIP</div></div>' +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">🔄</span></div><div class="sc-val">' + retentionRate + '%</div><div class="sc-lbl">Rétention</div></div>' +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">💰</span></div><div class="sc-val">' + avgCustomerValue.toLocaleString('fr-FR') + '</div><div class="sc-lbl">Valeur moy.</div></div>' +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">🛒</span></div><div class="sc-val">' + abandonedCarts + '</div><div class="sc-lbl">Paniers abandonnés</div></div>' +
+        (bestClientName !== '—' ? '<div class="stat-card"><div class="sc-header"><span class="sc-icon">🏅</span></div><div class="sc-val" style="font-size:1rem">' + esc(bestClientName) + '</div><div class="sc-lbl">Meilleure cliente (mois) · ' + bestClientTotal.toLocaleString('fr-FR') + ' F</div></div>' : '') +
+        '<div class="stat-card"><div class="sc-header"><span class="sc-icon">✨</span></div><div class="sc-val">' + newThisMonth + '</div><div class="sc-lbl">Nouvelles ce mois</div></div>';
     }
 
     // --- Filter & Sort ---
@@ -2004,84 +2008,195 @@
       return a.name.localeCompare(b.name, 'fr');
     });
 
-    // --- Tableau enrichi ---
-    var coHtml = '';
+    // --- Premium Cards ---
+    var cardsHtml = '';
+    var loyaltyAll = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
     sortedList.forEach(function(c) {
       var status = _getClientStatus(c);
-      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' F' : '—';
+      var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+      var isInactive = daysSinceLast >= 30 && c.count > 0;
+      var displayStatus = isInactive ? 'Inactive' : status;
+      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' FCFA' : '—';
       var lastDate = c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '—';
       var favInfo = _getFavProd(c, products);
       var favProdName = favInfo.fav || '—';
-      var statusBadge = '<span class="client-badge ' + status + '">' + (status === 'VIP' ? '👑 ' : '') + status + '</span>';
-      coHtml += '<tr>' +
-        '<td style="font-weight:600">' + esc(c.name) + '</td>' +
-        '<td>' + c.phone + '</td>' +
-        '<td style="text-align:center">' + c.count + '</td>' +
-        '<td style="text-align:right;white-space:nowrap">' + (c.total || 0).toLocaleString('fr-FR') + ' F</td>' +
-        '<td style="text-align:right;white-space:nowrap">' + avgCart + '</td>' +
-        '<td style="text-align:center">' + statusBadge + '</td>' +
-        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(favProdName) + '">' + esc(favProdName) + '</td>' +
-        '<td style="font-size:.72rem;color:var(--tl);white-space:nowrap">' + lastDate + '</td>' +
-        '<td class="actions-cell"><button class="btn-sm btn-add" onclick="SytamAdmin._openClientDrawer(\'' + c.phone + '\')" style="font-size:.6rem;padding:2px 8px">Détail</button></td>' +
-      '</tr>';
-    });
-    if (!sortedList.length) coHtml += '<tr><td colspan="9" class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</td></tr>';
-    var coTbl = document.getElementById('clientOrdersTable');
-    if (coTbl) coTbl.innerHTML = coHtml;
 
-    // --- Comptes inscrits ---
+      // Location, taille, couleur
+      var lastOrd = c.orders.length ? c.orders.reduce(function(latest, o) { return (!latest || o.created_at > latest.created_at) ? o : latest; }) : null;
+      var location = '';
+      if (lastOrd) {
+        if (lastOrd.region) location += lastOrd.region;
+        if (lastOrd.quartier) location = lastOrd.quartier + ', ' + (lastOrd.region || '');
+      }
+      var sizeCount = {}, colorCount = {};
+      c.orders.forEach(function(o) {
+        if (o.items) o.items.forEach(function(it) {
+          if (it.variantLabel) {
+            var sz = it.variantLabel.match(/Taille\s*:\s*(\S+)/);
+            if (sz) sizeCount[sz[1]] = (sizeCount[sz[1]] || 0) + (it.qte || 1);
+            var col = it.couleur;
+            if (col) colorCount[col] = (colorCount[col] || 0) + (it.qte || 1);
+            else { var col2 = it.variantLabel.match(/Couleur\s*:\s*([^,]+)/); if (col2) colorCount[col2[1].trim()] = (colorCount[col2[1].trim()] || 0) + (it.qte || 1); }
+          }
+        });
+      });
+      var favSize = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; })[0] || '';
+      var favColor = Object.keys(colorCount).sort(function(a, b) { return colorCount[b] - colorCount[a]; })[0] || '';
+      var phoneEsc = c.phone.replace(/[^0-9]/g, '');
+      var waLink = 'https://wa.me/221' + phoneEsc + '?text=Bonjour%20' + encodeURIComponent(c.name) + '%2C%20c\'est%20Maison%20Sytam%20!';
+      var lEntry = loyaltyAll.find(function(l) { return l.phone === c.phone; });
+      var pts = lEntry ? (lEntry.points || 0) : 0;
+      var abandonedOrder = c.orders.find(function(o) { return o.statut === 'en_attente'; });
+      var abandonAlert = abandonedOrder ? '🛒 Panier abandonné — ' + (abandonedOrder.total || 0).toLocaleString('fr-FR') + ' FCFA' : '';
+
+      // Derniers produits miniatures
+      var lastItems = [];
+      c.orders.slice().reverse().forEach(function(o) {
+        if (o.items) o.items.forEach(function(it) {
+          if (lastItems.length >= 3) return;
+          var p = products.find(function(x) { return x.nom === it.nom; });
+          if (p) lastItems.push({ nom: it.nom, img: (p.images && p.images[0]) || '' });
+        });
+      });
+      var thumbsHtml = lastItems.length ? '<div class="cc-thumbs" title="Derniers achats">' + lastItems.map(function(item) {
+        return item.img ? '<img src="' + item.img + '" title="' + esc(item.nom) + '">' : '';
+      }).join('') + '</div>' : '';
+
+      // Bordure gauche
+      var borderColor = displayStatus === 'VIP' ? '#B8935A' : displayStatus === 'Régulier' ? '#C49A2A' : displayStatus === 'Inactive' ? '#A32D2D' : '#5A8A3A';
+      var daysText = daysSinceLast <= 1 ? 'Aujourd\'hui' : daysSinceLast < 30 ? 'Il y a ' + daysSinceLast + ' jours' : '⚠️ ' + daysSinceLast + ' jours';
+      var daysColor = daysSinceLast >= 30 ? '#A32D2D' : '#999';
+
+      var habitsParts = [];
+      if (favProdName !== '—') habitsParts.push('Produit favori : <span class="hi">' + esc(favProdName) + '</span>');
+      if (favColor) habitsParts.push('Couleur : <span class="hi">' + favColor + '</span>');
+      if (favSize) habitsParts.push('Taille : <span class="hi">' + favSize + '</span>');
+      if (pts > 0) habitsParts.push('⭐ <span class="hi">' + pts + ' pts</span>');
+
+      cardsHtml += '<div class="client-card" style="border-left:4px solid ' + borderColor + '">' +
+        '<div class="cc-header">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:6px">' +
+              '<span class="client-badge ' + displayStatus + '">' + (displayStatus === 'VIP' ? '👑 ' : '') + displayStatus + '</span>' +
+              '<span class="cc-name">' + esc(c.name) + '</span>' +
+            '</div>' +
+            '<div class="cc-phone">' + c.phone + '</div>' +
+            (location ? '<div class="cc-location">📍 ' + esc(location) + '</div>' : '') +
+          '</div>' +
+          '<div style="text-align:right;font-size:.68rem;color:var(--tl);white-space:nowrap">' +
+            (c.hasAccount ? '<span title="Compte">👤</span> ' : '') +
+            (c.wishlist && c.wishlist.length ? ' <span title="Favoris">❤️' + c.wishlist.length + '</span>' : '') +
+            (pts > 0 ? ' ⭐' + pts : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="cc-stats">' +
+          '<div><div class="num">' + c.count + '</div><div class="lbl">Commandes</div></div>' +
+          '<div><div class="num">' + (c.total || 0).toLocaleString('fr-FR') + '</div><div class="lbl">Dépensés</div></div>' +
+          '<div><div class="num">' + avgCart + '</div><div class="lbl">Panier moy.</div></div>' +
+          '<div><div class="num" style="color:' + daysColor + ';font-size:.75rem">' + daysText + '</div><div class="lbl">Dernière</div></div>' +
+        '</div>' +
+        (habitsParts.length ? '<div class="cc-habits">' + habitsParts.join('<span style="color:var(--bd)">|</span>') + thumbsHtml + '</div>' : '') +
+        (abandonAlert ? '<div class="cc-alert">' + abandonAlert + '</div>' : '') +
+        '<div class="cc-actions">' +
+          '<a href="' + waLink + '" target="_blank" class="btn-sm wa-btn" style="font-size:.6rem;padding:3px 10px">📱 WhatsApp</a>' +
+          '<button class="btn-sm dossier-btn" onclick="SytamAdmin._openClientDrawer(\'' + c.phone + '\')" style="font-size:.6rem;padding:3px 10px">📁 Dossier complet</button>' +
+        '</div>' +
+      '</div>';
+    });
+    if (!sortedList.length) cardsHtml = '<p class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</p>';
+    var cardsEl = document.getElementById('clientsCards');
+    if (cardsEl) cardsEl.innerHTML = cardsHtml;
+
+    // --- Pill filters with counts ---
+    var pillHtml = '';
+    var cats = [
+      { key: 'all', label: 'Toutes', cls: 'active-all' },
+      { key: 'nouveau', label: 'Nouvelles', cls: 'active-nouveau' },
+      { key: 'regulier', label: 'Régulières', cls: 'active-regulier' },
+      { key: 'vip', label: 'VIP', cls: 'active-vip' },
+      { key: 'inactive', label: 'Inactives', cls: 'active-inactive' },
+      { key: 'compte', label: 'Avec compte', cls: 'active-compte' },
+    ];
+    var totalCount = Object.keys(clientMap).length;
+    var counts = { all: totalCount, nouveau: 0, regulier: 0, vip: 0, inactive: 0, compte: 0 };
+    Object.keys(clientMap).forEach(function(k) {
+      var cl = clientMap[k];
+      var s = _getClientStatus(cl);
+      if (s === 'Nouveau') counts.nouveau++;
+      else if (s === 'Régulier') counts.regulier++;
+      else if (s === 'VIP') counts.vip++;
+      if (cl.hasAccount) counts.compte++;
+      var dsl = cl.lastOrder ? Math.floor((now - new Date(cl.lastOrder)) / 86400000) : 999;
+      if (dsl >= 30 && cl.count > 0) counts.inactive++;
+    });
+    cats.forEach(function(cat) {
+      var active = _clientFilter === cat.key ? ' ' + cat.cls : '';
+      pillHtml += '<button class="pill-filter' + active + '" data-cfilter="' + cat.key + '" onclick="SytamAdmin._setClientFilter(\'' + cat.key + '\')">' + cat.label + ' (' + (counts[cat.key] || 0) + ')</button>';
+    });
+    var pillEl = document.getElementById('pillFilters');
+    if (pillEl) pillEl.innerHTML = pillHtml;
+
+    // --- Comptes inscrits enrichi ---
     var foundAny = false;
     var clHtml = '';
     accounts.forEach(function(acc) {
       if (searchVal && acc.phone.indexOf(searchVal) === -1 && (acc.name || '').toLowerCase().indexOf(searchVal) === -1 && (acc.email || '').toLowerCase().indexOf(searchVal) === -1) return;
       foundAny = true;
       var clientOrders = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
+      var totalSpent = clientOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      var avgCartAcc = clientOrders.length > 0 ? Math.round(totalSpent / clientOrders.length).toLocaleString('fr-FR') + ' F' : '—';
+      var daysSinceReg = acc.created_at ? Math.floor((now - new Date(acc.created_at)) / 86400000) : '—';
+      var initials = (acc.name || '?').charAt(0).toUpperCase();
       var wlIds = acc.wishlist || [];
       var wlHtml = wlIds.map(function(id) {
-        var p = null;
-        for (var pi = 0; pi < products.length; pi++) { if (products[pi].id === id) { p = products[pi]; break; } }
+        var p = products.find(function(x) { return x.id === id; });
         if (!p) return null;
         var img = p.images && p.images[0] ? p.images[0] : '';
-        return '<span style="display:inline-flex;align-items:center;gap:3px;margin:1px 2px;font-size:.65rem;background:var(--bg-card);padding:1px 4px;border-radius:3px" title="' + p.nom + '">' +
-          (img ? '<img src="' + img + '" style="width:16px;height:16px;border-radius:2px;object-fit:cover">' : '') +
-          p.nom + '</span>';
-      }).filter(Boolean).join(' ') || '—';
+        return img ? '<img class="acc-wl-thumb" src="' + img + '" title="' + esc(p.nom) + '">' : '<span style="font-size:.6rem;color:var(--tl)">' + esc(p.nom) + '</span>';
+      }).filter(Boolean).join('') || '—';
       var accStatus = clientOrders.length >= 5 ? 'VIP' : clientOrders.length >= 2 ? 'Régulier' : 'Nouveau';
+      var lastLoginStr = acc.lastLogin ? new Date(acc.lastLogin).toLocaleDateString('fr-FR') : '<span style="color:var(--tl);font-size:.65rem">Jamais</span>';
       clHtml += '<tr>' +
         '<td>' + acc.phone + '</td>' +
-        '<td>' + (acc.name || '—') + '</td>' +
+        '<td><div class="acc-name-wrap"><span class="acc-avatar">' + initials + '</span>' + esc(acc.name || '—') + '</div></td>' +
         '<td>' + (acc.email || '—') + '</td>' +
-        '<td>' + (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
-        '<td>' + (acc.lastLogin ? new Date(acc.lastLogin).toLocaleDateString('fr-FR') : '—') + '</td>' +
+        '<td style="font-size:.7rem">' + (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+        '<td style="font-size:.7rem">' + lastLoginStr + '</td>' +
         '<td style="text-align:center">' + clientOrders.length + '</td>' +
+        '<td style="text-align:right;white-space:nowrap;font-size:.7rem">' + avgCartAcc + '</td>' +
+        '<td style="text-align:center;font-size:.7rem;color:var(--tl)">' + (daysSinceReg !== '—' ? daysSinceReg + 'j' : '—') + '</td>' +
         '<td><span class="client-badge ' + accStatus + '">' + accStatus + '</span></td>' +
-        '<td>' + wlIds.length + '</td>' +
-        '<td style="max-width:220px">' + wlHtml + '</td>' +
+        '<td style="max-width:180px">' + wlHtml + '</td>' +
       '</tr>';
     });
-    if (!foundAny) clHtml += '<tr><td colspan="9" class="empty-state">Aucun client' + (searchVal ? ' trouvé' : ' inscrit') + '</td></tr>';
+    if (!foundAny) clHtml += '<tr><td colspan="10" class="empty-state">Aucun client' + (searchVal ? ' trouvé' : ' inscrit') + '</td></tr>';
     var clTbl = document.getElementById('clientsTable');
     if (clTbl) clTbl.innerHTML = clHtml;
 
-    // --- Paniers abandonnés ---
+    // --- Paniers abandonnés enrichi ---
     var abandoned = orders.filter(function(o) { return o && o.statut === 'en_attente' && o.created_at; });
     abandoned.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
     var abHtml = '';
     if (abandoned.length) {
-      abHtml = '<div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Date</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
+      abHtml = '<div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table style="font-size:.75rem"><thead><tr><th>Client</th><th>Téléphone</th><th>Abandon</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
       abandoned.forEach(function(o) {
         var itemsHtml = (o.items || []).map(function(it) {
-          return '<div style="font-size:.7rem;color:var(--tl)">' + esc(it.nom) + (it.variantLabel ? ' (' + it.variantLabel + ')' : '') + ' x' + (it.qte || 1) + ' — ' + fmt((it.prix || 0) * (it.qte || 1)) + ' F</div>';
+          var p = products.find(function(x) { return x.nom === it.nom; });
+          var img = p && p.images && p.images[0] ? p.images[0] : '';
+          return '<div style="display:flex;align-items:center;gap:4px;margin:2px 0;font-size:.65rem;color:var(--tl)">' +
+            (img ? '<img src="' + img + '" style="width:20px;height:20px;border-radius:3px;object-fit:cover">' : '') +
+            '<span>' + esc(it.nom) + (it.variantLabel ? ' <span style="color:#999">(' + it.variantLabel + ')</span>' : '') + ' x' + (it.qte || 1) + '</span>' +
+            '<span style="margin-left:auto;font-weight:600">' + fmt((it.prix || 0) * (it.qte || 1)) + ' F</span></div>';
         }).join('');
         var phoneClean = (o.telephone || '').replace(/[^0-9]/g, '');
         var waLink = 'https://wa.me/221' + phoneClean + '?text=Salam%20' + encodeURIComponent(o.client || '') + '%2C%20tu%20as%20oubli%C3%A9%20des%20articles%20dans%20ton%20panier%20sur%20Maison%20Sytam%20%F0%9F%9B%8D%EF%B8%8F%20Souhaites-tu%20finaliser%20ta%20commande%20%3F';
         abHtml += '<tr>' +
           '<td style="font-weight:600">' + esc(o.client || '—') + '</td>' +
-          '<td>' + (o.telephone || '—') + '</td>' +
-          '<td style="font-size:.7rem;color:var(--tl)">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') + '<br><span style="font-size:.6rem;color:var(--er)">' + _timeSince(new Date(o.created_at)) + '</span>' : '—') + '</td>' +
-          '<td style="max-width:180px">' + itemsHtml + '</td>' +
-          '<td style="text-align:right;font-weight:600">' + (o.total || 0).toLocaleString('fr-FR') + ' F</td>' +
-          '<td><a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 6px;text-decoration:none;background:#25D366">💬 Relancer</a></td>' +
+          '<td style="font-size:.68rem">' + (o.telephone || '—') + '</td>' +
+          '<td style="font-size:.65rem;color:var(--tl)">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') + '<br><span style="color:var(--er);font-size:.6rem">' + _timeSince(new Date(o.created_at)) + '</span>' : '—') + '</td>' +
+          '<td>' + itemsHtml + '</td>' +
+          '<td style="text-align:right;font-weight:600;white-space:nowrap">' + (o.total || 0).toLocaleString('fr-FR') + ' F</td>' +
+          '<td><a href="' + waLink + '" target="_blank" class="btn-sm" style="font-size:.6rem;padding:3px 8px;background:#25D366;color:#fff;text-decoration:none;border-radius:6px;white-space:nowrap">💬 Relancer</a></td>' +
         '</tr>';
       });
       abHtml += '</tbody></table></div>';
@@ -2167,7 +2282,6 @@
   function _setClientFilter(filter) {
     _clientFilter = filter;
     loadClients();
-    document.querySelectorAll('[data-cfilter]').forEach(function(b) { b.className = 'filter-btn' + (b.dataset.cfilter === filter ? ' active' : ''); });
   }
 
   function _setClientSort(sort) {
