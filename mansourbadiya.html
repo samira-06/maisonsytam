@@ -210,55 +210,59 @@
     <!-- CLIENTS -->
     <div class="tab" id="tab-clients">
       <div class="topbar"><div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Clients</h1><p>Comptes inscrits et gestion clientèle</p></div></div></div>
-      <!-- Client List View (default) -->
-      <div class="client-list-view" id="clientListView">
-        <div style="padding:12px">
-          <div class="stat-row" id="clientsKpiRow"></div>
-          <div class="client-subtabs">
-            <button class="client-subtab active" data-clist="all" onclick="SytamAdmin._switchClientSubtab('all')">Toutes les clientes</button>
-            <button class="client-subtab" data-clist="relance" onclick="SytamAdmin._switchClientSubtab('relance')">À relancer</button>
+      <div style="padding:12px">
+        <div class="stat-row" id="clientsKpiRow"></div>
+        <div class="client-subtabs">
+          <button class="client-subtab active" data-clist="all" onclick="SytamAdmin._switchClientSubtab('all')">Toutes les clientes</button>
+          <button class="client-subtab" data-clist="relance" onclick="SytamAdmin._switchClientSubtab('relance')">À relancer</button>
+        </div>
+        <div id="clientsSubContent">
+          <div class="card">
+            <div class="card-title" style="border:none;margin:0;padding:0 0 8px">
+              Commandes par cliente
+              <span style="font-weight:400;font-size:.75rem;color:var(--tl);margin-left:6px">(cliquez "Détail" pour tout l'historique)</span>
+              <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
+                <button class="filter-btn active" data-cfilter="all" onclick="SytamAdmin._setClientFilter('all')">Toutes</button>
+                <button class="filter-btn" data-cfilter="nouveau" onclick="SytamAdmin._setClientFilter('nouveau')">Nouvelles</button>
+                <button class="filter-btn" data-cfilter="regulier" onclick="SytamAdmin._setClientFilter('regulier')">Régulières</button>
+                <button class="filter-btn" data-cfilter="vip" onclick="SytamAdmin._setClientFilter('vip')">VIP</button>
+                <button class="filter-btn" data-cfilter="inactive" onclick="SytamAdmin._setClientFilter('inactive')">Inactives</button>
+                <button class="filter-btn" data-cfilter="compte" onclick="SytamAdmin._setClientFilter('compte')">Avec compte</button>
+              </span>
+              <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
+                <select class="sort-select" onchange="SytamAdmin._setClientSort(this.value)">
+                  <option value="total">Total dépensé ↓</option>
+                  <option value="count">Nb commandes ↓</option>
+                  <option value="last">Dernière commande ↓</option>
+                  <option value="alpha">A→Z</option>
+                </select>
+                <input class="form-input" id="clients-search" placeholder="🔍 Nom, téléphone..." oninput="SytamAdmin.loadClients()" style="max-width:160px;padding:4px 8px;font-size:.7rem">
+                <button class="btn-sm btn-add" onclick="SytamAdmin._exportClientsCSV()" style="font-size:.65rem">⬇ CSV Premium</button>
+              </span>
+            </div>
+            <div class="tbl-wrap" style="max-height:500px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Commandes</th><th>Total dépensé</th><th>Panier moyen</th><th>Statut</th><th>Produit favori</th><th>Dernière commande</th><th>Action</th></tr></thead><tbody id="clientOrdersTable"></tbody></table></div>
           </div>
-          <div id="clientsSubContent">
-            <div class="card">
-              <div class="card-title" style="border:none;margin:0;padding:0 0 8px">
-                <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(cliquez "Dossier" pour tout l'historique)</span>
-                <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
-                  <button class="filter-btn active" data-cfilter="all" onclick="SytamAdmin._setClientFilter('all')">Toutes</button>
-                  <button class="filter-btn" data-cfilter="nouveau" onclick="SytamAdmin._setClientFilter('nouveau')">Nouvelles</button>
-                  <button class="filter-btn" data-cfilter="regulier" onclick="SytamAdmin._setClientFilter('regulier')">Régulières</button>
-                  <button class="filter-btn" data-cfilter="vip" onclick="SytamAdmin._setClientFilter('vip')">VIP</button>
-                  <button class="filter-btn" data-cfilter="inactive" onclick="SytamAdmin._setClientFilter('inactive')">Inactives</button>
-                  <button class="filter-btn" data-cfilter="compte" onclick="SytamAdmin._setClientFilter('compte')">Avec compte</button>
-                </span>
-                <span style="display:inline-flex;gap:4px;font-weight:400;margin-left:8px">
-                  <select class="sort-select" onchange="SytamAdmin._setClientSort(this.value)">
-                    <option value="total">Total dépensé ↓</option>
-                    <option value="count">Nb commandes ↓</option>
-                    <option value="last">Dernière commande ↓</option>
-                    <option value="alpha">A→Z</option>
-                  </select>
-                  <input class="form-input" id="clients-search" placeholder="🔍 Nom, téléphone..." oninput="SytamAdmin.loadClients()" style="max-width:160px;padding:4px 8px;font-size:.7rem">
-                  <button class="btn-sm btn-add" onclick="SytamAdmin._exportClientsCSV()" style="font-size:.65rem">⬇ CSV Premium</button>
-                </span>
-              </div>
-              <div class="clients-grid" id="clientsCards"></div>
-            </div>
-            <div class="card" style="margin-top:12px">
-              <div class="card-title">Comptes inscrits <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(avec email et wishlist)</span></div>
-              <div class="tbl-wrap" style="max-height:350px;overflow-y:auto"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Dernière connexion</th><th>Commandes</th><th>Statut</th><th>Favoris</th><th>Wishlist</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
-            </div>
-            <div class="card" style="margin-top:12px">
-              <div class="card-title">Paniers abandonnés <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes en attente de paiement)</span></div>
-              <div id="abandonedCarts"><p class="empty-state">Aucun panier abandonné pour le moment</p></div>
-            </div>
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Comptes inscrits <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(avec email et wishlist)</span></div>
+            <div class="tbl-wrap" style="max-height:350px;overflow-y:auto"><table><thead><tr><th>Téléphone</th><th>Nom</th><th>Email</th><th>Inscrit le</th><th>Dernière connexion</th><th>Commandes</th><th>Statut</th><th>Favoris</th><th>Wishlist</th></tr></thead><tbody id="clientsTable"></tbody></table></div>
           </div>
-          <div id="relanceContent" style="display:none">
-            <div class="card"><div class="card-title">Clientes à relancer</div><div id="relanceList"><p class="empty-state">Aucune cliente à relancer</p></div></div>
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Paniers abandonnés <span style="font-weight:400;font-size:.75rem;color:var(--tl)">(commandes en attente de paiement)</span></div>
+            <div id="abandonedCarts"><p class="empty-state">Aucun panier abandonné pour le moment</p></div>
           </div>
         </div>
+        <div id="relanceContent" style="display:none">
+          <div class="card"><div class="card-title">Clientes à relancer</div><div id="relanceList"><p class="empty-state">Aucune cliente à relancer</p></div></div>
+        </div>
       </div>
-      <!-- Client Dossier View (hidden by default) -->
-      <div class="client-dossier-view" id="clientDossier">
+      <!-- Drawer client -->
+      <div class="client-drawer-overlay" id="clientDrawerOv" onclick="SytamAdmin._closeClientDrawer()"></div>
+      <div class="client-drawer" id="clientDrawer">
+        <div class="client-drawer-head"><h2>Détail client</h2><button class="client-drawer-close" onclick="SytamAdmin._closeClientDrawer()">✕</button></div>
+        <div class="client-drawer-body" id="clientDrawerBody"></div>
+      </div>
+      <!-- Client Dossier View (hidden by default, shown when drawer is full-page) -->
+      <div class="client-dossier-view" id="clientDossier" style="display:none">
         <div style="padding:12px">
           <button class="dossier-back" onclick="SytamAdmin._hideClientDossier()">← Retour à la liste</button>
           <div id="clientDossierContent"></div>

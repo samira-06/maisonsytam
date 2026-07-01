@@ -2004,142 +2004,30 @@
       return a.name.localeCompare(b.name, 'fr');
     });
 
-    // --- Premium Cards ---
-    var cardsHtml = '';
-    var loyaltyAll = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+    // --- Tableau enrichi ---
+    var coHtml = '';
     sortedList.forEach(function(c) {
       var status = _getClientStatus(c);
-      var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
-      var isInactive = daysSinceLast >= 30 && c.count > 0;
-      var displayStatus = isInactive ? 'Inactive' : status;
-      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' FCFA' : '—';
+      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' F' : '—';
       var lastDate = c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '—';
       var favInfo = _getFavProd(c, products);
       var favProdName = favInfo.fav || '—';
-
-      // Location
-      var lastOrd = c.orders.length ? c.orders.reduce(function(latest, o) { return (!latest || o.created_at > latest.created_at) ? o : latest; }) : null;
-      var location = '';
-      if (lastOrd) {
-        if (lastOrd.region) location += lastOrd.region;
-        if (lastOrd.quartier) location = lastOrd.quartier + ', ' + (lastOrd.region || '');
-      }
-
-      // Tailles et couleurs
-      var sizeCount = {}, colorCount = {};
-      c.orders.forEach(function(o) {
-        if (o.items) o.items.forEach(function(it) {
-          if (it.variantLabel) {
-            var sz = it.variantLabel.match(/Taille\s*:\s*(\S+)/);
-            if (sz) sizeCount[sz[1]] = (sizeCount[sz[1]] || 0) + (it.qte || 1);
-            var col = it.couleur;
-            if (col) colorCount[col] = (colorCount[col] || 0) + (it.qte || 1);
-            else {
-              var col2 = it.variantLabel.match(/Couleur\s*:\s*([^,]+)/);
-              if (col2) colorCount[col2[1].trim()] = (colorCount[col2[1].trim()] || 0) + (it.qte || 1);
-            }
-          }
-        });
-      });
-      var favSize = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; })[0] || '—';
-      var favColor = Object.keys(colorCount).sort(function(a, b) { return colorCount[b] - colorCount[a]; })[0] || '—';
-      var phoneEsc = c.phone.replace(/[^0-9]/g, '');
-      var waLink = 'https://wa.me/221' + phoneEsc + '?text=Bonjour%20' + encodeURIComponent(c.name) + '%2C%20c\'est%20Maison%20Sytam%20!';
-
-      // Points fidélité
-      var lEntry = loyaltyAll.find(function(l) { return l.phone === c.phone; });
-      var pts = lEntry ? (lEntry.points || 0) : 0;
-
-      // Panier abandonné
-      var abandonedOrder = c.orders.find(function(o) { return o.statut === 'en_attente'; });
-      var abandonAlert = abandonedOrder ? '🛒 Panier abandonné — ' + (abandonedOrder.total || 0).toLocaleString('fr-FR') + ' FCFA' : '';
-
-      // Derniers produits achetés (miniatures)
-      var lastItems = [];
-      c.orders.slice().reverse().forEach(function(o) {
-        if (o.items) o.items.forEach(function(it) {
-          if (lastItems.length >= 3) return;
-          var p = products.find(function(x) { return x.nom === it.nom; });
-          if (p) lastItems.push({ nom: it.nom, img: (p.images && p.images[0]) || '' });
-        });
-      });
-      var thumbsHtml = lastItems.map(function(item) {
-        return item.img ? '<img src="' + item.img + '" title="' + esc(item.nom) + '" style="width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid var(--bd);margin-left:-4px;cursor:default">' : '';
-      }).join('');
-
-      // Mini graphique activité (6 derniers mois)
-      var monthlyAct = {};
-      for (var mi = -5; mi <= 0; mi++) {
-        var mKey = new Date(now.getFullYear(), now.getMonth() + mi, 1).toISOString().substring(0, 7);
-        monthlyAct[mKey] = 0;
-      }
-      c.orders.forEach(function(o) {
-        if (o.created_at) {
-          var mk = o.created_at.substring(0, 7);
-          if (monthlyAct[mk] !== undefined) monthlyAct[mk] += 1;
-        }
-      });
-      var maxAct = Math.max.apply(null, Object.keys(monthlyAct).map(function(k) { return monthlyAct[k]; })) || 1;
-      var chartBars = Object.keys(monthlyAct).sort().map(function(m) {
-        var pct = (monthlyAct[m] / maxAct) * 100;
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:22px">' +
-          '<div style="width:6px;height:' + Math.max(pct, 2) + '%;background:' + (monthlyAct[m] > 0 ? '#B8935A' : '#e8e0d6') + ';border-radius:2px 2px 0 0;min-height:2px;transition:height .3s"></div>' +
-        '</div>';
-      }).join('');
-
-      // Couleur bordure gauche selon statut
-      var borderColor = displayStatus === 'VIP' ? '#B8935A' : displayStatus === 'Régulier' ? '#C49A2A' : displayStatus === 'Inactive' ? '#A32D2D' : '#5A8A3A';
-
-      // Jours depuis dernière commande text
-      var daysText = daysSinceLast <= 1 ? 'Aujourd\'hui' : daysSinceLast < 30 ? 'Il y a ' + daysSinceLast + ' jours' : '⚠️ Inactive depuis ' + daysSinceLast + ' jours';
-      var daysColor = daysSinceLast >= 30 ? '#A32D2D' : '#999';
-
-      cardsHtml += '<div class="client-card" style="border-left:3px solid ' + borderColor + ';box-shadow:0 2px 12px rgba(0,0,0,0.06)">' +
-        '<div class="cc-header">' +
-          '<div>' +
-            '<div style="display:flex;align-items:center;gap:6px">' +
-              '<span class="client-badge ' + displayStatus + '">' + (displayStatus === 'VIP' ? '👑 ' : '') + displayStatus + '</span>' +
-              '<span class="cc-name">' + esc(c.name) + '</span>' +
-            '</div>' +
-            '<div class="cc-phone">' + c.phone + '</div>' +
-            (location ? '<div class="cc-location">📍 ' + esc(location) + '</div>' : '') +
-          '</div>' +
-          '<div style="text-align:right;font-size:.68rem;color:var(--tl)">' +
-            (c.hasAccount ? '<span title="Compte créé">👤</span> ' : '') +
-            (c.email ? '<span title="Email renseigné">✉️</span>' : '') +
-            (c.wishlist && c.wishlist.length ? ' <span title="Wishlist: ' + c.wishlist.length + ' articles">♥' + c.wishlist.length + '</span>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;margin:6px 0">' +
-          '<div class="cc-stats" style="flex:1;margin:0">' +
-            '<div><div class="num">' + c.count + '</div><div class="lbl">Commandes</div></div>' +
-            '<div><div class="num">' + (c.total || 0).toLocaleString('fr-FR') + '</div><div class="lbl">FCFA</div></div>' +
-            '<div><div class="num">' + avgCart + '</div><div class="lbl">Panier moy.</div></div>' +
-            '<div><div class="num" style="color:' + daysColor + ';font-size:.7rem">' + daysText + '</div><div class="lbl">Dernière</div></div>' +
-          '</div>' +
-          '<div style="width:60px;display:flex;flex-direction:column;align-items:center;gap:1px">' +
-            '<div style="font-size:.5rem;color:var(--tl);text-transform:uppercase;margin-bottom:2px;letter-spacing:.3px">Activité</div>' +
-            '<div style="display:flex;align-items:flex-end;gap:1px;width:100%;height:24px">' + chartBars + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="cc-fav" style="display:flex;justify-content:space-between;align-items:center">' +
-          '<span style="flex:1">Produit favori : <span>' + esc(favProdName) + '</span>' +
-            (favSize !== '—' ? ' · Taille : <span>' + favSize + '</span>' : '') +
-            (favColor !== '—' ? ' · Couleur : <span>' + favColor + '</span>' : '') +
-            (pts > 0 ? ' · ⭐ <span>' + pts + ' pts</span>' : '') +
-          '</span>' +
-          (thumbsHtml ? '<span style="display:flex;align-items:center;margin-left:4px" title="Derniers achats">' + thumbsHtml + '</span>' : '') +
-        '</div>' +
-        (abandonAlert ? '<div style="background:rgba(201,169,110,0.12);color:#854F0B;font-size:.68rem;padding:4px 8px;border-radius:4px;margin:4px 0 6px">' + abandonAlert + '</div>' : '') +
-        '<div class="cc-actions">' +
-          '<a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 8px;background:#25D366;text-decoration:none">📱 WhatsApp</a>' +
-          '<button class="btn-sm btn-add" onclick="SytamAdmin._showClientDossier(\'' + c.phone + '\')" style="font-size:.6rem;padding:2px 8px">📋 Dossier complet</button>' +
-        '</div>' +
-      '</div>';
+      var statusBadge = '<span class="client-badge ' + status + '">' + (status === 'VIP' ? '👑 ' : '') + status + '</span>';
+      coHtml += '<tr>' +
+        '<td style="font-weight:600">' + esc(c.name) + '</td>' +
+        '<td>' + c.phone + '</td>' +
+        '<td style="text-align:center">' + c.count + '</td>' +
+        '<td style="text-align:right;white-space:nowrap">' + (c.total || 0).toLocaleString('fr-FR') + ' F</td>' +
+        '<td style="text-align:right;white-space:nowrap">' + avgCart + '</td>' +
+        '<td style="text-align:center">' + statusBadge + '</td>' +
+        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(favProdName) + '">' + esc(favProdName) + '</td>' +
+        '<td style="font-size:.72rem;color:var(--tl);white-space:nowrap">' + lastDate + '</td>' +
+        '<td class="actions-cell"><button class="btn-sm btn-add" onclick="SytamAdmin._openClientDrawer(\'' + c.phone + '\')" style="font-size:.6rem;padding:2px 8px">Détail</button></td>' +
+      '</tr>';
     });
-    if (!sortedList.length) cardsHtml = '<p class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</p>';
-    var cardsEl = document.getElementById('clientsCards');
-    if (cardsEl) cardsEl.innerHTML = cardsHtml;
+    if (!sortedList.length) coHtml += '<tr><td colspan="9" class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</td></tr>';
+    var coTbl = document.getElementById('clientOrdersTable');
+    if (coTbl) coTbl.innerHTML = coHtml;
 
     // --- Comptes inscrits ---
     var foundAny = false;
@@ -2288,6 +2176,48 @@
   }
 
   // ============================================================
+  // DRAWER CLIENT
+  // ============================================================
+
+  function _openClientDrawer(phone) {
+    var d = _getClientData();
+    var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
+    var c = clientMap[phone];
+    if (!c) { showToast('Erreur', 'Client introuvable'); return; }
+    var acc = accounts.find(function(a) { return a.phone === phone; }) || null;
+    var status = _getClientStatus(c);
+    var now = new Date();
+    var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+    var isInactive = daysSinceLast >= 30 && c.count > 0;
+    var displayStatus = isInactive ? 'Inactive' : status;
+
+    var body = document.getElementById('clientDrawerBody');
+    if (!body) return;
+
+    var sectionA = _dossierSectionA(c, acc, displayStatus, daysSinceLast, isInactive, phone);
+    var sectionB = _dossierSectionB(c, phone);
+    var sectionC = _dossierSectionC(c, products, phone);
+    var sectionD = _dossierSectionD(c, products, acc, d.analytics);
+    var sectionE = _dossierSectionE(c, products, phone);
+    var sectionF = _dossierSectionF(c, d.analytics, phone);
+    var sectionG = _dossierSectionG(c, orders, phone);
+    var sectionH = _dossierSectionH(c, phone, acc);
+
+    body.innerHTML = sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG +
+      '<div style="text-align:center;margin-top:8px;padding-top:12px;border-top:1px solid var(--bd)">' +
+        '<button class="btn-add" onclick="SytamAdmin._closeClientDrawer();SytamAdmin._showClientDossier(\'' + phone + '\')" style="font-size:.75rem">📋 Ouvrir le dossier complet en page entière</button>' +
+      '</div>';
+
+    document.getElementById('clientDrawer').classList.add('open');
+    document.getElementById('clientDrawerOv').classList.add('open');
+  }
+
+  function _closeClientDrawer() {
+    document.getElementById('clientDrawer').classList.remove('open');
+    document.getElementById('clientDrawerOv').classList.remove('open');
+  }
+
+  // ============================================================
   // DOSSIER CLIENT — 8 SECTIONS (A–H)
   // ============================================================
 
@@ -2303,8 +2233,8 @@
     var isInactive = daysSinceLast >= 30 && c.count > 0;
     var displayStatus = isInactive ? 'Inactive' : status;
 
-    // Hide list, show dossier
-    document.getElementById('clientListView').classList.add('hidden');
+    // Show dossier
+    document.getElementById('clientDossier').style.display = 'block';
     document.getElementById('clientDossier').classList.add('open');
 
     var content = document.getElementById('clientDossierContent');
@@ -2338,7 +2268,7 @@
   }
 
   function _hideClientDossier() {
-    document.getElementById('clientListView').classList.remove('hidden');
+    document.getElementById('clientDossier').style.display = 'none';
     document.getElementById('clientDossier').classList.remove('open');
   }
 
@@ -2894,7 +2824,7 @@
     loadAnalytics, syncAnalytics, loadFinance, loadClients,
     _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
     _setClientFilter, _setClientSort, _saveClientNote, _exportClientsCSV,
-    _showClientDossier, _hideClientDossier, _switchClientSubtab, _addFidelityPoints, _dossierChangeStatus, _markRelance, _updateDossierOrderStatus,
+    _showClientDossier, _hideClientDossier, _openClientDrawer, _closeClientDrawer, _switchClientSubtab, _addFidelityPoints, _dossierChangeStatus, _markRelance, _updateDossierOrderStatus,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);

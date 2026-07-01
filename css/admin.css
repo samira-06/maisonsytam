@@ -531,9 +531,16 @@ select.form-input { cursor: pointer; }
 .relance-card .rc-detail { color: var(--tl); font-size: .68rem; }
 .clients-grid { display: flex; flex-direction: column; gap: 4px; }
 
-/* keep old drawer CSS for compatibility but hide by default */
-.client-drawer { display: none; }
-.client-drawer-overlay { display: none; }
+/* DRAWER CLIENT */
+.client-drawer { position: fixed; top: 0; right: -520px; width: 500px; height: 100vh; background: #FAF6EF; z-index: 1001; box-shadow: -4px 0 20px rgba(0,0,0,0.12); transition: right .3s ease; overflow-y: auto; padding: 0; }
+.client-drawer.open { right: 0; }
+.client-drawer-head { position: sticky; top: 0; background: #FAF6EF; padding: 16px 18px; border-bottom: 1px solid var(--bd); display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+.client-drawer-head h2 { font-size: 1rem; margin: 0; font-family: var(--font-serif); }
+.client-drawer-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--tl); padding: 4px 8px; border-radius: 4px; }
+.client-drawer-close:hover { background: rgba(0,0,0,.05); }
+.client-drawer-body { padding: 16px 18px; padding-bottom: 40px; }
+.client-drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; display: none; }
+.client-drawer-overlay.open { display: block; }
 .stat-row { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .stat-card-sm { flex: 1; min-width: 120px; background: var(--bg-card); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--bd); text-align: center; }
 .stat-card-sm .val { font-size: 1.2rem; font-weight: 700; color: var(--tx); }
