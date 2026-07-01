@@ -494,8 +494,8 @@ const SytamAnalytics = {
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div><div class="stat-val">' + conversionGlobal + '%</div><div class="stat-lbl">Taux conversion</div><div class="stat-sub">Visites → commandes</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div><div class="stat-val">' + _fmtAnalytics(panierMoyen) + ' F</div><div class="stat-lbl">Panier moyen</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val">' + avgTime + '</div><div class="stat-lbl">Temps moyen / visiteur</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="stat-val">' + (bestName.length > 18 ? bestName.slice(0,16) + '…' : bestName) + '</div><div class="stat-lbl">⭐ Meilleure vente</div><div class="stat-sub">' + (prodSalesSorted.length ? prodSales[prodSalesSorted[0]] : 0) + ' unités</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#c62828" stroke-width="2"><path d="M10 14L21 3M21 3l-7 18-4-7-7-4 18-7z"/></svg></div><div class="stat-val">' + (worstName.length > 18 ? worstName.slice(0,16) + '…' : worstName) + '</div><div class="stat-lbl">⚠ Moins vendue</div><div class="stat-sub">' + (prodSalesSorted.length > 1 ? prodSales[prodSalesSorted[prodSalesSorted.length - 1]] : 0) + ' unités</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="stat-val">' + (bestName.length > 18 ? bestName.slice(0,16) + '…' : bestName) + '</div><div class="stat-lbl">⭐ Meilleure vente</div><div class="stat-sub">' + (prodSalesSorted.length ? prodSales[prodSalesSorted[0]] : 0) + ' unités</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#A32D2D" stroke-width="2"><path d="M10 14L21 3M21 3l-7 18-4-7-7-4 18-7z"/></svg></div><div class="stat-val">' + (worstName.length > 18 ? worstName.slice(0,16) + '…' : worstName) + '</div><div class="stat-lbl">⚠ Moins vendue</div><div class="stat-sub">' + (prodSalesSorted.length > 1 ? prodSales[prodSalesSorted[prodSalesSorted.length - 1]] : 0) + ' unités</div></div>' +
         '<div class="stat-card" onclick="document.querySelector(\'[data-anafilter=\\\'inactif\\\']\').click();document.getElementById(\'anaProdSection\').scrollIntoView({behavior:\'smooth\'})" style="cursor:pointer"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-val">' + epuises.length + '</div><div class="stat-lbl">🚫 Produits épuisés</div><div class="stat-sub">Cliquez pour voir</div></div>' +
       '</div>' +
       // SECTION 2+3: Graphique (60%) + Historique journalier (40%)
@@ -605,43 +605,66 @@ const SytamAnalytics = {
     var maxVal = 1;
     dataPoints.forEach(function(p) { maxVal = Math.max(maxVal, p.visits, p.clicks, p.carts, p.orders); });
     if (maxVal < 5) maxVal = 5;
-    var W = 600, H = 220, pad = { top: 16, right: 16, bottom: 26, left: 40 };
+    var W = 700, H = 240, pad = { top: 20, right: 20, bottom: 32, left: 48 };
     var chartW = W - pad.left - pad.right;
     var chartH = H - pad.top - pad.bottom;
-    var scaleX = function(i) { return pad.left + (i / (days.length - 1)) * chartW; };
+    var scaleX = function(i) { return pad.left + (i / Math.max(days.length - 1, 1)) * chartW; };
     var scaleY = function(v) { return pad.top + chartH - (v / maxVal) * chartH; };
     var lines = [
       { key: 'visits', color: '#B8956A', label: 'Vues' },
       { key: 'clicks', color: '#C9A96E', label: 'Clics' },
-      { key: 'carts', color: '#7BA888', label: 'Panier+' },
-      { key: 'orders', color: '#5A3E2B', label: 'Commandes', dashed: true },
+      { key: 'carts', color: '#3B6D11', label: 'Ajouts panier' },
+      { key: 'orders', color: '#A32D2D', label: 'Commandes' },
     ];
+    // Grille horizontale
+    var yStep = Math.max(1, Math.ceil(maxVal / 5));
+    var yGrid = '';
+    var yLabels = '';
+    for (var y = 0; y <= maxVal; y += yStep) {
+      var yy = scaleY(y);
+      yGrid += '<line x1="' + pad.left + '" y1="' + yy + '" x2="' + (W - pad.right) + '" y2="' + yy + '" stroke="#E8E0D6" stroke-width="0.5"/>';
+      yLabels += '<text x="' + (pad.left - 8) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="8" fill="#B5A594">' + y + '</text>';
+    }
+    // Courbes lissées (cubic bezier par segments)
+    function _smoothPath(points) {
+      if (points.length < 2) return '';
+      var pts = points.map(function(p) { return p.split(',').map(Number); });
+      var d = 'M' + pts[0][0] + ',' + pts[0][1];
+      for (var i = 1; i < pts.length; i++) {
+        var prev = pts[i - 1], cur = pts[i];
+        var cpx1 = prev[0] + (cur[0] - prev[0]) * 0.5, cpx2 = prev[0] + (cur[0] - prev[0]) * 0.5;
+        d += ' C ' + cpx1 + ',' + prev[1] + ' ' + cpx2 + ',' + cur[1] + ' ' + cur[0] + ',' + cur[1];
+      }
+      return d;
+    }
     var paths = lines.map(function(line) {
-      var points = dataPoints.map(function(p, idx) { return scaleX(idx) + ',' + scaleY(p[line.key]); });
-      var dash = line.dashed ? ' stroke-dasharray="4,3"' : '';
-      return '<path d="M' + points.join(' L') + '" fill="none" stroke="' + line.color + '" stroke-width="2"' + dash + ' stroke-linecap="round" stroke-linejoin="round"/>';
+      var pts = dataPoints.map(function(p, idx) { return scaleX(idx) + ',' + scaleY(p[line.key]); });
+      var fillPoints = [scaleX(0) + ',' + scaleY(0)].concat(pts).concat([scaleX(dataPoints.length - 1) + ',' + scaleY(0)]);
+      var fillPath = _smoothPath(fillPoints);
+      return '<path d="' + fillPath + '" fill="' + line.color + '" fill-opacity="0.05" stroke="none"/>' +
+        '<path d="' + _smoothPath(pts) + '" fill="none" stroke="' + line.color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
     }).join('');
+    // Points + valeurs au survol
     var dots = lines.map(function(line) {
       return dataPoints.map(function(p, idx) {
-        return '<circle cx="' + scaleX(idx) + '" cy="' + scaleY(p[line.key]) + '" r="2.5" fill="' + line.color + '" stroke="white" stroke-width="1"/>';
+        var cx = scaleX(idx), cy = scaleY(p[line.key]);
+        return '<circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="' + line.color + '" stroke="#fff" stroke-width="1.5"/>';
       }).join('');
     }).join('');
-    var everyN = range > 14 ? 3 : (range > 7 ? 2 : 1);
-    var labels = days.map(function(date, idx) {
+    // Axe X avec jour/mois
+    var everyN = range > 14 ? 4 : (range > 7 ? 2 : 1);
+    var xLabels = days.map(function(date, idx) {
       if (idx % everyN === 0 || idx === days.length - 1) {
-        return '<text x="' + scaleX(idx) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="7" fill="var(--tl)">' + date.slice(5) + '</text>';
+        var label = date.slice(8, 10) + '/' + date.slice(5, 7);
+        return '<text x="' + scaleX(idx) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="8" fill="#B5A594">' + label + '</text>';
       }
       return '';
     }).join('');
-    var yLabels = '';
-    for (var y = 0; y <= maxVal; y += Math.max(1, Math.ceil(maxVal / 4))) {
-      yLabels += '<text x="' + (pad.left - 4) + '" y="' + (scaleY(y) + 3) + '" text-anchor="end" font-size="7" fill="var(--tl)">' + y + '</text>';
-    }
+    // Légende moderne en bas
     var legend = lines.map(function(line) {
-      var style = line.dashed ? ';border-top-style:dashed;border-top-color:' + line.color : ';background:' + line.color;
-      return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:.7rem;color:var(--tl);margin-right:12px"><span style="display:inline-block;width:12px;height:3px' + style + ';border-radius:2px"></span>' + line.label + '</span>';
+      return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.75rem;color:var(--tl);margin:0 10px 4px 0"><span style="display:inline-block;width:16px;height:3px;border-radius:2px;background:' + line.color + '"></span>' + line.label + '</span>';
     }).join('');
-    return '<div><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">' + paths + dots + labels + yLabels + '</svg><div style="margin-top:6px;text-align:center">' + legend + '</div></div>';
+    return '<div><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:100%;height:auto">' + yGrid + paths + dots + yLabels + xLabels + '</svg><div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:0">' + legend + '</div></div>';
   },
 
   _renderDailyHistory(dailyStats) {
@@ -873,7 +896,7 @@ const SytamAnalytics = {
         '<div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;min-width:120px">' +
           '<div style="font-weight:600;font-size:.75rem;color:var(--tx);margin-bottom:4px">Régions</div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:6px">' + regionCards + '</div>' +
-          '<div style="font-size:.65rem;color:var(--tl);margin-top:8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4a6fa5;vertical-align:middle;margin-right:4px"></span> Nombre commandes</div>' +
+          '<div style="font-size:.65rem;color:var(--tl);margin-top:8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#B8935A;vertical-align:middle;margin-right:4px"></span> Nombre commandes</div>' +
           '<div style="font-size:.65rem;color:var(--tl)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--bg-card);vertical-align:middle;margin-right:4px;border:1px solid #ddd"></span> Montant moyen par commande</div>' +
           (quartierNotFound > 0 ? '<div style="margin-top:4px;color:var(--er);font-size:.7rem">⚠️ ' + quartierNotFound + ' commande(s) sans quartier</div>' : '') +
         '</div>' +
@@ -903,7 +926,7 @@ const SytamAnalytics = {
     var rows = list.map(function(c, i) {
       var dateStr = c.derniere ? new Date(c.derniere).toLocaleDateString('fr-FR') : '—';
       var status, statusColor;
-      if (c.commandes >= 5) { status = 'VIP'; statusColor = '#7b2d8e'; }
+      if (c.commandes >= 5) { status = 'VIP'; statusColor = '#C9A96E'; }
       else if (c.commandes >= 2) { status = 'Régulier'; statusColor = 'var(--gold)'; }
       else { status = 'Nouveau'; statusColor = 'var(--tl)'; }
       var produitsStr = c.produits.join(', ');
@@ -1019,9 +1042,9 @@ const SytamAnalytics = {
           detail = d.productName || d.query || d.page || '';
       }
       var rowBg = '';
-      if (e.t === 'order_placed') rowBg = 'style="background:#e8f5e9"';
-      else if (e.t === 'checkout_start') rowBg = 'style="background:#fff3e0"';
-      else if (e.t === 'remove_from_cart') rowBg = 'style="background:#ffebee"';
+      if (e.t === 'order_placed') rowBg = 'style="background:rgba(59,109,17,0.08)"';
+      else if (e.t === 'checkout_start') rowBg = 'style="background:rgba(184,147,90,0.1)"';
+      else if (e.t === 'remove_from_cart') rowBg = 'style="background:rgba(163,45,45,0.08)"';
       return '<tr ' + rowBg + '>' +
         '<td style="padding:3px 6px;font-size:.7rem;color:var(--tl);white-space:nowrap">' + time + '</td>' +
         '<td style="padding:3px 6px;font-size:.75rem">' + msg + '</td>' +
@@ -1166,7 +1189,7 @@ const SytamAnalytics = {
       }).join('') || '<span style="color:var(--tl);font-size:.7rem">Aucun</span>';
 
       // Badge
-      var badgeHtml = d.badge ? '<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px;background:' + (d.badgeClass === 'ok' ? '#e8f5e9;color:#2e7d32' : d.badgeClass === 'er' ? '#ffebee;color:#c62828' : d.badgeClass === 'tl' ? '#f5f5f5;color:#888' : '#fff8e1;color:#f57f17') + '">' + d.badge + '</span>' : '';
+      var badgeHtml = d.badge ? '<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px;background:' + (d.badgeClass === 'ok' ? 'rgba(59,109,17,0.12);color:#3B6D11' : d.badgeClass === 'er' ? 'rgba(163,45,45,0.12);color:#A32D2D' : d.badgeClass === 'tl' ? 'var(--bg-card);color:var(--tl)' : 'rgba(133,79,11,0.12);color:#854F0B') + '">' + d.badge + '</span>' : '';
 
       return '<div class="card" style="overflow:visible;break-inside:avoid">' +
         '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">' +
