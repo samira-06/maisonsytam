@@ -1549,9 +1549,9 @@
     });
     var bestProdHtml = bestProd ? bestProd.nom + ' (' + bestMarge.toFixed(1) + '%)' : '—';
 
-    // Graphique groupé par mois (toujours par mois pour le chart)
+    // Graphique groupé par mois (selon la période choisie)
     var chartMonths = {};
-    confirmedOrders.forEach(function(o) {
+    filteredOrders.forEach(function(o) {
       if (!o.created_at) return;
       var d = new Date(o.created_at);
       var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
