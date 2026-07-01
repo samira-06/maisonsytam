@@ -1893,66 +1893,109 @@
     loadFinance();
   }
 
-  var _clientFilter = 'all', _clientSort = 'total';
+  var _clientFilter = 'all', _clientSort = 'total', _clientSubtab = 'all';
 
-  function loadClients() {
+  function _getClientData() {
     var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
-
-    // Build client map from orders + accounts
+    var analytics = JSON.parse(localStorage.getItem('sytam_analytics_v1') || '[]');
     var clientMap = {};
     accounts.forEach(function(acc) {
-      var clientOrders = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
-      var total = clientOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-      var lastOrder = clientOrders.length ? clientOrders[0].created_at : '';
-      clientMap[acc.phone] = { phone: acc.phone, name: acc.name || acc.phone, count: clientOrders.length, total: total, lastOrder: lastOrder, orders: clientOrders, hasAccount: true, created_at: acc.created_at, email: acc.email };
+      var co = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
+      var total = co.reduce(function(s, o) { return s + (o.total || 0); }, 0);
+      var last = co.length ? co.reduce(function(latest, o) { return (!latest || o.created_at > latest) ? o.created_at : latest; }, '') : '';
+      clientMap[acc.phone] = { phone: acc.phone, name: acc.name || acc.phone, count: co.length, total: total, lastOrder: last, orders: co, hasAccount: true, created_at: acc.created_at, email: acc.email, note: acc.note || '', wishlist: acc.wishlist || [] };
     });
     orders.forEach(function(o) {
       if (o && o.telephone) {
         var phone = o.telephone.replace(/[^0-9]/g, '');
-        if (!clientMap[phone]) clientMap[phone] = { phone: phone, name: o.client || phone, count: 0, total: 0, lastOrder: '', orders: [], hasAccount: false, created_at: '', email: '' };
+        if (!clientMap[phone]) clientMap[phone] = { phone: phone, name: o.client || phone, count: 0, total: 0, lastOrder: '', orders: [], hasAccount: false, created_at: '', email: '', note: '', wishlist: [] };
         clientMap[phone].count += 1;
         clientMap[phone].total += o.total || 0;
         clientMap[phone].orders.push(o);
         if (o.created_at && (!clientMap[phone].lastOrder || o.created_at > clientMap[phone].lastOrder)) clientMap[phone].lastOrder = o.created_at;
       }
     });
+    return { accounts: accounts, orders: orders, products: products, analytics: analytics, clientMap: clientMap };
+  }
 
-    // Search
+  function _getClientStatus(c) {
+    return c.count >= 5 ? 'VIP' : c.count >= 2 ? 'Régulier' : 'Nouveau';
+  }
+
+  function _getFavProd(c, products) {
+    var prodCount = {};
+    c.orders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
+    var fav = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; });
+    return { fav: fav[0] || '—', favList: fav, prodCount: prodCount };
+  }
+
+  function loadClients() {
+    var d = _getClientData();
+    var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
+
     var searchVal = '';
     var searchInput = document.getElementById('clients-search');
     if (searchInput) searchVal = searchInput.value.toLowerCase().trim();
 
-    // KPIs
+    var now = new Date();
+    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    var days30 = new Date(now.getTime() - 30 * 86400000).toISOString();
+
+    // --- KPIs améliorés ---
     var totalClients = Object.keys(clientMap).length;
-    var withAccount = accounts.length;
+    var withAccount = 0;
     var vipCount = 0;
+    var activeThisMonth = 0;
+    var retentionNumerator = 0, retentionDenominator = 0;
+    var totalAvgValue = 0;
     var abandonedCarts = 0;
     Object.keys(clientMap).forEach(function(k) {
-      if (clientMap[k].count >= 5) vipCount++;
+      var c = clientMap[k];
+      if (c.hasAccount) withAccount++;
+      if (c.count >= 5) vipCount++;
+      if (c.lastOrder && c.lastOrder >= monthStart) activeThisMonth++;
+      if (c.count >= 2) {
+        retentionNumerator++;
+        if (c.count >= 1) retentionDenominator++;
+      } else if (c.count >= 1) {
+        retentionDenominator++;
+      }
+      totalAvgValue += c.total;
     });
+    var retentionRate = retentionDenominator > 0 ? Math.round(retentionNumerator / retentionDenominator * 100) : 0;
+    var avgCustomerValue = totalClients > 0 ? Math.round(totalAvgValue / totalClients) : 0;
     orders.forEach(function(o) { if (o && o.statut === 'en_attente' && o.created_at) abandonedCarts++; });
+
     var kpiEl = document.getElementById('clientsKpiRow');
     if (kpiEl) {
       kpiEl.innerHTML =
-        '<div class="stat-card-sm"><div class="val">' + totalClients + '</div><div class="lbl">Total clients</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + withAccount + '</div><div class="lbl">Comptes inscrits</div></div>' +
-        '<div class="stat-card-sm"><div class="val">' + vipCount + '</div><div class="lbl">VIP (≥5 cmd)</div></div>' +
+        '<div class="stat-card-sm"><div class="val">' + totalClients + '</div><div class="lbl">Total clientes</div></div>' +
+        '<div class="stat-card-sm"><div class="val">' + activeThisMonth + '</div><div class="lbl">Actives ce mois</div></div>' +
+        '<div class="stat-card-sm"><div class="val">' + vipCount + '</div><div class="lbl">VIP (5+ cmd)</div></div>' +
+        '<div class="stat-card-sm"><div class="val">' + retentionRate + '%</div><div class="lbl">Rétention</div></div>' +
+        '<div class="stat-card-sm"><div class="val">' + avgCustomerValue.toLocaleString('fr-FR') + ' F</div><div class="lbl">Valeur moyenne</div></div>' +
         '<div class="stat-card-sm"><div class="val">' + abandonedCarts + '</div><div class="lbl">Paniers abandonnés</div></div>';
     }
 
-    // --- Commandes par client enrichi ---
+    // --- Filter & Sort ---
     var sortedList = Object.keys(clientMap).map(function(k) { return clientMap[k]; });
     sortedList = sortedList.filter(function(c) {
-      if (!searchVal) return true;
-      return c.phone.indexOf(searchVal) !== -1 || c.name.toLowerCase().indexOf(searchVal) !== -1 || (c.email && c.email.toLowerCase().indexOf(searchVal) !== -1);
+      if (searchVal) {
+        var match = c.phone.indexOf(searchVal) !== -1 || c.name.toLowerCase().indexOf(searchVal) !== -1 || (c.email && c.email.toLowerCase().indexOf(searchVal) !== -1);
+        if (!match) return false;
+      }
+      var status = _getClientStatus(c);
+      var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+      var catFilter = _clientFilter || 'all';
+      if (catFilter === 'nouveau') return status === 'Nouveau';
+      if (catFilter === 'regulier') return status === 'Régulier';
+      if (catFilter === 'vip') return status === 'VIP';
+      if (catFilter === 'inactive') return daysSinceLast >= 30 && c.count > 0;
+      if (catFilter === 'compte') return c.hasAccount;
+      return true;
     });
-    var catFilter = _clientFilter || 'all';
-    if (catFilter === 'nouveau') sortedList = sortedList.filter(function(c) { return c.count < 2; });
-    else if (catFilter === 'regulier') sortedList = sortedList.filter(function(c) { return c.count >= 2 && c.count < 5; });
-    else if (catFilter === 'vip') sortedList = sortedList.filter(function(c) { return c.count >= 5; });
-    else if (catFilter === 'compte') sortedList = sortedList.filter(function(c) { return c.hasAccount; });
     var sortBy = _clientSort || 'total';
     sortedList.sort(function(a, b) {
       if (sortBy === 'total') return b.total - a.total;
@@ -1961,37 +2004,86 @@
       return a.name.localeCompare(b.name, 'fr');
     });
 
-    var coHtml = '';
+    // --- Premium Cards ---
+    var cardsHtml = '';
     sortedList.forEach(function(c) {
-      var status = c.count >= 5 ? 'VIP' : c.count >= 2 ? 'Régulier' : 'Nouveau';
-      var statusBadge = '<span class="client-badge ' + status + '">' + status + '</span>';
-      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' F' : '—';
-      // Produit favori
-      var prodCount = {};
-      c.orders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
-      var favProd = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; })[0] || '—';
-      coHtml += '<tr>' +
-        '<td style="font-weight:600">' + c.name + '</td>' +
-        '<td>' + c.phone + '</td>' +
-        '<td style="text-align:center">' + c.count + '</td>' +
-        '<td style="text-align:right">' + (c.total || 0).toLocaleString('fr-FR') + ' F</td>' +
-        '<td style="text-align:right">' + avgCart + '</td>' +
-        '<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + favProd + '">' + favProd + '</td>' +
-        '<td style="text-align:center">' + statusBadge + '</td>' +
-        '<td style="font-size:.72rem;color:var(--tl)">' + (c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '—') + '</td>' +
-        '<td><button class="btn-sm btn-add" onclick="event.stopPropagation();SytamAdmin._openClientDrawer(\'' + c.phone + '\')" style="font-size:.65rem;padding:2px 8px">Détail</button></td>' +
-      '</tr>';
-    });
-    if (!sortedList.length) coHtml += '<tr><td colspan="9" class="empty-state">Aucun client' + (searchVal ? ' trouvé' : '') + '</td></tr>';
-    var coTbl = document.getElementById('clientOrdersTable');
-    if (coTbl) coTbl.innerHTML = coHtml;
+      var status = _getClientStatus(c);
+      var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+      var isInactive = daysSinceLast >= 30 && c.count > 0;
+      var displayStatus = isInactive ? 'Inactive' : status;
+      var avgCart = c.count > 0 ? Math.round(c.total / c.count).toLocaleString('fr-FR') + ' FCFA' : '—';
+      var lastDate = c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '—';
+      var favInfo = _getFavProd(c, products);
+      var favProdName = favInfo.fav || '—';
+      // Find last order location
+      var lastOrd = c.orders.length ? c.orders.reduce(function(latest, o) { return (!latest || o.created_at > latest.created_at) ? o : latest; }) : null;
+      var location = '';
+      if (lastOrd) {
+        if (lastOrd.region) location += lastOrd.region;
+        if (lastOrd.quartier) location = lastOrd.quartier + ', ' + (lastOrd.region || '');
+      }
+      // Taille et couleur habituelles
+      var sizeCount = {}, colorCount = {};
+      c.orders.forEach(function(o) {
+        if (o.items) o.items.forEach(function(it) {
+          if (it.variantLabel) {
+            var sz = it.variantLabel.match(/Taille\s*:\s*(\S+)/);
+            if (sz) sizeCount[sz[1]] = (sizeCount[sz[1]] || 0) + (it.qte || 1);
+            var col = it.couleur;
+            if (col) colorCount[col] = (colorCount[col] || 0) + (it.qte || 1);
+            else {
+              var col2 = it.variantLabel.match(/Couleur\s*:\s*([^,]+)/);
+              if (col2) colorCount[col2[1].trim()] = (colorCount[col2[1].trim()] || 0) + (it.qte || 1);
+            }
+          }
+        });
+      });
+      var favSize = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; })[0] || '—';
+      var favColor = Object.keys(colorCount).sort(function(a, b) { return colorCount[b] - colorCount[a]; })[0] || '—';
+      var phoneEsc = c.phone.replace(/[^0-9]/g, '');
+      var waLink = 'https://wa.me/221' + phoneEsc + '?text=Bonjour%20' + encodeURIComponent(c.name) + '%2C%20c\'est%20Maison%20Sytam%20!';
 
-    // --- Comptes inscrits enrichi ---
-    var searchVal2 = searchVal; // même recherche
-    var clHtml = '';
+      cardsHtml += '<div class="client-card">' +
+        '<div class="cc-header">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:6px">' +
+              '<span class="client-badge ' + displayStatus + '">' + (displayStatus === 'VIP' ? '🏆 ' : '') + displayStatus + '</span>' +
+              '<span class="cc-name">' + esc(c.name) + '</span>' +
+            '</div>' +
+            '<div class="cc-phone">' + c.phone + '</div>' +
+            (location ? '<div class="cc-location">📍 ' + esc(location) + '</div>' : '') +
+          '</div>' +
+          '<div style="text-align:right;font-size:.68rem;color:var(--tl)">' +
+            (c.hasAccount ? '<span title="Compte créé">👤</span> ' : '') +
+            (c.email ? '<span title="Email renseigné">✉️</span>' : '') +
+            (c.wishlist && c.wishlist.length ? ' <span title="Wishlist: ' + c.wishlist.length + ' articles">♥' + c.wishlist.length + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="cc-stats">' +
+          '<div><div class="num">' + c.count + '</div><div class="lbl">Commandes</div></div>' +
+          '<div><div class="num">' + (c.total || 0).toLocaleString('fr-FR') + '</div><div class="lbl">FCFA dépensés</div></div>' +
+          '<div><div class="num">' + avgCart + '</div><div class="lbl">Panier moyen</div></div>' +
+          '<div><div class="num">' + lastDate + '</div><div class="lbl">Dernière commande</div></div>' +
+        '</div>' +
+        '<div class="cc-fav">Produit favori : <span>' + esc(favProdName) + '</span>' +
+          (favSize !== '—' ? ' · Taille : <span>' + favSize + '</span>' : '') +
+          (favColor !== '—' ? ' · Couleur : <span>' + favColor + '</span>' : '') +
+        '</div>' +
+        '<div class="cc-actions">' +
+          '<a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 8px;background:#25D366;text-decoration:none">📱 WhatsApp</a>' +
+          '<button class="btn-sm btn-add" onclick="SytamAdmin._showClientDossier(\'' + c.phone + '\')" style="font-size:.6rem;padding:2px 8px">📋 Dossier complet</button>' +
+        '</div>' +
+      '</div>';
+    });
+    if (!sortedList.length) cardsHtml = '<p class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</p>';
+    var cardsEl = document.getElementById('clientsCards');
+    if (cardsEl) cardsEl.innerHTML = cardsHtml;
+
+    // --- Comptes inscrits ---
     var foundAny = false;
+    var clHtml = '';
     accounts.forEach(function(acc) {
-      if (searchVal2 && acc.phone.indexOf(searchVal2) === -1 && (acc.name || '').toLowerCase().indexOf(searchVal2) === -1 && (acc.email || '').toLowerCase().indexOf(searchVal2) === -1) return;
+      if (searchVal && acc.phone.indexOf(searchVal) === -1 && (acc.name || '').toLowerCase().indexOf(searchVal) === -1 && (acc.email || '').toLowerCase().indexOf(searchVal) === -1) return;
       foundAny = true;
       var clientOrders = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
       var wlIds = acc.wishlist || [];
@@ -2017,29 +2109,29 @@
         '<td style="max-width:220px">' + wlHtml + '</td>' +
       '</tr>';
     });
-    if (!foundAny) clHtml += '<tr><td colspan="9" class="empty-state">Aucun client' + (searchVal2 ? ' trouvé' : ' inscrit') + '</td></tr>';
+    if (!foundAny) clHtml += '<tr><td colspan="9" class="empty-state">Aucun client' + (searchVal ? ' trouvé' : ' inscrit') + '</td></tr>';
     var clTbl = document.getElementById('clientsTable');
     if (clTbl) clTbl.innerHTML = clHtml;
 
-    // --- Paniers abandonnés enrichi ---
+    // --- Paniers abandonnés ---
     var abandoned = orders.filter(function(o) { return o && o.statut === 'en_attente' && o.created_at; });
     abandoned.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
     var abHtml = '';
     if (abandoned.length) {
-      abHtml = '<div class="tbl-wrap" style="max-height:350px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Date</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
+      abHtml = '<div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Date</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
       abandoned.forEach(function(o) {
         var itemsHtml = (o.items || []).map(function(it) {
-          return '<div style="font-size:.7rem;color:var(--tl)">' + it.nom + (it.variantLabel ? ' (' + it.variantLabel + ')' : '') + ' x' + (it.qte || 1) + ' — ' + _fmtAnalytics((it.prix || 0) * (it.qte || 1)) + ' F</div>';
+          return '<div style="font-size:.7rem;color:var(--tl)">' + esc(it.nom) + (it.variantLabel ? ' (' + it.variantLabel + ')' : '') + ' x' + (it.qte || 1) + ' — ' + fmt((it.prix || 0) * (it.qte || 1)) + ' F</div>';
         }).join('');
         var phoneClean = (o.telephone || '').replace(/[^0-9]/g, '');
-        var waLink = 'https://wa.me/221' + phoneClean + '?text=Bonjour%20' + encodeURIComponent(o.client || '') + '%2C%20vous%20avez%20un%20panier%20en%20attente%20sur%20Maison%20Sytam%20d\'un%20montant%20de%20' + (o.total || 0).toLocaleString('fr-FR') + '%20FCFA.%20Souhaitez-vous%20finaliser%20votre%20commande%20%3F';
+        var waLink = 'https://wa.me/221' + phoneClean + '?text=Salam%20' + encodeURIComponent(o.client || '') + '%2C%20tu%20as%20oubli%C3%A9%20des%20articles%20dans%20ton%20panier%20sur%20Maison%20Sytam%20%F0%9F%9B%8D%EF%B8%8F%20Souhaites-tu%20finaliser%20ta%20commande%20%3F';
         abHtml += '<tr>' +
-          '<td style="font-weight:600">' + (o.client || '—') + '</td>' +
+          '<td style="font-weight:600">' + esc(o.client || '—') + '</td>' +
           '<td>' + (o.telephone || '—') + '</td>' +
           '<td style="font-size:.7rem;color:var(--tl)">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') : '—') + '</td>' +
           '<td style="max-width:180px">' + itemsHtml + '</td>' +
           '<td style="text-align:right;font-weight:600">' + (o.total || 0).toLocaleString('fr-FR') + ' F</td>' +
-          '<td><a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 6px;text-decoration:none">💬 Relancer</a></td>' +
+          '<td><a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 6px;text-decoration:none;background:#25D366">💬 Relancer</a></td>' +
         '</tr>';
       });
       abHtml += '</tbody></table></div>';
@@ -2048,6 +2140,55 @@
     }
     var abEl = document.getElementById('abandonedCarts');
     if (abEl) abEl.innerHTML = abHtml;
+
+    // --- À relancer ---
+    _renderRelance(clientMap, orders, products);
+  }
+
+  function _renderRelance(clientMap, orders, products) {
+    var now = new Date();
+    var days30 = new Date(now.getTime() - 30 * 86400000);
+    var hours24 = new Date(now.getTime() - 24 * 3600000);
+    var relanceList = [];
+    Object.keys(clientMap).forEach(function(k) {
+      var c = clientMap[k];
+      if (!c.count) return;
+      var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+      if (daysSinceLast >= 30) {
+        var phoneClean = c.phone.replace(/[^0-9]/g, '');
+        var waLink = 'https://wa.me/221' + phoneClean + '?text=Salam%20' + encodeURIComponent(c.name) + '%2C%20%C3%A7a%20fait%20un%20moment%20que%20tu%20n\'as%20pas%20command%C3%A9%20sur%20Maison%20Sytam%20%F0%9F%92%8C%20On%20a%20de%20nouveaux%20arrivages%20qui%20pourraient%20te%20plaire%20%21';
+        relanceList.push({ phone: c.phone, name: c.name, date: c.lastOrder, reason: 'Inactive depuis ' + daysSinceLast + ' jours', wa: waLink });
+      }
+    });
+    // Panier abandonné >24h
+    orders.forEach(function(o) {
+      if (o && o.statut === 'en_attente' && o.created_at && new Date(o.created_at) < hours24) {
+        var phone = (o.telephone || '').replace(/[^0-9]/g, '');
+        var name = o.client || phone;
+        var waLink = 'https://wa.me/221' + phone + '?text=Salam%20' + encodeURIComponent(name) + '%2C%20tu%20as%20oubli%C3%A9%20des%20articles%20dans%20ton%20panier%20sur%20Maison%20Sytam%20%F0%9F%9B%8D%EF%B8%8F%20Souhaites-tu%20finaliser%20ta%20commande%20%3F';
+        if (!relanceList.some(function(r) { return r.phone === phone && r.reason.indexOf('Panier') !== -1; })) {
+          relanceList.push({ phone: phone, name: name, date: o.created_at, reason: 'Panier abandonné depuis +24h (' + (o.total || 0).toLocaleString('fr-FR') + ' F)', wa: waLink });
+        }
+      }
+    });
+    var html = relanceList.length ? relanceList.map(function(r) {
+      return '<div class="relance-card">' +
+        '<div class="rc-info"><div class="rc-name">' + esc(r.name) + '</div><div class="rc-detail">' + r.phone + ' · ' + r.reason + '</div></div>' +
+        '<a href="' + r.wa + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:4px 10px;background:#25D366;text-decoration:none;white-space:nowrap">📱 Relancer</a>' +
+      '</div>';
+    }).join('') : '<p class="empty-state">Aucune cliente à relancer 🎉</p>';
+    var el = document.getElementById('relanceList');
+    if (el) el.innerHTML = html;
+  }
+
+  function _switchClientSubtab(tab) {
+    _clientSubtab = tab;
+    document.querySelectorAll('[data-clist]').forEach(function(b) { b.className = 'client-subtab' + (b.dataset.clist === tab ? ' active' : ''); });
+    var sc = document.getElementById('clientsSubContent');
+    var rc = document.getElementById('relanceContent');
+    if (sc) sc.style.display = tab === 'all' ? 'block' : 'none';
+    if (rc) rc.style.display = tab === 'relance' ? 'block' : 'none';
+    if (tab === 'relance') { var d = _getClientData(); _renderRelance(d.clientMap, d.orders, d.products); }
   }
 
   function _setClientFilter(filter) {
@@ -2055,115 +2196,456 @@
     loadClients();
     document.querySelectorAll('[data-cfilter]').forEach(function(b) { b.className = 'filter-btn' + (b.dataset.cfilter === filter ? ' active' : ''); });
   }
+
   function _setClientSort(sort) {
     _clientSort = sort;
     loadClients();
   }
 
-  function _openClientDrawer(phone) {
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
-    var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
-    var clientOrders = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === phone; });
-    if (!clientOrders.length) { showToast('Info', 'Aucune commande pour ce client'); return; }
-    var acc = null;
-    for (var i = 0; i < accounts.length; i++) { if (accounts[i].phone === phone) { acc = accounts[i]; break; } }
-    var name = acc ? acc.name : (clientOrders[0].client || phone);
-    var email = acc ? (acc.email || '—') : '—';
-    var createdDate = acc ? (acc.created_at ? new Date(acc.created_at).toLocaleDateString('fr-FR') : '—') : (clientOrders.length ? new Date(clientOrders[clientOrders.length-1].created_at).toLocaleDateString('fr-FR') : '—');
-    var totalSpent = clientOrders.reduce(function(s, o) { return s + (o.total || 0); }, 0);
-    var status = clientOrders.length >= 5 ? 'VIP' : clientOrders.length >= 2 ? 'Régulier' : 'Nouveau';
-    var avgCart = clientOrders.length > 0 ? Math.round(totalSpent / clientOrders.length).toLocaleString('fr-FR') + ' F' : '—';
+  // ============================================================
+  // DOSSIER CLIENT — 8 SECTIONS (A–H)
+  // ============================================================
 
-    // Produits favoris
-    var prodCount = {};
-    clientOrders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
-    var favList = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; }).slice(0, 3);
-    var favHtml = favList.map(function(n) {
-      var p = null;
-      for (var pi = 0; pi < products.length; pi++) { if (products[pi].nom === n) { p = products[pi]; break; } }
-      var img = p && p.images && p.images[0] ? p.images[0] : '';
-      return '<div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:.75rem">' +
-        (img ? '<img src="' + img + '" style="width:24px;height:24px;border-radius:3px;object-fit:cover">' : '<div style="width:24px;height:24px;border-radius:3px;background:var(--bg-card)"></div>') +
-        '<span>' + n + ' <span style="color:var(--tl)">(x' + prodCount[n] + ')</span></span></div>';
-    }).join('') || '<span style="color:var(--tl);font-size:.75rem">Aucun</span>';
+  function _showClientDossier(phone) {
+    var d = _getClientData();
+    var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
+    var c = clientMap[phone];
+    if (!c) { showToast('Erreur', 'Client introuvable'); return; }
+    var acc = accounts.find(function(a) { return a.phone === phone; }) || null;
+    var status = _getClientStatus(c);
+    var now = new Date();
+    var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
+    var isInactive = daysSinceLast >= 30 && c.count > 0;
+    var displayStatus = isInactive ? 'Inactive' : status;
 
-    // Historique commandes
-    var ordersHtml = clientOrders.slice().reverse().map(function(o) {
-      var itemsHtml = (o.items || []).map(function(it) {
-        return '<div>' + it.nom + (it.variantLabel ? ' <span style="color:var(--tl)">(' + it.variantLabel + ')</span>' : '') + ' x' + (it.qte || 1) + ' <span style="float:right;font-weight:600">' + _fmtAnalytics((it.prix || 0) * (it.qte || 1)) + ' F</span></div>';
-      }).join('');
-      var statusColor = o.statut === 'livree' ? '#3B6D11' : o.statut === 'confirmee' ? '#B8935A' : o.statut === 'annulee' ? '#A32D2D' : '#854F0B';
-      return '<div class="client-order-card">' +
-        '<div class="ohead"><span>' + (o.id || '—') + '</span><span style="color:' + statusColor + '">' + (o.statut || 'en_attente') + '</span></div>' +
-        '<div style="font-size:.7rem;color:var(--tl);margin-bottom:4px">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') : '—') + '</div>' +
-        '<div class="oitems">' + itemsHtml + '</div>' +
-        '<div class="ototal"><span>Total</span><span>' + _fmtAnalytics(o.total || 0) + ' FCFA</span></div>' +
-        '<div style="margin-top:6px">' +
-          '<select class="sort-select" style="font-size:.65rem;padding:2px 6px" onchange="SytamAdmin._updateOrderStatus(\'' + (o.id || '') + '\',this.value)">' +
-            '<option value="en_attente"' + (o.statut === 'en_attente' ? ' selected' : '') + '>En attente</option>' +
-            '<option value="confirmee"' + (o.statut === 'confirmee' ? ' selected' : '') + '>Confirmée</option>' +
-            '<option value="livree"' + (o.statut === 'livree' ? ' selected' : '') + '>Livrée</option>' +
-            '<option value="annulee"' + (o.statut === 'annulee' ? ' selected' : '') + '>Annulée</option>' +
-          '</select>' +
+    // Hide list, show dossier
+    document.getElementById('clientListView').classList.add('hidden');
+    document.getElementById('clientDossier').classList.add('open');
+
+    var content = document.getElementById('clientDossierContent');
+    if (!content) return;
+
+    // --- Section A: Identité & Profil ---
+    var sectionA = _dossierSectionA(c, acc, displayStatus, daysSinceLast, isInactive, phone);
+
+    // --- Section B: Résumé financier ---
+    var sectionB = _dossierSectionB(c, phone);
+
+    // --- Section C: Habitudes d'achat ---
+    var sectionC = _dossierSectionC(c, products, phone);
+
+    // --- Section D: Produits ---
+    var sectionD = _dossierSectionD(c, products, acc);
+
+    // --- Section E: Historique commandes ---
+    var sectionE = _dossierSectionE(c, products, phone);
+
+    // --- Section F: Comportement site ---
+    var sectionF = _dossierSectionF(c, d.analytics, phone);
+
+    // --- Section G: Fidélité ---
+    var sectionG = _dossierSectionG(c, orders, phone);
+
+    // --- Section H: Actions rapides ---
+    var sectionH = _dossierSectionH(c, phone, acc);
+
+    content.innerHTML = sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG + sectionH;
+  }
+
+  function _hideClientDossier() {
+    document.getElementById('clientListView').classList.remove('hidden');
+    document.getElementById('clientDossier').classList.remove('open');
+  }
+
+  function _dossierSectionA(c, acc, displayStatus, daysSinceLast, isInactive, phone) {
+    var firstDate = c.orders.length ? c.orders.reduce(function(earliest, o) { return (!earliest || o.created_at < earliest) ? o.created_at : earliest; }, null) : null;
+    var lastDate = c.lastOrder || null;
+    var loc = '';
+    var lastOrd = c.orders.length ? c.orders.reduce(function(latest, o) { return (!latest || o.created_at > latest.created_at) ? o : latest; }) : null;
+    if (lastOrd) {
+      if (lastOrd.region) loc = lastOrd.region;
+      if (lastOrd.quartier) loc = lastOrd.quartier + ', ' + (lastOrd.region || '');
+    }
+
+    var alertHtml = '';
+    if (isInactive || daysSinceLast >= 30) {
+      alertHtml = '<div class="dossier-alert">⚠️ Cliente inactive depuis ' + daysSinceLast + ' jours — à relancer</div>';
+    }
+
+    return '<div class="dossier-section">' +
+      '<h3>👤 Identité &amp; Profil</h3>' +
+      '<div class="dossier-grid">' +
+        '<div><div class="dg-label">Nom complet</div><div class="dg-value">' + esc(c.name) + '</div></div>' +
+        '<div><div class="dg-label">Téléphone</div><div class="dg-value">' + c.phone + '</div></div>' +
+        '<div><div class="dg-label">Email</div><div class="dg-value">' + (acc && acc.email ? acc.email : '—') + '</div></div>' +
+        '<div><div class="dg-label">Quartier / Région</div><div class="dg-value">' + (loc || '—') + '</div></div>' +
+        '<div><div class="dg-label">Date 1ʳᵉ commande</div><div class="dg-value">' + (firstDate ? new Date(firstDate).toLocaleDateString('fr-FR') : '—') + '</div></div>' +
+        '<div><div class="dg-label">Date dernière commande</div><div class="dg-value">' + (lastDate ? new Date(lastDate).toLocaleDateString('fr-FR') : '—') + '</div></div>' +
+        '<div><div class="dg-label">Jours depuis dernière cmd</div><div class="dg-value">' + daysSinceLast + '</div></div>' +
+        '<div><div class="dg-label">Compte inscrit</div><div class="dg-value">' + (acc ? 'Oui' : 'Non') + '</div></div>' +
+        '<div><div class="dg-label">Dernière connexion</div><div class="dg-value">' + (acc && acc.lastLogin ? new Date(acc.lastLogin).toLocaleDateString('fr-FR') : '—') + '</div></div>' +
+      '</div>' +
+      '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
+        '<span class="client-badge ' + displayStatus + '">' + (displayStatus === 'VIP' ? '🏆 ' : '') + displayStatus + '</span>' +
+        alertHtml +
+      '</div>' +
+      '<div style="margin-top:8px">' +
+        '<div class="dg-label" style="margin-bottom:2px">Note personnelle</div>' +
+        '<textarea style="width:100%;min-height:50px;padding:6px;font-size:.75rem;border:1px solid var(--bd);border-radius:6px;background:white;resize:vertical" placeholder="Ajouter une note…" id="dossierNote_' + phone + '">' + (c.note || '') + '</textarea>' +
+        '<button class="btn-sm btn-add" onclick="SytamAdmin._saveClientNote(\'' + phone + '\')" style="margin-top:4px;font-size:.68rem">💾 Enregistrer la note</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function _dossierSectionB(c, phone) {
+    var total = c.total || 0;
+    var count = c.count || 0;
+    var avgCart = count > 0 ? Math.round(total / count) : 0;
+    var maxOrder = c.orders.length ? c.orders.reduce(function(max, o) { return (!max || (o.total || 0) > max.total) ? { total: o.total || 0, date: o.created_at, items: o.items } : max; }, null) : null;
+    var lastOrder = c.lastOrder ? c.orders.find(function(o) { return o.created_at === c.lastOrder; }) || c.orders[c.orders.length - 1] : null;
+
+    // Mini chart monthly spending
+    var monthly = {};
+    c.orders.forEach(function(o) {
+      if (o.created_at) {
+        var m = o.created_at.substring(0, 7);
+        monthly[m] = (monthly[m] || 0) + (o.total || 0);
+      }
+    });
+    var months = Object.keys(monthly).sort();
+    var maxVal = Math.max.apply(null, months.map(function(m) { return monthly[m]; })) || 1;
+    var chartBars = months.map(function(m) {
+      var pct = (monthly[m] / maxVal * 100);
+      var label = m.substring(5, 7) + '/' + m.substring(2, 4);
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center">' +
+        '<div style="font-size:.55rem;color:var(--tl);margin-bottom:2px">' + monthly[m].toLocaleString('fr-FR').substring(0, 5) + '</div>' +
+        '<div style="width:100%;height:40px;display:flex;align-items:flex-end;justify-content:center">' +
+          '<div style="width:60%;height:' + pct + '%;background:var(--gold);border-radius:3px 3px 0 0;min-height:4px;transition:height .4s"></div>' +
         '</div>' +
+        '<div style="font-size:.55rem;color:var(--tl);margin-top:2px">' + label + '</div>' +
       '</div>';
     }).join('');
 
-    // Notes client
-    var note = acc && acc.note ? acc.note : '';
-    var bodyHtml =
-      '<div class="client-section">' +
-        '<h3>Identité</h3><div class="client-info-grid">' +
-          '<div><div class="label">Nom</div><div class="value">' + name + '</div></div>' +
-          '<div><div class="label">Téléphone</div><div class="value">' + phone + '</div></div>' +
-          '<div><div class="label">Email</div><div class="value">' + email + '</div></div>' +
-          '<div><div class="label">Client depuis</div><div class="value">' + createdDate + '</div></div>' +
-          '<div><div class="label">Statut</div><div><span class="client-badge ' + status + '">' + status + '</span></div></div>' +
-          '<div><div class="label">Panier moyen</div><div class="value">' + avgCart + '</div></div>' +
-        '</div>' +
+    return '<div class="dossier-section">' +
+      '<h3>💰 Résumé financier</h3>' +
+      '<div class="dossier-stats-row" style="margin-bottom:10px">' +
+        '<div class="dossier-stat"><div class="ds-num">' + total.toLocaleString('fr-FR') + '</div><div class="ds-lbl">Total dépensé</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + count + '</div><div class="ds-lbl">Commandes</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + avgCart.toLocaleString('fr-FR') + ' F</div><div class="ds-lbl">Panier moyen</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + (maxOrder ? maxOrder.total.toLocaleString('fr-FR') + ' F' : '—') + '</div><div class="ds-lbl">Meilleure commande</div></div>' +
       '</div>' +
-      '<div class="client-section">' +
-        '<h3>Produits favoris</h3>' + favHtml +
+      (maxOrder ? '<div style="font-size:.72rem;color:var(--tl);margin-bottom:8px">Meilleure commande le ' + new Date(maxOrder.date).toLocaleDateString('fr-FR') + (maxOrder.items ? ' · ' + maxOrder.items.length + ' article(s)' : '') + '</div>' : '') +
+      '<div style="font-size:.72rem;color:var(--tl);margin-bottom:6px">Évolution mensuelle des dépenses</div>' +
+      '<div style="display:flex;align-items:flex-end;height:80px;gap:2px;padding:4px 0">' + (chartBars || '<div style="color:var(--tl);font-size:.7rem">Pas assez de données</div>') + '</div>' +
+    '</div>';
+  }
+
+  function _dossierSectionC(c, products, phone) {
+    var sizeCount = {}, colorCount = {}, paymentCount = {}, dayCount = {}, hourCount = {};
+    var intervals = [];
+    var prevDate = null;
+    c.orders.forEach(function(o) {
+      if (o.created_at) {
+        var dt = new Date(o.created_at);
+        var d = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][dt.getDay()];
+        dayCount[d] = (dayCount[d] || 0) + 1;
+        var h = dt.getHours();
+        var hourSlot = Math.floor(h / 3) * 3;
+        hourCount[hourSlot] = (hourCount[hourSlot] || 0) + 1;
+        if (prevDate) intervals.push(Math.round((dt - prevDate) / 86400000));
+        prevDate = dt;
+        if (!paymentCount[o.mode_paiement]) paymentCount[o.mode_paiement] = 0;
+        paymentCount[o.mode_paiement]++;
+      }
+      if (o.items) o.items.forEach(function(it) {
+        if (it.variantLabel) {
+          var sz = it.variantLabel.match(/Taille\s*:\s*(\S+)/);
+          if (sz) sizeCount[sz[1]] = (sizeCount[sz[1]] || 0) + (it.qte || 1);
+          var col = it.couleur;
+          if (col) colorCount[col] = (colorCount[col] || 0) + (it.qte || 1);
+          else { var col2 = it.variantLabel.match(/Couleur\s*:\s*([^,]+)/); if (col2) colorCount[col2[1].trim()] = (colorCount[col2[1].trim()] || 0) + (it.qte || 1); }
+        }
+      });
+    });
+    var favDay = Object.keys(dayCount).sort(function(a, b) { return dayCount[b] - dayCount[a]; })[0];
+    var bestHourSlot = Object.keys(hourCount).sort(function(a, b) { return hourCount[b] - hourCount[a]; })[0];
+    var hourLabel = bestHourSlot !== undefined ? (bestHourSlot + 'h–' + (parseInt(bestHourSlot) + 3) + 'h') : '—';
+    var avgInterval = intervals.length ? Math.round(intervals.reduce(function(s, v) { return s + v; }, 0) / intervals.length) : '—';
+    var favPayment = Object.keys(paymentCount).sort(function(a, b) { return paymentCount[b] - paymentCount[a]; })[0] || '—';
+
+    var totSize = Object.keys(sizeCount).reduce(function(s, k) { return s + sizeCount[k]; }, 0) || 1;
+    var sizeBars = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; }).map(function(sz) {
+      var pct = Math.round(sizeCount[sz] / totSize * 100);
+      return '<div style="display:flex;align-items:center;gap:6px;font-size:.7rem;margin:2px 0"><div style="width:30px;font-weight:600">' + sz + '</div><div class="dossier-bar" style="flex:1;height:5px"><div class="dossier-bar-fill" style="width:' + pct + '%"></div></div><div style="width:30px;text-align:right;color:var(--tl);font-size:.65rem">' + pct + '%</div></div>';
+    }).join('');
+
+    var totColor = Object.keys(colorCount).reduce(function(s, k) { return s + colorCount[k]; }, 0) || 1;
+    var colorBars = Object.keys(colorCount).sort(function(a, b) { return colorCount[b] - colorCount[a]; }).map(function(col) {
+      var pct = Math.round(colorCount[col] / totColor * 100);
+      var hex = getHexForColor(col) || '#ccc';
+      return '<div style="display:flex;align-items:center;gap:6px;font-size:.7rem;margin:2px 0"><div style="width:12px;height:12px;border-radius:50%;background:' + hex + ';border:1px solid var(--bd)"></div><div style="width:60px;color:#3d2b1f">' + col + '</div><div class="dossier-bar" style="flex:1;height:5px"><div class="dossier-bar-fill" style="width:' + pct + '%"></div></div><div style="width:30px;text-align:right;color:var(--tl);font-size:.65rem">' + pct + '%</div></div>';
+    }).join('');
+
+    // Location habitual
+    var regionCount = {};
+    c.orders.forEach(function(o) { if (o.region) regionCount[o.region] = (regionCount[o.region] || 0) + 1; });
+    var favRegion = Object.keys(regionCount).sort(function(a, b) { return regionCount[b] - regionCount[a]; })[0] || '—';
+
+    return '<div class="dossier-section">' +
+      '<h3>📊 Habitudes d\'achat</h3>' +
+      '<div class="dossier-habit-grid">' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">📅 Jour préféré</div><div class="hi-val">' + (favDay || '—') + '</div></div>' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">⏰ Heure active</div><div class="hi-val">' + hourLabel + '</div></div>' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">⏱ Délai entre commandes</div><div class="hi-val">' + (avgInterval !== '—' ? avgInterval + ' jours' : '—') + '</div></div>' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">💳 Paiement préféré</div><div class="hi-val">' + favPayment + '</div></div>' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">📍 Zone de livraison</div><div class="hi-val">' + favRegion + '</div></div>' +
+        '<div class="dossier-habit-item"><div class="hi-lbl">📦 Commande type</div><div class="hi-val">' + (c.orders.length && c.orders[0].items ? c.orders[0].items.length + ' article(s)' : '—') + '</div></div>' +
       '</div>' +
-      '<div class="client-section">' +
-        '<h3>Commandes (' + clientOrders.length + ')</h3>' +
-        ordersHtml +
-      '</div>' +
-      '<div class="client-section">' +
-        '<h3>Notes</h3>' +
-        '<textarea style="width:100%;min-height:60px;padding:6px;font-size:.75rem;border:1px solid var(--bd);border-radius:4px;background:var(--bg-card);color:var(--tx);resize:vertical" placeholder="Ajouter une note sur cette cliente…" id="clientNote_' + phone + '">' + note + '</textarea>' +
-        '<button class="btn-sm btn-add" onclick="SytamAdmin._saveClientNote(\'' + phone + '\')" style="margin-top:4px;font-size:.68rem">💾 Sauvegarder note</button>' +
+      (sizeBars ? '<div style="margin-top:10px"><div style="font-size:.68rem;color:var(--tl);margin-bottom:4px">Tailles commandées</div>' + sizeBars + '</div>' : '') +
+      (colorBars ? '<div style="margin-top:8px"><div style="font-size:.68rem;color:var(--tl);margin-bottom:4px">Couleurs commandées</div>' + colorBars + '</div>' : '') +
+    '</div>';
+  }
+
+  function _dossierSectionD(c, products, acc) {
+    var prodCount = {};
+    c.orders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
+    var top3 = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; }).slice(0, 3);
+    var topHtml = top3.map(function(n) {
+      var p = null;
+      for (var pi = 0; pi < products.length; pi++) { if (products[pi].nom === n) { p = products[pi]; break; } }
+      var img = p && p.images && p.images[0] ? p.images[0] : '';
+      return '<div class="dossier-prod-item">' +
+        (img ? '<img src="' + img + '">' : '<div style="width:32px;height:32px;background:var(--bd);border-radius:4px"></div>') +
+        '<div class="dpi-info"><div class="dpi-name">' + esc(n) + '</div><div style="color:var(--tl)">Acheté ' + prodCount[n] + ' fois</div></div>' +
       '</div>';
-    var drawerBody = document.getElementById('clientDrawerBody');
-    if (drawerBody) drawerBody.innerHTML = bodyHtml;
-    document.getElementById('clientDrawer').classList.add('open');
-    document.getElementById('clientDrawerOv').classList.add('open');
+    }).join('') || '<div style="color:var(--tl);font-size:.72rem">Aucun produit acheté</div>';
+
+    // Wishlist
+    var wlHtml = '';
+    if (acc && acc.wishlist && acc.wishlist.length) {
+      wlHtml = acc.wishlist.map(function(id) {
+        var p = products.find(function(x) { return x.id === id; });
+        if (!p) return null;
+        var img = p.images && p.images[0] ? p.images[0] : '';
+        return '<div class="dossier-prod-item">' +
+          (img ? '<img src="' + img + '">' : '<div style="width:32px;height:32px;background:var(--bd);border-radius:4px"></div>') +
+          '<div class="dpi-info"><div class="dpi-name">' + esc(p.nom) + '</div></div>' +
+        '</div>';
+      }).filter(Boolean).join('');
+    }
+
+    // Cross-sell: produits souvent achetés ensemble
+    var crossSell = {};
+    c.orders.forEach(function(o) {
+      if (o.items && o.items.length > 1) {
+        var names = o.items.map(function(it) { return it.nom; });
+        for (var i = 0; i < names.length; i++) {
+          for (var j = i + 1; j < names.length; j++) {
+            var pair = [names[i], names[j]].sort().join(' × ');
+            crossSell[pair] = (crossSell[pair] || 0) + 1;
+          }
+        }
+      }
+    });
+    var crossList = Object.keys(crossSell).sort(function(a, b) { return crossSell[b] - crossSell[a]; }).slice(0, 3);
+
+    return '<div class="dossier-section">' +
+      '<h3>🛍️ Produits</h3>' +
+      '<div style="font-size:.75rem;color:var(--tl);margin-bottom:6px">Top 3 produits les plus achetés</div>' +
+      '<div class="dossier-prod-list">' + topHtml + '</div>' +
+      (wlHtml ? '<div style="margin-top:10px"><div style="font-size:.75rem;color:var(--tl);margin-bottom:4px">❤️ Dans sa wishlist</div><div class="dossier-prod-list">' + wlHtml + '</div></div>' : '') +
+      (crossList.length ? '<div style="margin-top:10px"><div style="font-size:.75rem;color:var(--tl);margin-bottom:4px">🔄 Souvent achetés ensemble</div>' +
+        crossList.map(function(p) {
+          return '<div style="font-size:.72rem;background:white;border:1px solid var(--bd);border-radius:4px;padding:4px 8px;margin:2px 0">' + esc(p) + ' <span style="color:var(--tl)">(x' + crossSell[p] + ')</span></div>';
+        }).join('') + '</div>' : '') +
+    '</div>';
   }
 
-  function _closeClientDrawer() {
-    document.getElementById('clientDrawer').classList.remove('open');
-    document.getElementById('clientDrawerOv').classList.remove('open');
+  function _dossierSectionE(c, products, phone) {
+    var rows = c.orders.slice().reverse().map(function(o) {
+      var items = (o.items || []).map(function(it) {
+        var p = products.find(function(x) { return x.nom === it.nom; });
+        var img = p && p.images && p.images[0] ? p.images[0] : '';
+        return '<div style="display:flex;align-items:center;gap:4px;margin:1px 0;font-size:.7rem;color:var(--tl)">' +
+          (img ? '<img src="' + img + '" style="width:18px;height:18px;border-radius:3px;object-fit:cover">' : '') +
+          esc(it.nom) + (it.variantLabel ? ' <span style="color:#999">(' + it.variantLabel + ')</span>' : '') + ' x' + (it.qte || 1) +
+        '</div>';
+      }).join('');
+      var statusColor = o.statut === 'livree' ? '#3B6D11' : o.statut === 'confirmee' ? '#B8935A' : o.statut === 'annulee' ? '#A32D2D' : '#854F0B';
+      return '<tr>' +
+        '<td style="white-space:nowrap;font-size:.68rem">' + (o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+        '<td style="font-size:.68rem;color:var(--tl)">#' + (o.id || '').substring(0, 6) + '</td>' +
+        '<td style="max-width:140px">' + items + '</td>' +
+        '<td style="text-align:right;font-weight:600;white-space:nowrap">' + (o.total || 0).toLocaleString('fr-FR') + ' F</td>' +
+        '<td><span style="color:' + statusColor + ';font-size:.68rem;font-weight:500">' + labelStatut(o.statut) + '</span></td>' +
+        '<td><select class="sort-select" style="font-size:.6rem;padding:2px 4px" onchange="SytamAdmin._updateDossierOrderStatus(\'' + phone + '\',\'' + (o.id || '') + '\',this.value)">' +
+          ['en_attente', 'confirmee', 'preparation', 'livraison', 'livree', 'annulee'].map(function(s) {
+            return '<option value="' + s + '"' + (o.statut === s ? ' selected' : '') + '>' + labelStatut(s) + '</option>';
+          }).join('') +
+        '</select></td>' +
+      '</tr>';
+    }).join('');
+
+    return '<div class="dossier-section">' +
+      '<h3>📜 Historique complet des commandes (' + c.count + ')</h3>' +
+      '<div style="max-height:400px;overflow-y:auto">' +
+        '<table class="dossier-table"><thead><tr><th>Date</th><th>N°</th><th>Produits</th><th>Montant</th><th>Statut</th><th>Action</th></tr></thead><tbody>' +
+          (rows || '<tr><td colspan="6" class="empty-state">Aucune commande</td></tr>') +
+        '</tbody></table>' +
+      '</div>' +
+    '</div>';
   }
 
-  function _saveClientNote(phone) {
-    var note = document.getElementById('clientNote_' + phone);
-    if (!note) return;
-    var val = note.value.trim();
+  function _dossierSectionF(c, analytics, phone) {
+    // Count sessions/visits from analytics events for this phone
+    var visits = 0;
+    var totalTime = 0;
+    var pageViews = {};
+    var cartAdds = 0;
+    var sessions = analytics.filter(function(e) {
+      if (!e || !e.phone) return false;
+      return e.phone.replace(/[^0-9]/g, '') === phone;
+    });
+    visits = sessions.length;
+    sessions.forEach(function(s) {
+      totalTime += parseInt(s.duration) || 0;
+      if (s.page) pageViews[s.page] = (pageViews[s.page] || 0) + 1;
+      if (s.event === 'add_to_cart') cartAdds++;
+    });
+    var avgTime = visits > 0 ? Math.round(totalTime / visits) : 0;
+    var pagesHtml = Object.keys(pageViews).sort(function(a, b) { return pageViews[b] - pageViews[a]; }).slice(0, 5).map(function(p) {
+      var label = p.replace('page-', '').replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+      return '<div style="font-size:.68rem;display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--bd)"><span>' + label + '</span><span style="color:var(--tl)">' + pageViews[p] + '×</span></div>';
+    }).join('');
+    var conversionRate = visits > 0 ? Math.round(c.count / visits * 100) : 0;
+    var abandonedCartCount = c.orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
+
+    return '<div class="dossier-section">' +
+      '<h3>🌐 Comportement sur le site</h3>' +
+      '<div class="dossier-stats-row" style="margin-bottom:8px">' +
+        '<div class="dossier-stat"><div class="ds-num">' + visits + '</div><div class="ds-lbl">Visites</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + (avgTime > 60 ? Math.round(avgTime / 60) + ' min' : avgTime + 's') + '</div><div class="ds-lbl">Temps moyen</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + conversionRate + '%</div><div class="ds-lbl">Taux conversion</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + cartAdds + '</div><div class="ds-lbl">Ajouts panier</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + abandonedCartCount + '</div><div class="ds-lbl">Paniers abandonnés</div></div>' +
+      '</div>' +
+      (pagesHtml ? '<div style="margin-top:8px"><div style="font-size:.68rem;color:var(--tl);margin-bottom:4px">Pages les plus visitées</div>' + pagesHtml + '</div>' : '') +
+    '</div>';
+  }
+
+  function _dossierSectionG(c, orders, phone) {
+    // Get fidelity data
+    var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+    var lEntry = loyalty.find(function(l) { return l.phone === phone; });
+    var points = lEntry ? lEntry.points || 0 : 0;
+    var redeemed = lEntry ? lEntry.redeemed || 0 : 0;
+    var pointsPerOrder = c.orders.filter(function(o) { return o.statut === 'livree'; }).length * 10;
+    var nextRewardAt = Math.ceil(points / 100) * 100 + 100;
+    var progress = Math.min(100, Math.round(points / nextRewardAt * 100));
+
+    // Points history per order
+    var historyHtml = c.orders.slice().reverse().slice(0, 10).map(function(o) {
+      var pts = o.statut === 'livree' ? 10 : 0;
+      return '<div><span style="color:var(--tl);font-size:.65rem">' + new Date(o.created_at).toLocaleDateString('fr-FR') + '</span><span>#' + (o.id || '').substring(0, 6) + '</span><span style="color:' + (pts > 0 ? '#3B6D11' : '#999') + '">+' + pts + ' pts</span></div>';
+    }).join('');
+
+    return '<div class="dossier-section">' +
+      '<h3>⭐ Fidélité</h3>' +
+      '<div class="dossier-stats-row" style="margin-bottom:8px">' +
+        '<div class="dossier-stat"><div class="ds-num">' + points + '</div><div class="ds-lbl">Points actuels</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + redeemed + '</div><div class="ds-lbl">Récompenses utilisées</div></div>' +
+        '<div class="dossier-stat"><div class="ds-num">' + pointsPerOrder + '</div><div class="ds-lbl">Points gagnés (commandes)</div></div>' +
+      '</div>' +
+      '<div style="margin:8px 0">' +
+        '<div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--tl);margin-bottom:3px">' +
+          '<span>Progression vers récompense</span><span>' + points + ' / ' + nextRewardAt + ' pts</span>' +
+        '</div>' +
+        '<div class="dossier-bar" style="height:8px"><div class="dossier-bar-fill" style="width:' + progress + '%"></div></div>' +
+      '</div>' +
+      '<div style="font-size:.65rem;color:var(--tl);margin-bottom:4px">Historique des points</div>' +
+      '<div class="dossier-fidelity-history">' + (historyHtml || '<div style="color:var(--tl)">Aucun historique</div>') + '</div>' +
+    '</div>';
+  }
+
+  function _dossierSectionH(c, phone, acc) {
+    var phoneClean = c.phone.replace(/[^0-9]/g, '');
+    var name = encodeURIComponent(c.name);
+    var waLink = 'https://wa.me/221' + phoneClean + '?text=Salam%20' + name + '%2C%20c\'est%20Maison%20Sytam%20!';
+
+    return '<div class="dossier-section">' +
+      '<h3>⚡ Actions rapides</h3>' +
+      '<div class="dossier-action-btns">' +
+        '<a href="' + waLink + '" target="_blank" class="dab dab-wa" style="text-decoration:none">📱 Contacter WhatsApp</a>' +
+        '<button class="dab dab-gold" onclick="SytamAdmin._addFidelityPoints(\'' + phone + '\')">🎁 Offrir des points</button>' +
+        '<button class="dab dab-outline" onclick="SytamAdmin._dossierChangeStatus(\'' + phone + '\')">🏷️ Changer le statut</button>' +
+        '<button class="dab dab-outline" onclick="document.getElementById(\'dossierNote_' + phone + '\').focus()">📝 Modifier la note</button>' +
+        '<button class="dab dab-outline" onclick="SytamAdmin._markRelance(\'' + phone + '\')">🔔 Marquer à relancer</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function _addFidelityPoints(phone) {
+    var pts = prompt('Nombre de points fidélité à offrir à ' + phone + ' :', '10');
+    if (pts === null || pts === '') return;
+    pts = parseInt(pts) || 0;
+    if (pts <= 0) { showToast('Erreur', 'Nombre invalide'); return; }
+    var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+    var entry = loyalty.find(function(l) { return l.phone === phone; });
+    if (!entry) {
+      entry = { phone: phone, points: 0, redeemed: 0 };
+      loyalty.push(entry);
+    }
+    entry.points = (entry.points || 0) + pts;
+    localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
+    pushToSupabase('sytam_loyalty_v2');
+    // Refresh dossier section G
+    var d = _getClientData();
+    var content = document.getElementById('clientDossierContent');
+    if (content) {
+      content.innerHTML = content.innerHTML.replace(/<div class="dossier-section">\s*<h3>⭐ Fidélité[\s\S]*?<\/div>\s*<\/div>/,
+        _dossierSectionG(d.clientMap[phone], d.orders, phone));
+    }
+    showToast('✅', pts + ' points offerts à ' + phone);
+  }
+
+  function _dossierChangeStatus(phone) {
+    var d = _getClientData();
+    var c = d.clientMap[phone];
+    if (!c) return;
+    var current = _getClientStatus(c);
+    var statuses = ['Nouveau', 'Régulier', 'VIP'];
+    var newStatus = prompt('Statut actuel : ' + current + '\nChanger en (Nouveau / Régulier / VIP) :', current === 'VIP' ? 'Régulier' : current === 'Régulier' ? 'VIP' : 'Régulier');
+    if (!newStatus) return;
+    // We don't have a custom status field - use order count as proxy
+    // Instead, we can set a note about status change
     var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
     for (var i = 0; i < accounts.length; i++) {
       if (accounts[i].phone === phone) {
-        accounts[i].note = val;
+        var existingNote = accounts[i].note || '';
+        accounts[i].note = existingNote + (existingNote ? '\n' : '') + '[' + new Date().toLocaleDateString('fr-FR') + '] Statut changé manuellement → ' + newStatus;
         break;
       }
     }
     localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
-    // Push to Supabase
-    if (typeof SupabaseAPI !== 'undefined') { try { SupabaseAPI.upsert('store_data', { key: 'sytam_accounts', value: accounts }); } catch(e) {} }
-    showToast('Note', 'Note enregistrée ✅');
+    pushToSupabase('sytam_accounts');
+    showToast('✅', 'Statut noté comme "' + newStatus + '" dans les notes');
+    _showClientDossier(phone);
   }
 
-  function _updateOrderStatus(orderId, newStatus) {
+  function _markRelance(phone) {
+    var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
+    for (var i = 0; i < accounts.length; i++) {
+      if (accounts[i].phone === phone) {
+        accounts[i].aRelancer = true;
+        break;
+      }
+    }
+    localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
+    pushToSupabase('sytam_accounts');
+    showToast('✅', 'Marquée comme à relancer');
+  }
+
+  function _updateDossierOrderStatus(phone, orderId, newStatus) {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     for (var i = 0; i < orders.length; i++) {
       if (orders[i].id === orderId) { orders[i].statut = newStatus; break; }
@@ -2171,41 +2653,70 @@
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
     if (typeof SupabaseAPI !== 'undefined') { try { SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders }); } catch(e) {} }
     showToast('Statut', 'Commande ' + orderId + ' → ' + newStatus + ' ✅');
-    // Refresh drawer
-    var drawerBody = document.getElementById('clientDrawerBody');
-    if (drawerBody) { _openClientDrawer(orders[i].telephone.replace(/[^0-9]/g, '')); }
+    _showClientDossier(phone);
+  }
+
+  function _saveClientNote(phone) {
+    var note = document.getElementById('dossierNote_' + phone);
+    if (!note) return;
+    var val = note.value.trim();
+    var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
+    var found = false;
+    for (var i = 0; i < accounts.length; i++) {
+      if (accounts[i].phone === phone) {
+        accounts[i].note = val;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      accounts.push({ phone: phone, note: val, created_at: new Date().toISOString() });
+    }
+    localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
+    if (typeof SupabaseAPI !== 'undefined') { try { SupabaseAPI.upsert('store_data', { key: 'sytam_accounts', value: accounts }); } catch(e) {} }
+    showToast('Note', 'Note enregistrée ✅');
   }
 
   function _exportClientsCSV() {
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
-    var clientMap = {};
-    accounts.forEach(function(acc) {
-      var co = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
-      clientMap[acc.phone] = { name: acc.name || acc.phone, phone: acc.phone, email: acc.email || '', count: co.length, total: co.reduce(function(s,o){return s+(o.total||0);},0), lastOrder: co.length ? co[0].created_at : '', hasAccount: true };
-    });
-    orders.forEach(function(o) {
-      if (o && o.telephone) {
-        var phone = o.telephone.replace(/[^0-9]/g, '');
-        if (!clientMap[phone]) clientMap[phone] = { name: o.client || phone, phone: phone, email: '', count: 0, total: 0, lastOrder: '', hasAccount: false };
-        clientMap[phone].count++;
-        clientMap[phone].total += o.total || 0;
-        if (o.created_at && (!clientMap[phone].lastOrder || o.created_at > clientMap[phone].lastOrder)) clientMap[phone].lastOrder = o.created_at;
-      }
-    });
-    var esc = function(s) { return '"' + String(s || '').replace(/"/g, '""') + '"'; };
+    var d = _getClientData();
+    var clientMap = d.clientMap, products = d.products;
+    var escCSV = function(s) { return '"' + String(s || '').replace(/"/g, '""') + '"'; };
     var rows = Object.keys(clientMap).map(function(k) {
       var c = clientMap[k];
-      var status = c.count >= 5 ? 'VIP' : c.count >= 2 ? 'Régulier' : 'Nouveau';
-      return [esc(c.name), esc(c.phone), esc(c.email), c.count, c.total, esc(status), c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : ''].join(',');
+      var status = _getClientStatus(c);
+      var avgCart = c.count > 0 ? Math.round(c.total / c.count) : 0;
+      var favInfo = _getFavProd(c, products);
+      var sizeCount = {}, colorCount = {};
+      c.orders.forEach(function(o) {
+        if (o.items) o.items.forEach(function(it) {
+          if (it.variantLabel) {
+            var sz = it.variantLabel.match(/Taille\s*:\s*(\S+)/);
+            if (sz) sizeCount[sz[1]] = (sizeCount[sz[1]] || 0) + (it.qte || 1);
+          }
+        });
+      });
+      var favSize = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; })[0] || '';
+      var daysSinceLast = c.lastOrder ? Math.floor((new Date() - new Date(c.lastOrder)) / 86400000) : '';
+      // Find loyalty points
+      var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+      var lEntry = loyalty.find(function(l) { return l.phone === c.phone; });
+      var pts = lEntry ? (lEntry.points || 0) : 0;
+      return [
+        escCSV(c.name), escCSV(c.phone), escCSV(c.email || ''), escCSV(status),
+        c.count, c.total, avgCart, escCSV(favInfo.fav), escCSV(favSize),
+        c.lastOrder ? new Date(c.lastOrder).toLocaleDateString('fr-FR') : '',
+        daysSinceLast, pts
+      ].join(',');
     });
-    var csv = 'Nom,Téléphone,Email,Commandes,Total dépensé,Statut,Dernière commande\n' + rows.join('\n');
+    var header = 'Nom,Téléphone,Email,Statut,Nb commandes,Total dépensé,Panier moyen,Produit favori,Taille habituelle,Dernière commande,Jours inactif,Points fidélité';
+    var csv = header + '\n' + rows.join('\n');
     var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     var link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'clients_maisonsytam.csv';
+    link.download = 'clientes_maisonsytam_premium.csv';
     link.click();
     URL.revokeObjectURL(link.href);
+    showToast('✅', 'CSV exporté avec ' + rows.length + ' clientes');
   }
 
   function syncAnalytics() {
@@ -2238,7 +2749,8 @@
     updateMeasurePlaceholders, addMesureField, removeMesureField, syncNow,
     loadAnalytics, syncAnalytics, loadFinance, loadClients,
     _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
-    _setClientFilter, _setClientSort, _openClientDrawer, _closeClientDrawer, _saveClientNote, _updateOrderStatus, _exportClientsCSV,
+    _setClientFilter, _setClientSort, _saveClientNote, _exportClientsCSV,
+    _showClientDossier, _hideClientDossier, _switchClientSubtab, _addFidelityPoints, _dossierChangeStatus, _markRelance, _updateDossierOrderStatus,
   };
 
   document.addEventListener('DOMContentLoaded', checkAuth);
