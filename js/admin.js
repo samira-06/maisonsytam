@@ -2128,7 +2128,7 @@
         abHtml += '<tr>' +
           '<td style="font-weight:600">' + esc(o.client || '—') + '</td>' +
           '<td>' + (o.telephone || '—') + '</td>' +
-          '<td style="font-size:.7rem;color:var(--tl)">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') : '—') + '</td>' +
+          '<td style="font-size:.7rem;color:var(--tl)">' + (o.created_at ? new Date(o.created_at).toLocaleString('fr-FR') + '<br><span style="font-size:.6rem;color:var(--er)">' + _timeSince(new Date(o.created_at)) + '</span>' : '—') + '</td>' +
           '<td style="max-width:180px">' + itemsHtml + '</td>' +
           '<td style="text-align:right;font-weight:600">' + (o.total || 0).toLocaleString('fr-FR') + ' F</td>' +
           '<td><a href="' + waLink + '" target="_blank" class="btn-sm btn-add" style="font-size:.6rem;padding:2px 6px;text-decoration:none;background:#25D366">💬 Relancer</a></td>' +
@@ -2142,10 +2142,10 @@
     if (abEl) abEl.innerHTML = abHtml;
 
     // --- À relancer ---
-    _renderRelance(clientMap, orders, products);
+    _renderRelance(clientMap, orders, products, d.analytics);
   }
 
-  function _renderRelance(clientMap, orders, products) {
+  function _renderRelance(clientMap, orders, products, analytics) {
     var now = new Date();
     var days30 = new Date(now.getTime() - 30 * 86400000);
     var hours24 = new Date(now.getTime() - 24 * 3600000);
@@ -2171,6 +2171,29 @@
         }
       }
     });
+    // Produits consultés 3+ fois sans acheter
+    if (analytics && analytics.length) {
+      var viewedPhoneMap = {};
+      analytics.forEach(function(e) {
+        if (!e || !e.phone || !e.productName || e.event !== 'view_product') return;
+        var ph = e.phone.replace(/[^0-9]/g, '');
+        if (!viewedPhoneMap[ph]) viewedPhoneMap[ph] = {};
+        viewedPhoneMap[ph][e.productName] = (viewedPhoneMap[ph][e.productName] || 0) + 1;
+      });
+      Object.keys(viewedPhoneMap).forEach(function(ph) {
+        var cInfo = clientMap[ph];
+        Object.keys(viewedPhoneMap[ph]).forEach(function(prodName) {
+          var count = viewedPhoneMap[ph][prodName];
+          if (count >= 3 && (!cInfo || cInfo.orders.every(function(o) { return !o.items || !o.items.some(function(it) { return it.nom === prodName; }); }))) {
+            var name = (cInfo && cInfo.name) || ph;
+            var waLink = 'https://wa.me/221' + ph + '?text=Salam%20' + encodeURIComponent(name) + '%2C%20tu%20as%20regard%C3%A9%20' + encodeURIComponent(prodName) + '%20plusieurs%20fois%20sur%20Maison%20Sytam%20%F0%9F%91%80%20Souhaites-tu%20commander%20%3F';
+            if (!relanceList.some(function(r) { return r.phone === ph && r.reason.indexOf(prodName) !== -1; })) {
+              relanceList.push({ phone: ph, name: name, date: '', reason: 'Consulté "' + prodName + '" ' + count + '× sans acheter', wa: waLink });
+            }
+          }
+        });
+      });
+    }
     var html = relanceList.length ? relanceList.map(function(r) {
       return '<div class="relance-card">' +
         '<div class="rc-info"><div class="rc-name">' + esc(r.name) + '</div><div class="rc-detail">' + r.phone + ' · ' + r.reason + '</div></div>' +
@@ -2188,7 +2211,7 @@
     var rc = document.getElementById('relanceContent');
     if (sc) sc.style.display = tab === 'all' ? 'block' : 'none';
     if (rc) rc.style.display = tab === 'relance' ? 'block' : 'none';
-    if (tab === 'relance') { var d = _getClientData(); _renderRelance(d.clientMap, d.orders, d.products); }
+    if (tab === 'relance') { var d = _getClientData(); _renderRelance(d.clientMap, d.orders, d.products, d.analytics); }
   }
 
   function _setClientFilter(filter) {
@@ -2235,7 +2258,7 @@
     var sectionC = _dossierSectionC(c, products, phone);
 
     // --- Section D: Produits ---
-    var sectionD = _dossierSectionD(c, products, acc);
+    var sectionD = _dossierSectionD(c, products, acc, d.analytics);
 
     // --- Section E: Historique commandes ---
     var sectionE = _dossierSectionE(c, products, phone);
@@ -2304,7 +2327,7 @@
     var maxOrder = c.orders.length ? c.orders.reduce(function(max, o) { return (!max || (o.total || 0) > max.total) ? { total: o.total || 0, date: o.created_at, items: o.items } : max; }, null) : null;
     var lastOrder = c.lastOrder ? c.orders.find(function(o) { return o.created_at === c.lastOrder; }) || c.orders[c.orders.length - 1] : null;
 
-    // Mini chart monthly spending
+    // Mini chart courbe SVG
     var monthly = {};
     c.orders.forEach(function(o) {
       if (o.created_at) {
@@ -2314,17 +2337,34 @@
     });
     var months = Object.keys(monthly).sort();
     var maxVal = Math.max.apply(null, months.map(function(m) { return monthly[m]; })) || 1;
-    var chartBars = months.map(function(m) {
-      var pct = (monthly[m] / maxVal * 100);
-      var label = m.substring(5, 7) + '/' + m.substring(2, 4);
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center">' +
-        '<div style="font-size:.55rem;color:var(--tl);margin-bottom:2px">' + monthly[m].toLocaleString('fr-FR').substring(0, 5) + '</div>' +
-        '<div style="width:100%;height:40px;display:flex;align-items:flex-end;justify-content:center">' +
-          '<div style="width:60%;height:' + pct + '%;background:var(--gold);border-radius:3px 3px 0 0;min-height:4px;transition:height .4s"></div>' +
-        '</div>' +
-        '<div style="font-size:.55rem;color:var(--tl);margin-top:2px">' + label + '</div>' +
-      '</div>';
-    }).join('');
+    var chartSvg = '';
+    if (months.length >= 2) {
+      var w = 300, h = 60, px = 20;
+      var step = months.length > 1 ? (w - 40) / (months.length - 1) : 0;
+      var points = months.map(function(m, i) {
+        var x = 20 + i * step;
+        var y = h - (monthly[m] / maxVal * (h - 10)) - 5;
+        return x + ',' + y;
+      });
+      var pathD = 'M' + points.join(' L');
+      var labels = months.map(function(m, i) {
+        var x = 20 + i * step;
+        return '<text x="' + x + '" y="' + (h + 8) + '" text-anchor="middle" font-size="6" fill="#999">' + m.substring(5, 7) + '/' + m.substring(2, 4) + '</text>';
+      }).join('');
+      var dots = months.map(function(m, i) {
+        var x = 20 + i * step;
+        var y = h - (monthly[m] / maxVal * (h - 10)) - 5;
+        return '<circle cx="' + x + '" cy="' + y + '" r="2.5" fill="#B8935A" stroke="#fff" stroke-width="1.5"/>';
+      }).join('');
+      chartSvg = '<svg viewBox="0 0 ' + w + ' ' + (h + 14) + '" style="width:100%;height:80px">' +
+        '<path d="' + pathD + '" fill="none" stroke="#B8935A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>' +
+        '<path d="' + pathD + '" fill="none" stroke="#B8935A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.08"/>' +
+        dots + labels + '</svg>';
+    } else if (months.length === 1) {
+      chartSvg = '<div style="font-size:.7rem;color:var(--tl);padding:8px 0">' + monthly[months[0]].toLocaleString('fr-FR') + ' FCFA en ' + months[0] + '</div>';
+    } else {
+      chartSvg = '<div style="font-size:.7rem;color:var(--tl);padding:8px 0">Pas assez de données</div>';
+    }
 
     return '<div class="dossier-section">' +
       '<h3>💰 Résumé financier</h3>' +
@@ -2336,7 +2376,7 @@
       '</div>' +
       (maxOrder ? '<div style="font-size:.72rem;color:var(--tl);margin-bottom:8px">Meilleure commande le ' + new Date(maxOrder.date).toLocaleDateString('fr-FR') + (maxOrder.items ? ' · ' + maxOrder.items.length + ' article(s)' : '') + '</div>' : '') +
       '<div style="font-size:.72rem;color:var(--tl);margin-bottom:6px">Évolution mensuelle des dépenses</div>' +
-      '<div style="display:flex;align-items:flex-end;height:80px;gap:2px;padding:4px 0">' + (chartBars || '<div style="color:var(--tl);font-size:.7rem">Pas assez de données</div>') + '</div>' +
+      '<div style="padding:4px 0">' + chartSvg + '</div>' +
     '</div>';
   }
 
@@ -2406,7 +2446,7 @@
     '</div>';
   }
 
-  function _dossierSectionD(c, products, acc) {
+  function _dossierSectionD(c, products, acc, analytics) {
     var prodCount = {};
     c.orders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
     var top3 = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; }).slice(0, 3);
@@ -2434,6 +2474,34 @@
       }).filter(Boolean).join('');
     }
 
+    // Produits consultés mais jamais achetés (via analytics)
+    var viewedNotBought = {};
+    if (analytics && analytics.length) {
+      var phoneClean = c.phone.replace(/[^0-9]/g, '');
+      var viewedCounts = {}, boughtNames = {};
+      Object.keys(prodCount).forEach(function(n) { boughtNames[n] = true; });
+      analytics.forEach(function(e) {
+        if (!e || !e.phone) return;
+        if (e.phone.replace(/[^0-9]/g, '') !== phoneClean) return;
+        if (e.event === 'view_product' && e.productName) {
+          if (!boughtNames[e.productName]) {
+            viewedCounts[e.productName] = (viewedCounts[e.productName] || 0) + 1;
+          }
+        }
+      });
+      Object.keys(viewedCounts).sort(function(a, b) { return viewedCounts[b] - viewedCounts[a]; }).slice(0, 3).forEach(function(n) {
+        var p = products.find(function(x) { return x.nom === n; });
+        var img = p && p.images && p.images[0] ? p.images[0] : '';
+        viewedNotBought[n] = { count: viewedCounts[n], img: img };
+      });
+    }
+    var viewedHtml = Object.keys(viewedNotBought).length ? Object.keys(viewedNotBought).map(function(n) {
+      return '<div class="dossier-prod-item">' +
+        (viewedNotBought[n].img ? '<img src="' + viewedNotBought[n].img + '">' : '<div style="width:32px;height:32px;background:var(--bd);border-radius:4px"></div>') +
+        '<div class="dpi-info"><div class="dpi-name">' + esc(n) + '</div><div style="color:var(--er)">Consulté ' + viewedNotBought[n].count + '× sans acheter</div></div>' +
+      '</div>';
+    }).join('') : '';
+
     // Cross-sell: produits souvent achetés ensemble
     var crossSell = {};
     c.orders.forEach(function(o) {
@@ -2453,6 +2521,7 @@
       '<h3>🛍️ Produits</h3>' +
       '<div style="font-size:.75rem;color:var(--tl);margin-bottom:6px">Top 3 produits les plus achetés</div>' +
       '<div class="dossier-prod-list">' + topHtml + '</div>' +
+      (viewedHtml ? '<div style="margin-top:10px"><div style="font-size:.75rem;color:var(--er);margin-bottom:4px">👀 Consultés mais jamais achetés</div><div class="dossier-prod-list">' + viewedHtml + '</div></div>' : '') +
       (wlHtml ? '<div style="margin-top:10px"><div style="font-size:.75rem;color:var(--tl);margin-bottom:4px">❤️ Dans sa wishlist</div><div class="dossier-prod-list">' + wlHtml + '</div></div>' : '') +
       (crossList.length ? '<div style="margin-top:10px"><div style="font-size:.75rem;color:var(--tl);margin-bottom:4px">🔄 Souvent achetés ensemble</div>' +
         crossList.map(function(p) {
@@ -2675,6 +2744,19 @@
     localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
     if (typeof SupabaseAPI !== 'undefined') { try { SupabaseAPI.upsert('store_data', { key: 'sytam_accounts', value: accounts }); } catch(e) {} }
     showToast('Note', 'Note enregistrée ✅');
+  }
+
+  function _timeSince(date) {
+    var diff = Math.floor((new Date() - date) / 1000);
+    if (diff < 60) return 'Il y a ' + diff + 's';
+    diff = Math.floor(diff / 60);
+    if (diff < 60) return 'Il y a ' + diff + ' min';
+    diff = Math.floor(diff / 60);
+    if (diff < 24) return 'Il y a ' + diff + 'h';
+    diff = Math.floor(diff / 24);
+    if (diff < 30) return 'Il y a ' + diff + ' jours';
+    diff = Math.floor(diff / 30);
+    return 'Il y a ' + diff + ' mois';
   }
 
   function _exportClientsCSV() {
