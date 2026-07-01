@@ -657,8 +657,15 @@ window.AccountApp = (function() {
         .catch(function() {});
     }
     _updateBanner();
-    // Vérifier token de récupération dans l'URL
-    setTimeout(checkRecoveryToken, 100);
+    // Vérifier token de récupération dans l'URL (initialisation directe)
+    setTimeout(function() {
+      var h = window.location.hash;
+      if (h.indexOf('#account-recover') === 0) {
+        var parts = h.split('?'), p = {};
+        if (parts[1]) parts[1].replace(/([^=&]+)=([^&]*)/g, function(m, k, v) { p[decodeURIComponent(k)] = decodeURIComponent(v); });
+        if (p.token) checkRecoveryToken(p.token);
+      }
+    }, 200);
   }
 
   return {
