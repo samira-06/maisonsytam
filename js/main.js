@@ -114,8 +114,13 @@
     if (page === 'shop') renderShop();
     if (page === 'account' && typeof AccountApp !== 'undefined') AccountApp.renderAccount();
     if (page.indexOf('account-recover') === 0 && typeof AccountApp !== 'undefined') {
+      var parts = page.split('?'), params = {};
+      if (parts[1]) {
+        parts[1].replace(/([^=&]+)=([^&]*)/g, function(m, k, v) { params[decodeURIComponent(k)] = decodeURIComponent(v); });
+      }
+      var savedToken = params.token || '';
       page = 'account';
-      setTimeout(function() { if (AccountApp.checkRecoveryToken) AccountApp.checkRecoveryToken(); }, 50);
+      setTimeout(function() { if (AccountApp.checkRecoveryToken) AccountApp.checkRecoveryToken(savedToken); }, 50);
     }
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);

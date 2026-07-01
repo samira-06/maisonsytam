@@ -391,22 +391,14 @@ window.AccountApp = (function() {
   }
 
   // Vérifier si on arrive avec un token de récupération dans l'URL
-  function checkRecoveryToken() {
-    var hash = window.location.hash;
-    if (hash.indexOf('#account-recover') === 0) {
-      var params = {};
-      hash.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m, key, value) {
-        params[key] = decodeURIComponent(value);
-      });
-      var token = params.token;
-      if (token) {
-        var container = document.getElementById('account-content');
-        if (container) {
-          container.innerHTML =
-            '<div class="account-form-wrap">' +
-              _recoverFormHtml(token) +
-            '</div>';
-        }
+  function checkRecoveryToken(token) {
+    if (token) {
+      var container = document.getElementById('account-content');
+      if (container) {
+        container.innerHTML =
+          '<div class="account-form-wrap">' +
+            _recoverFormHtml(token) +
+          '</div>';
       }
     }
   }
