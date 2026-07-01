@@ -112,21 +112,23 @@
   function navigate(page) {
     state.currentPage = page;
     if (page === 'shop') renderShop();
-    if (page === 'account' && typeof AccountApp !== 'undefined') AccountApp.renderAccount();
     if (page.indexOf('account-recover') === 0 && typeof AccountApp !== 'undefined') {
       var parts = page.split('?'), params = {};
       if (parts[1]) {
         parts[1].replace(/([^=&]+)=([^&]*)/g, function(m, k, v) { params[decodeURIComponent(k)] = decodeURIComponent(v); });
       }
-      var savedToken = params.token || '';
+      var recoverToken = params.token || '';
+      // Ne pas appeler renderAccount() ni changer le hash → déclencherait un second hashchange
+      if (AccountApp.checkRecoveryToken) AccountApp.checkRecoveryToken(recoverToken);
       page = 'account';
-      setTimeout(function() { if (AccountApp.checkRecoveryToken) AccountApp.checkRecoveryToken(savedToken); }, 50);
+    } else if (page === 'account' && typeof AccountApp !== 'undefined') {
+      AccountApp.renderAccount();
     }
     $$s('.page').forEach(p => p.classList.remove('active'));
     const t = document.getElementById(`page-${page}`);
     if (t) t.classList.add('active');
     $$s('.nav a').forEach(l => l.classList.toggle('active', l.dataset.page === page));
-    window.location.hash = page;
+    if (page === 'account' && !recoverToken) window.location.hash = page;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.body.classList.remove('cart-open', 'menu-open');
     state.showingCart = false;
