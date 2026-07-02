@@ -1081,10 +1081,10 @@ const SytamAnalytics = {
         var key = nom.toLowerCase();
         if (!prodData[key]) {
           var pid = item.productId || nameToId[key] || '';
-          prodData[key] = { id: pid, key: key, nom: nom, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {}, orderIds: {} };
+          prodData[key] = { id: pid, key: key, nom: nom, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
         }
         var d = prodData[key];
-        if (!d.orderIds[o.id]) { d.orderIds[o.id] = true; d.cmdCount++; }
+        d.cmdCount++;
         d.qteTotal += parseInt(item.qte || item.qty || 1);
         d.ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
         var taille = this._getTaille(item.variantLabel) || '';
@@ -1124,7 +1124,7 @@ const SytamAnalytics = {
     Object.keys(pClicks).forEach(function(pid) {
       var key = (pClicks[pid].name || pid).trim().toLowerCase();
       if (!prodData[key]) {
-        prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {}, orderIds: {} };
+        prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
       }
     });
 
@@ -1236,7 +1236,7 @@ const SytamAnalytics = {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.clics + '</div><div style="font-size:.6rem;color:var(--tl)">Vues</div></div>' +
-          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.qteTotal + '</div><div style="font-size:.6rem;color:var(--tl)">Vendus <span style="color:#999">(' + d.cmdCount + ' cmds)</span></div></div>' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.qteTotal + '</div><div style="font-size:.6rem;color:var(--tl)">Vendus <span style="color:#999">(' + d.cmdCount + ' cmd)</span></div></div>' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.tauxConv + '%</div><div style="font-size:.6rem;color:var(--tl)">Conversion</div></div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
