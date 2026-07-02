@@ -861,14 +861,15 @@
           setTimeout(_tryPush, 3000);
           return;
         }
+        var _myAttempt = _pushAttempts;
         SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
           .then(function(r) {
-            if (!(r && r.ok) && _pushAttempts < 5) {
+            if (!(r && r.ok) && _myAttempt < 20) {
               setTimeout(_tryPush, 3000);
             }
           })
           .catch(function() {
-            if (_pushAttempts < 5) setTimeout(_tryPush, 3000);
+            if (_myAttempt < 20) setTimeout(_tryPush, 3000);
           });
       }
       _tryPush();
