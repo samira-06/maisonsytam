@@ -1184,15 +1184,17 @@ const SytamAnalytics = {
       var coulKeys = Object.keys(d.couleurs);
       var coulTotal = coulKeys.reduce(function(s, k) { return s + d.couleurs[k]; }, 0);
       var configuredColors = (p.colors && p.colors.length) ? p.colors.map(function(c){return c.name;}) : coulKeys;
+      // Map nom → hex depuis la palette produit
+      var colorHexMap = {};
+      if (p.colors && p.colors.length) { p.colors.forEach(function(c){ colorHexMap[c.name.toLowerCase()] = c.hex; }); }
       var coulBars = configuredColors.slice(0).sort().map(function(c) {
         var cnt = d.couleurs[c] || 0;
         var pct = coulTotal > 0 ? Math.round(cnt / coulTotal * 100) : 0;
-        var colorDot = c.toLowerCase();
-        var dotBg = colorDot === 'noir' ? '#222' : colorDot === 'blanc' ? '#fff' : colorDot === 'beige' ? '#D4B896' : colorDot === 'marron' ? '#8B5E3C' : colorDot === 'rouge' ? '#C0392B' : colorDot === 'bleu' ? '#2980B9' : colorDot === 'vert' ? '#27AE60' : colorDot === 'rose' ? '#E91E63' : colorDot === 'gris' ? '#999' : colorDot === 'doré' ? '#C9A96E' : '#B8935A';
+        var hex = colorHexMap[c.toLowerCase()] || '#B8935A';
         return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
-          '<span style="width:12px;height:12px;border-radius:50%;background:' + dotBg + ';border:1px solid #ddd;flex-shrink:0"></span>' +
+          '<span style="width:12px;height:12px;border-radius:50%;background:' + hex + ';border:1px solid #ddd;flex-shrink:0"></span>' +
           '<span style="width:68px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + c + '</span>' +
-          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:' + dotBg + ';border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
+          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:' + hex + ';border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
           '<span style="width:36px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:' + (cnt ? 600 : 400) + '">' + cnt + '</span>' +
         '</div>';
       }).join('');
