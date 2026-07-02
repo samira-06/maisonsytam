@@ -33,14 +33,19 @@
   function getEffectiveVariants(p) {
     if (p.variantes && p.variantes.length) return p.variantes;
     if (p.colors && p.colors.length) {
-      var sizes = p.sizes && p.sizes.length ? p.sizes : [];
-      if (!sizes.length) {
-        p.colors.forEach(function(c) { if (c.stocks) Object.keys(c.stocks).forEach(function(s) { if (sizes.indexOf(s) === -1) sizes.push(s); }); });
+      var effSizes = (p.sizes && p.sizes.length) ? p.sizes : null;
+      if (!effSizes) {
+        // Vérifier si au moins une couleur a un stock par taille
+        var hasPerSizeStock = p.colors.some(function(c) { return c.stocks && Object.keys(c.stocks).length; });
+        if (hasPerSizeStock) {
+          var attrs = (typeof getVariantAttrs !== 'undefined') ? getVariantAttrs(p.categorie, p.sous_type) : ['couleur'];
+          if (attrs.indexOf('taille') !== -1) effSizes = (typeof SIZES !== 'undefined') ? SIZES : ['S','M','L','XL'];
+        }
       }
-      if (sizes.length) {
+      if (effSizes && effSizes.length) {
         var result = [];
         p.colors.forEach(function(c) {
-          sizes.forEach(function(s) {
+          effSizes.forEach(function(s) {
             var stock = (c.stocks && c.stocks[s] !== undefined) ? c.stocks[s] : (c.stock || 0);
             result.push({ id: 'c_' + c.name + '_' + s, attributs: { couleur: c.name, taille: s }, stock: stock });
           });

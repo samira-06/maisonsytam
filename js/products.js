@@ -134,7 +134,7 @@ const SEED_PRODUCTS = [
   { id: 'p_a2', nom: 'Pique à hijab dorée', categorie: 'accessoires', sous_type: 'Pique à hijab', description: 'Pique à hijab élégante, finition dorée. Fixation sécurisée.', prix: 3000, images: [_ph('Pique dorée')], colors: ['Doré','Argenté'].map(function(c) { return _colorObj(c, 0); }), created_at: '2024-01-05' },
   { id: 'p_a3', nom: 'Chouchou satiné', categorie: 'accessoires', sous_type: 'Chouchou', description: 'Chouchou en satin doux. Protège vos cheveux, reste élégant.', prix: 2500, images: ['images/produits/accessoires/chouchou1.jpeg'], tag: 'tendance', colors: ['Noir','Blanc','Beige','Rose','Bordeaux','Bleu Marine','Caramel'].map(function(c) { return _colorObj(c, 60); }), created_at: '2024-01-25' },
   { id: 'p_a4', nom: 'Cagoule / Sous-voile', categorie: 'accessoires', sous_type: 'Cagoule / Sous-voile', description: 'Cagoule légère à porter sous le voile. Confortable et invisible.', prix: 5000, images: [_ph('Cagoule')], colors: ['Noir','Blanc','Beige'].map(function(c) { return _colorObj(c, 30); }), created_at: '2024-02-20' },
-  { id: 'p_a5', nom: 'Collant opaque', categorie: 'accessoires', sous_type: 'Collant', description: 'Collant opaque haute densité. Confortable et résistant.', prix: 5500, images: ['images/produits/collant/collant_sans_manche1.jpeg'], colors: [{name:'Noir',hex:'#000000',stock:75},{name:'Beige',hex:'#D4C5A9',stock:100}], created_at: '2024-02-25' },
+  { id: 'p_a5', nom: 'Collant opaque', categorie: 'accessoires', sous_type: 'Collant', description: 'Collant opaque haute densité. Confortable et résistant.', prix: 5500, sizes: ['S','M','L','XL'], images: ['images/produits/collant/collant_sans_manche1.jpeg'], colors: [{name:'Noir',hex:'#000000',stock:75},{name:'Beige',hex:'#D4C5A9',stock:100}], created_at: '2024-02-25' },
 
   // ---- SPORT ----
   { id: 'p_s1', nom: 'Burkini Intégral', categorie: 'sport', sous_type: 'Burkini', description: 'Burkini intégral en tissu anti-UV. Confortable et léger pour la baignade.', prix: 25000, images: ['images/produits/burkini/burkini1.jpeg'], colors: [{name:'Noir',hex:'#000000',stock:128},{name:'Bleu Marine',hex:'#1B3A5C',stock:96},{name:'Bordeaux',hex:'#722F37',stock:96}], created_at: '2024-04-05' },
@@ -157,11 +157,11 @@ const DB = {
 
   _migrateData() {
     if (!this._data || !this._data.length) return;
-    var noSizesCats = ['voiles', 'accessoires', 'collants', 'nikab'];
     var changed = false;
     this._data = this._data.map(function(p) {
       if (!p.sizes || !p.sizes.length) {
-        if (noSizesCats.indexOf((p.categorie || '').toLowerCase()) === -1) {
+        var _attrs = getVariantAttrs(p.categorie, p.sous_type);
+        if (_attrs.indexOf('taille') !== -1) {
           p.sizes = ['S', 'M', 'L', 'XL'];
           changed = true;
         }
