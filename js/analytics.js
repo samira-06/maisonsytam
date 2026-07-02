@@ -1098,6 +1098,14 @@ const SytamAnalytics = {
         }
         if (!taille) taille = 'N/D';
         if (!couleur) couleur = 'N/D';
+        // Normaliser couleur : utiliser le nom exact de la palette
+        var _pId = d.id || item.productId || nameToId[key] || '';
+        var _prod2 = productsMap[_pId] || null;
+        if (_prod2 && _prod2.colors) {
+          for (var ci = 0; ci < _prod2.colors.length; ci++) {
+            if (_prod2.colors[ci].name.toLowerCase() === couleur.toLowerCase()) { couleur = _prod2.colors[ci].name; break; }
+          }
+        }
         d.tailles[taille] = (d.tailles[taille] || 0) + parseInt(item.qte || item.qty || 1);
         d.couleurs[couleur] = (d.couleurs[couleur] || 0) + parseInt(item.qte || item.qty || 1);
       }.bind(this));
