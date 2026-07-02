@@ -70,17 +70,49 @@ window.AccountApp = (function() {
     return { success: true };
   }
 
-  function login(phone, password) {
+  function login(phone, password, callback) {
     phone = phone.replace(/[^0-9]/g, '');
     var accounts = _getAccounts();
     var found = null;
     for (var i = 0; i < accounts.length; i++) {
       if (accounts[i].phone === phone) { found = accounts[i]; break; }
     }
-    if (!found) return { error: 'Aucun compte trouvé avec ce numéro.' };
-    if (found.password !== _hash(password)) return { error: 'Mot de passe incorrect.' };
-    _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
-    return { success: true };
+    if (found) {
+      if (found.password !== _hash(password)) return { error: 'Mot de passe incorrect.' };
+      _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
+      return { success: true };
+    }
+    // Pas trouvé en local → tenter une sync Supabase puis réessayer
+    if (typeof SupabaseAPI !== 'undefined' && callback) {
+      SupabaseAPI.get('store_data?key=eq.' + STORAGE_KEY + '&select=value')
+        .then(function(result) {
+          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(result[0].value));
+            var retry = _loginSync(phone, password);
+            if (callback) callback(retry);
+            return;
+          }
+          if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
+        })
+        .catch(function() {
+          if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
+        });
+      return { pending: true };
+    }
+    return { error: 'Aucun compte trouvé avec ce numéro.' };
+  }
+
+  function _loginSync(phone, password) {
+    phone = phone.replace(/[^0-9]/g, '');
+    var accounts = _getAccounts();
+    for (var i = 0; i < accounts.length; i++) {
+      if (accounts[i].phone === phone) {
+        if (accounts[i].password !== _hash(password)) return { error: 'Mot de passe incorrect.' };
+        _saveSession({ phone: accounts[i].phone, name: accounts[i].name, email: accounts[i].email, address: accounts[i].address || { phone: accounts[i].phone, region: 'Dakar', quartier: '', address_detail: '' } });
+        return { success: true };
+      }
+    }
+    return { error: 'Aucun compte trouvé avec ce numéro.' };
   }
 
   function logout() {
@@ -237,22 +269,51 @@ window.AccountApp = (function() {
     for (var i = 0; i < accounts.length; i++) {
       if ((accounts[i].email || '').toLowerCase() === email) { found = accounts[i]; break; }
     }
+    if (found) return _doSendRecovery(found, email);
     var errEl = document.getElementById('ac-forgot-error');
     var btn = document.getElementById('ac-forgot-btn');
-
-    if (!found) {
+    if (typeof SupabaseAPI !== 'undefined') {
+      errEl.textContent = '⏳ Vérification...';
+      errEl.style.display = 'block';
+      SupabaseAPI.get('store_data?key=eq.' + STORAGE_KEY + '&select=value')
+        .then(function(result) {
+          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(result[0].value));
+            var accounts2 = _getAccounts();
+            for (var j = 0; j < accounts2.length; j++) {
+              if ((accounts2[j].email || '').toLowerCase() === email) { found = accounts2[j]; break; }
+            }
+          }
+          if (found) {
+            _doSendRecovery(found, email);
+          } else {
+            errEl.textContent = 'Aucun compte trouvé avec cet email.';
+            errEl.style.background = '';
+            errEl.style.color = '';
+          }
+        })
+        .catch(function() {
+          errEl.textContent = 'Aucun compte trouvé avec cet email.';
+          errEl.style.background = '';
+          errEl.style.color = '';
+        });
+    } else {
       errEl.textContent = 'Aucun compte trouvé avec cet email.';
       errEl.style.display = 'block';
-      return;
     }
+  }
 
-    // Générer un token de récupération valable 1h
+  function _doSendRecovery(found, email) {
+    var errEl = document.getElementById('ac-forgot-error');
+    var btn = document.getElementById('ac-forgot-btn');
     var token = _generateToken();
     if (!found.recoveryTokens) found.recoveryTokens = [];
     found.recoveryTokens.push({ token: token, expires: Date.now() + 3600000 });
     // Garder seulement les tokens valides (nettoyer les expirés)
     found.recoveryTokens = found.recoveryTokens.filter(function(t) { return t.expires > Date.now(); });
-    _saveAccounts(accounts);
+    _saveAccounts(_getAccounts().map(function(a) {
+      return a.phone === found.phone ? found : a;
+    }));
 
     // Construire le lien de récupération
     var baseUrl = window.location.origin + window.location.pathname.replace('mansourbadiya.html', 'index.html');
@@ -415,11 +476,21 @@ window.AccountApp = (function() {
     var phone = document.getElementById('ac-login-phone').value;
     var pwd = document.getElementById('ac-login-pwd').value;
     var errEl = document.getElementById('ac-login-error');
-    var result = login(phone, pwd);
-    if (result.error) {
+    var result = login(phone, pwd, function(res) {
+      if (res.error) {
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+      } else {
+        renderAccount();
+      }
+    });
+    if (result && result.pending) {
+      errEl.textContent = '⏳ Vérification...';
+      errEl.style.display = 'block';
+    } else if (result && result.error) {
       errEl.textContent = result.error;
       errEl.style.display = 'block';
-    } else {
+    } else if (result && result.success) {
       renderAccount();
     }
   }
