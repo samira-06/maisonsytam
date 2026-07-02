@@ -419,11 +419,10 @@ const SytamAnalytics = {
     var globalPeriod = localStorage.getItem('sytam_analytics_period') || 'all';
 
     // KPIs supplémentaires
-    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     var ordersAll = this._getOrders();
-    // Produit le plus/moins vendu
+    // Produit le plus/moins vendu (toutes commandes)
     var prodSales = {};
-    orders.forEach(function(o) { if (o.items) o.items.forEach(function(i) { var pid = i.productId || ''; if (pid) prodSales[pid] = (prodSales[pid] || 0) + parseInt(i.qte || i.qty || 1); }); });
+    ordersAll.forEach(function(o) { if (o.items) o.items.forEach(function(i) { var pid = i.productId || ''; if (pid) prodSales[pid] = (prodSales[pid] || 0) + parseInt(i.qte || i.qty || 1); }); });
     var prodSalesSorted = Object.keys(prodSales).sort(function(a, b) { return prodSales[b] - prodSales[a]; });
     var productsMap = this._getProductsMap();
     var bestProd = prodSalesSorted.length ? productsMap[prodSalesSorted[0]] : null;
@@ -714,7 +713,7 @@ const SytamAnalytics = {
     if (!ids.length) return '<p style="color:var(--tl);font-size:.85rem;padding:12px 0">Aucune donnée produit</p>';
     var products = this._getProductsMap();
     var nameMap = {};
-    var confirmedOrders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    var allOrders = this._getOrders();
     var items = ids.map(function(id) {
       var c = clicks[id] || {};
       var a = carts[id] || {};
@@ -729,7 +728,7 @@ const SytamAnalytics = {
       }
       var colStats = colorStats[id] || {};
       var cmdCount = 0, cmdQty = 0;
-      confirmedOrders.forEach(function(o) {
+      allOrders.forEach(function(o) {
         if (o.items) o.items.forEach(function(item) {
           if (item.productId === id || (item.id && item.id === id) || item.nom === (p ? p.nom : null) || item.nom === (c.name || a.name || r.name || id)) {
             cmdCount++;
@@ -772,7 +771,7 @@ const SytamAnalytics = {
         colNames.forEach(function(colName) {
           var cs = item.colorStats[colName];
           var cmdColor = 0;
-          confirmedOrders.forEach(function(o) {
+          allOrders.forEach(function(o) {
             if (o.items) o.items.forEach(function(item2) {
               if ((item2.productId === item.id || item2.nom === item.name) && item2.couleur === colName) cmdColor += parseInt(item2.quantite || item2.qty || 0);
             });
@@ -846,8 +845,8 @@ const SytamAnalytics = {
   },
 
   _renderQuartierChart() {
-    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
-    if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande confirmée</p>';
+    var orders = this._getOrders();
+    if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande</p>';
     // Quartiers + régions
     var counts = {}, regionCounts = {}, quartierTotals = {}, quartierNotFound = 0;
     orders.forEach(function(o) {
@@ -1061,7 +1060,7 @@ const SytamAnalytics = {
     return m ? m[1] : '';
   },
   _renderProductAnalysisCards(filter) {
-    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    var orders = this._getOrders();
     var events = this._events;
     var productsMap = this._getProductsMap();
     var agg = this._agg || {};
@@ -1069,18 +1068,21 @@ const SytamAnalytics = {
     var pCarts = agg.addToCart || {};
     var pRemoves = agg.removeFromCart || {};
 
-    // Map nom → id pour le fallback
+    // Map nom (lowercase) → id pour le fallback
     var nameToId = {};
-    Object.keys(productsMap).forEach(function(k) { if (productsMap[k] && productsMap[k].nom) nameToId[productsMap[k].nom] = k; });
+    Object.keys(productsMap).forEach(function(k) { if (productsMap[k] && productsMap[k].nom) nameToId[productsMap[k].nom.trim().toLowerCase()] = k; });
 
-    // Grouper les données par produit (avec fallback par nom)
+    // Grouper les données par produit (tous statuts, pas seulement confirmee/livree)
     var prodData = {};
     orders.forEach(function(o) {
       if (!o.items) return;
       o.items.forEach(function(item) {
         var pid = item.productId || '';
         if (!pid || !productsMap[pid]) {
-          if (item.nom && nameToId[item.nom]) pid = nameToId[item.nom];
+          if (item.nom) {
+            var key = item.nom.trim().toLowerCase();
+            if (nameToId[key]) pid = nameToId[key];
+          }
         }
         if (!pid) return;
         if (!prodData[pid]) prodData[pid] = { id: pid, nom: item.nom || pid, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
