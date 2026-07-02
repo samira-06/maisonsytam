@@ -1158,32 +1158,34 @@ const SytamAnalytics = {
       var img = p.images && p.images[0] ? p.images[0] : '';
       var nom = d.nom;
 
-      // Tailles barres avec nombre de commandes
+      // Tailles : toutes les tailles configurées + nombre commandé
       var tailleKeys = Object.keys(d.tailles);
       var tailleTotal = tailleKeys.reduce(function(s, k) { return s + d.tailles[k]; }, 0);
-      var tailleBars = tailleKeys.sort().map(function(t) {
-        var cnt = d.tailles[t];
+      var configuredSizes = (p.sizes && p.sizes.length) ? p.sizes : tailleKeys;
+      var tailleBars = configuredSizes.slice(0).sort().map(function(t) {
+        var cnt = d.tailles[t] || 0;
         var pct = tailleTotal > 0 ? Math.round(cnt / tailleTotal * 100) : 0;
         return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
           '<span style="width:24px;flex-shrink:0;font-weight:600">' + t + '</span>' +
-          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:#B8935A;border-radius:3px;min-width:4px"></div></div>' +
-          '<span style="width:40px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:600">' + cnt + '</span>' +
+          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:#B8935A;border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
+          '<span style="width:36px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:' + (cnt ? 600 : 400) + '">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
-      // Couleurs barres avec nombre de commandes
+      // Couleurs : toutes les couleurs configurées + nombre commandé
       var coulKeys = Object.keys(d.couleurs);
       var coulTotal = coulKeys.reduce(function(s, k) { return s + d.couleurs[k]; }, 0);
-      var coulBars = coulKeys.sort().map(function(c) {
-        var cnt = d.couleurs[c];
+      var configuredColors = (p.colors && p.colors.length) ? p.colors.map(function(c){return c.name;}) : coulKeys;
+      var coulBars = configuredColors.slice(0).sort().map(function(c) {
+        var cnt = d.couleurs[c] || 0;
         var pct = coulTotal > 0 ? Math.round(cnt / coulTotal * 100) : 0;
         var colorDot = c.toLowerCase();
         var dotBg = colorDot === 'noir' ? '#222' : colorDot === 'blanc' ? '#fff' : colorDot === 'beige' ? '#D4B896' : colorDot === 'marron' ? '#8B5E3C' : colorDot === 'rouge' ? '#C0392B' : colorDot === 'bleu' ? '#2980B9' : colorDot === 'vert' ? '#27AE60' : colorDot === 'rose' ? '#E91E63' : colorDot === 'gris' ? '#999' : colorDot === 'doré' ? '#C9A96E' : '#B8935A';
         return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
           '<span style="width:12px;height:12px;border-radius:50%;background:' + dotBg + ';border:1px solid #ddd;flex-shrink:0"></span>' +
-          '<span style="width:48px;flex-shrink:0">' + c + '</span>' +
-          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + dotBg + ';border-radius:3px;min-width:4px"></div></div>' +
-          '<span style="width:40px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:600">' + cnt + '</span>' +
+          '<span style="width:68px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + c + '</span>' +
+          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:' + dotBg + ';border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
+          '<span style="width:36px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:' + (cnt ? 600 : 400) + '">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
@@ -1213,7 +1215,7 @@ const SytamAnalytics = {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.clics + '</div><div style="font-size:.6rem;color:var(--tl)">Vues</div></div>' +
-          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.cmdCount + '</div><div style="font-size:.6rem;color:var(--tl)">Commandes</div></div>' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.qteTotal + '</div><div style="font-size:.6rem;color:var(--tl)">Vendus <span style="color:#999">(' + d.cmdCount + ' cmd)</span></div></div>' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.tauxConv + '%</div><div style="font-size:.6rem;color:var(--tl)">Conversion</div></div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
