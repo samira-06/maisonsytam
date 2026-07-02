@@ -252,6 +252,7 @@
     // Toujours syncer depuis Supabase (même sans permission notification)
     syncAllFromSupabase(function() {
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      var changed = false;
       // Migration unique : flag stockApplique sur les commandes existantes (ancien système décrémentait au checkout)
       if (!localStorage.getItem('sytam_stock_migrated')) {
         for (var mi = 0; mi < orders.length; mi++) {
