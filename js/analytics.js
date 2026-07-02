@@ -419,7 +419,7 @@ const SytamAnalytics = {
     var globalPeriod = localStorage.getItem('sytam_analytics_period') || 'all';
 
     // KPIs supplémentaires
-    var ordersAll = this._getOrders();
+    var ordersAll = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     // Produit le plus/moins vendu (toutes commandes)
     var prodSales = {};
     ordersAll.forEach(function(o) { if (o.items) o.items.forEach(function(i) { var pid = i.productId || ''; if (pid) prodSales[pid] = (prodSales[pid] || 0) + parseInt(i.qte || i.qty || 1); }); });
@@ -713,7 +713,7 @@ const SytamAnalytics = {
     if (!ids.length) return '<p style="color:var(--tl);font-size:.85rem;padding:12px 0">Aucune donnée produit</p>';
     var products = this._getProductsMap();
     var nameMap = {};
-    var allOrders = this._getOrders();
+    var allOrders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     var items = ids.map(function(id) {
       var c = clicks[id] || {};
       var a = carts[id] || {};
@@ -845,8 +845,8 @@ const SytamAnalytics = {
   },
 
   _renderQuartierChart() {
-    var orders = this._getOrders();
-    if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande</p>';
+    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
+    if (!orders.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucune commande confirmée</p>';
     // Quartiers + régions
     var counts = {}, regionCounts = {}, quartierTotals = {}, quartierNotFound = 0;
     orders.forEach(function(o) {
@@ -1060,7 +1060,7 @@ const SytamAnalytics = {
     return m ? m[1] : '';
   },
   _renderProductAnalysisCards(filter) {
-    var orders = this._getOrders();
+    var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
     var events = this._events;
     var productsMap = this._getProductsMap();
     var agg = this._agg || {};
@@ -1081,7 +1081,8 @@ const SytamAnalytics = {
         if (!pid || !productsMap[pid]) {
           if (item.nom) {
             var key = item.nom.trim().toLowerCase();
-            if (nameToId[key]) pid = nameToId[key];
+            if (nameToId[key]) { pid = nameToId[key]; }
+            else { pid = '__nom_' + key; }
           }
         }
         if (!pid) return;
