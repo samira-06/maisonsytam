@@ -1061,63 +1061,63 @@ const SytamAnalytics = {
   },
   _renderProductAnalysisCards(filter) {
     var orders = this._getOrders().filter(function(o) { return o.statut === 'confirmee' || o.statut === 'livree'; });
-    var events = this._events;
     var productsMap = this._getProductsMap();
     var agg = this._agg || {};
     var pClicks = agg.productClicks || {};
     var pCarts = agg.addToCart || {};
     var pRemoves = agg.removeFromCart || {};
 
-    // Map nom (lowercase) → id pour le fallback
+    // Map nom → productId pour image/prix
     var nameToId = {};
     Object.keys(productsMap).forEach(function(k) { if (productsMap[k] && productsMap[k].nom) nameToId[productsMap[k].nom.trim().toLowerCase()] = k; });
 
-    // Grouper les données par produit (tous statuts, pas seulement confirmee/livree)
+    // Grouper par NOM de produit (évite les doublons si productId diffère entre commandes)
     var prodData = {};
     orders.forEach(function(o) {
       if (!o.items) return;
       o.items.forEach(function(item) {
-        var pid = item.productId || '';
-        if (!pid || !productsMap[pid]) {
-          if (item.nom) {
-            var key = item.nom.trim().toLowerCase();
-            if (nameToId[key]) { pid = nameToId[key]; }
-            else { pid = '__nom_' + key; }
-          }
+        var nom = (item.nom || '').trim();
+        if (!nom) return;
+        var key = nom.toLowerCase();
+        if (!prodData[key]) {
+          var pid = item.productId || nameToId[key] || '';
+          prodData[key] = { id: pid, key: key, nom: nom, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
         }
-        if (!pid) return;
-        if (!prodData[pid]) prodData[pid] = { id: pid, nom: item.nom || pid, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
-        prodData[pid].cmdCount++;
-        prodData[pid].qteTotal += parseInt(item.qte || item.qty || 1);
-        prodData[pid].ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
+        var d = prodData[key];
+        d.cmdCount++;
+        d.qteTotal += parseInt(item.qte || item.qty || 1);
+        d.ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
         var taille = this._getTaille(item.variantLabel) || '';
         var couleur = item.couleur || '';
-        if (!taille && item.variantLabel) {
+        if (item.variantLabel) {
           var _vp = item.variantLabel.split(',').map(function(s){return s.trim();});
           _vp.forEach(function(p) {
-            if (p.indexOf('taille:')===0||p.indexOf('Taille:')===0) taille = p.split(':')[1].trim();
-            if (!couleur && (p.indexOf('couleur:')===0||p.indexOf('Couleur:')===0)) couleur = p.split(':')[1].trim();
+            if (p.indexOf('taille:')===0||p.indexOf('Taille:')===0) { if (!taille) taille = p.split(':')[1].trim(); }
+            if (p.indexOf('couleur:')===0||p.indexOf('Couleur:')===0) { if (!couleur) couleur = p.split(':')[1].trim(); }
           });
         }
         if (!taille) taille = 'N/D';
         if (!couleur) couleur = 'N/D';
-        prodData[pid].tailles[taille] = (prodData[pid].tailles[taille] || 0) + parseInt(item.qte || item.qty || 1);
-        prodData[pid].couleurs[couleur] = (prodData[pid].couleurs[couleur] || 0) + parseInt(item.qte || item.qty || 1);
+        d.tailles[taille] = (d.tailles[taille] || 0) + parseInt(item.qte || item.qty || 1);
+        d.couleurs[couleur] = (d.couleurs[couleur] || 0) + parseInt(item.qte || item.qty || 1);
       }.bind(this));
     }.bind(this));
 
     // Ajouter clics/ajouts/retraits depuis les analytics
-    Object.keys(pClicks).forEach(function(pid) { if (!prodData[pid]) prodData[pid] = { id: pid, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} }; });
-    Object.keys(prodData).forEach(function(pid) {
-      var d = prodData[pid];
+    Object.keys(pClicks).forEach(function(pid) {
+      var key = (pClicks[pid].name || pid).trim().toLowerCase();
+      if (!prodData[key]) prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
+    });
+
+    // Enrichir avec analytics events
+    Object.keys(prodData).forEach(function(key) {
+      var d = prodData[key];
+      var pid = d.id;
       d.clics = (pClicks[pid] && pClicks[pid].count) || 0;
       d.ajouts = (pCarts[pid] && pCarts[pid].count) || 0;
       d.retraits = (pRemoves[pid] && pRemoves[pid].count) || 0;
-      // Taux abandon panier
       d.tauxAbandon = d.ajouts > 0 ? Math.round(d.retraits / d.ajouts * 100) : 0;
-      // Taux conversion clics → commandes
       d.tauxConv = d.clics > 0 ? (d.cmdCount / d.clics * 100).toFixed(1) : '0.0';
-      // Badge
       var maxCmd = 0; Object.keys(prodData).forEach(function(k) { if (prodData[k].cmdCount > maxCmd) maxCmd = prodData[k].cmdCount; });
       var minCmd = Infinity; Object.keys(prodData).forEach(function(k) { if (prodData[k].cmdCount < minCmd) minCmd = prodData[k].cmdCount; });
       var isTop = d.cmdCount === maxCmd && maxCmd > 0;
@@ -1127,16 +1127,16 @@ const SytamAnalytics = {
       d.badgeClass = isTop ? 'ok' : isWeak ? 'er' : isInactive ? 'tl' : 'tx';
     });
 
-    // Cross-sell : produits achetés ensemble (utilisation de nom comme clé pour éviter split bug)
+    // Cross-sell par nom
     var crossSell = {};
     orders.forEach(function(o) {
       if (!o.items || o.items.length < 2) return;
-      var ids = o.items.map(function(i) { return i.productId || i.nom || ''; }).filter(Boolean);
-      for (var i = 0; i < ids.length; i++) {
-        for (var j = i + 1; j < ids.length; j++) {
-          var pair = [ids[i], ids[j]].sort();
-          var key = pair[0] + '|||' + pair[1];
-          crossSell[key] = (crossSell[key] || 0) + 1;
+      var noms = o.items.map(function(i) { return (i.nom || '').trim().toLowerCase(); }).filter(Boolean);
+      for (var i = 0; i < noms.length; i++) {
+        for (var j = i + 1; j < noms.length; j++) {
+          var pair = [noms[i], noms[j]].sort();
+          var ckey = pair[0] + '|||' + pair[1];
+          crossSell[ckey] = (crossSell[ckey] || 0) + 1;
         }
       }
     });
@@ -1150,61 +1150,56 @@ const SytamAnalytics = {
 
     if (!list.length) return '<p style="color:var(--tl);font-size:.82rem;padding:16px;text-align:center">Aucun produit dans cette catégorie</p>';
 
-    // Trier par nombre de commandes
     list.sort(function(a, b) { return prodData[b].cmdCount - prodData[a].cmdCount; });
 
-    var cards = list.map(function(pid) {
-      var d = prodData[pid];
-      var p = productsMap[pid] || {};
+    var cards = list.map(function(key) {
+      var d = prodData[key];
+      var p = productsMap[d.id] || {};
       var img = p.images && p.images[0] ? p.images[0] : '';
-      var nom = d.nom || p.nom || pid;
+      var nom = d.nom;
 
-      // Tailles barres
+      // Tailles barres avec nombre de commandes
       var tailleKeys = Object.keys(d.tailles);
       var tailleTotal = tailleKeys.reduce(function(s, k) { return s + d.tailles[k]; }, 0);
       var tailleBars = tailleKeys.sort().map(function(t) {
-        var pct = tailleTotal > 0 ? Math.round(d.tailles[t] / tailleTotal * 100) : 0;
-        var isMax = pct > 0 && pct === Math.max.apply(null, tailleKeys.map(function(k) { return tailleTotal > 0 ? Math.round(d.tailles[k] / tailleTotal * 100) : 0; }));
+        var cnt = d.tailles[t];
+        var pct = tailleTotal > 0 ? Math.round(cnt / tailleTotal * 100) : 0;
         return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
-          '<span style="width:28px;flex-shrink:0;font-weight:600">' + t + '</span>' +
+          '<span style="width:24px;flex-shrink:0;font-weight:600">' + t + '</span>' +
           '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:#B8935A;border-radius:3px;min-width:4px"></div></div>' +
-          '<span style="width:32px;text-align:right;font-size:.65rem;color:var(--tl)">' + pct + '%</span>' +
-          (isMax ? '<span style="font-size:.6rem;color:#B8935A;font-weight:600">★</span>' : '') +
+          '<span style="width:40px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:600">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
-      // Couleurs barres
+      // Couleurs barres avec nombre de commandes
       var coulKeys = Object.keys(d.couleurs);
       var coulTotal = coulKeys.reduce(function(s, k) { return s + d.couleurs[k]; }, 0);
       var coulBars = coulKeys.sort().map(function(c) {
-        var pct = coulTotal > 0 ? Math.round(d.couleurs[c] / coulTotal * 100) : 0;
-        var isMax = pct > 0 && pct === Math.max.apply(null, coulKeys.map(function(k) { return coulTotal > 0 ? Math.round(d.couleurs[k] / coulTotal * 100) : 0; }));
+        var cnt = d.couleurs[c];
+        var pct = coulTotal > 0 ? Math.round(cnt / coulTotal * 100) : 0;
         var colorDot = c.toLowerCase();
         var dotBg = colorDot === 'noir' ? '#222' : colorDot === 'blanc' ? '#fff' : colorDot === 'beige' ? '#D4B896' : colorDot === 'marron' ? '#8B5E3C' : colorDot === 'rouge' ? '#C0392B' : colorDot === 'bleu' ? '#2980B9' : colorDot === 'vert' ? '#27AE60' : colorDot === 'rose' ? '#E91E63' : colorDot === 'gris' ? '#999' : colorDot === 'doré' ? '#C9A96E' : '#B8935A';
         return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
           '<span style="width:12px;height:12px;border-radius:50%;background:' + dotBg + ';border:1px solid #ddd;flex-shrink:0"></span>' +
-          '<span style="width:50px;flex-shrink:0">' + c + '</span>' +
+          '<span style="width:48px;flex-shrink:0">' + c + '</span>' +
           '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + dotBg + ';border-radius:3px;min-width:4px"></div></div>' +
-          '<span style="width:32px;text-align:right;font-size:.65rem;color:var(--tl)">' + pct + '%</span>' +
-          (isMax ? '<span style="font-size:.6rem;color:#B8935A;font-weight:600">★</span>' : '') +
+          '<span style="width:40px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:600">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
-      // Cross-sell : produits achetés avec celui-ci
+      // Cross-sell
       var crossList = [];
-      Object.keys(crossSell).forEach(function(key) {
-        var parts = key.split('|||');
-        if (parts[0] === pid) crossList.push({ id: parts[1], count: crossSell[key] });
-        else if (parts[1] === pid) crossList.push({ id: parts[0], count: crossSell[key] });
+      Object.keys(crossSell).forEach(function(ck) {
+        var parts = ck.split('|||');
+        if (parts[0] === key) crossList.push({ nom: parts[1], count: crossSell[ck] });
+        else if (parts[1] === key) crossList.push({ nom: parts[0], count: crossSell[ck] });
       });
       crossList.sort(function(a, b) { return b.count - a.count; });
       var crossHtml = crossList.slice(0, 3).map(function(c) {
-        var p = productsMap[c.id];
-        var pName = (p && p.nom) || (prodData[c.id] && prodData[c.id].nom) || c.id;
-        return '<span style="font-size:.68rem;color:var(--tl);display:inline-block;margin:2px 4px 2px 0;background:var(--bg-card);padding:2px 6px;border-radius:3px">' + pName + ' (' + c.count + ')</span>';
+        var cName = (prodData[c.nom] && prodData[c.nom].nom) || c.nom;
+        return '<span style="font-size:.68rem;color:var(--tl);display:inline-block;margin:2px 4px 2px 0;background:var(--bg-card);padding:2px 6px;border-radius:3px">' + cName + ' (' + c.count + ')</span>';
       }).join('') || '<span style="color:var(--tl);font-size:.7rem">—</span>';
 
-      // Badge
       var badgeHtml = d.badge ? '<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px;background:' + (d.badgeClass === 'ok' ? 'rgba(59,109,17,0.12);color:#3B6D11' : d.badgeClass === 'er' ? 'rgba(163,45,45,0.12);color:#A32D2D' : d.badgeClass === 'tl' ? 'var(--bg-card);color:var(--tl)' : 'rgba(133,79,11,0.12);color:#854F0B') + '">' + d.badge + '</span>' : '';
 
       return '<div class="card" style="overflow:visible;break-inside:avoid">' +
