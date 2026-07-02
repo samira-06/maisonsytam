@@ -1071,7 +1071,7 @@ const SytamAnalytics = {
     var nameToId = {};
     Object.keys(productsMap).forEach(function(k) { if (productsMap[k] && productsMap[k].nom) nameToId[productsMap[k].nom.trim().toLowerCase()] = k; });
 
-    // Grouper par NOM de produit (évite les doublons si productId diffère entre commandes)
+    // Grouper par NOM de produit (normalisé), compter les commandes uniques
     var prodData = {};
     orders.forEach(function(o) {
       if (!o.items) return;
@@ -1081,10 +1081,10 @@ const SytamAnalytics = {
         var key = nom.toLowerCase();
         if (!prodData[key]) {
           var pid = item.productId || nameToId[key] || '';
-          prodData[key] = { id: pid, key: key, nom: nom, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
+          prodData[key] = { id: pid, key: key, nom: nom, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {}, orderIds: {} };
         }
         var d = prodData[key];
-        d.cmdCount++;
+        if (!d.orderIds[o.id]) { d.orderIds[o.id] = true; d.cmdCount++; }
         d.qteTotal += parseInt(item.qte || item.qty || 1);
         d.ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
         var taille = this._getTaille(item.variantLabel) || '';
@@ -1101,6 +1101,15 @@ const SytamAnalytics = {
         // Normaliser couleur : utiliser le nom exact de la palette
         var _pId = d.id || item.productId || nameToId[key] || '';
         var _prod2 = productsMap[_pId] || null;
+        // Si toujours pas trouvé, chercher par nom dans productsMap
+        if (!_prod2) {
+          Object.keys(productsMap).some(function(pid) {
+            if (productsMap[pid] && productsMap[pid].nom && productsMap[pid].nom.trim().toLowerCase() === key) {
+              _prod2 = productsMap[pid]; _pId = pid; return true;
+            }
+          });
+          if (_prod2 && !d.id) d.id = _pId;
+        }
         if (_prod2 && _prod2.colors) {
           for (var ci = 0; ci < _prod2.colors.length; ci++) {
             if (_prod2.colors[ci].name.toLowerCase() === couleur.toLowerCase()) { couleur = _prod2.colors[ci].name; break; }
@@ -1111,10 +1120,12 @@ const SytamAnalytics = {
       }.bind(this));
     }.bind(this));
 
-    // Ajouter clics/ajouts/retraits depuis les analytics
+    // Ajouter produits sans commandes mais avec clics (uniquement si pas déjà présent)
     Object.keys(pClicks).forEach(function(pid) {
       var key = (pClicks[pid].name || pid).trim().toLowerCase();
-      if (!prodData[key]) prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
+      if (!prodData[key]) {
+        prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {}, orderIds: {} };
+      }
     });
 
     // Enrichir avec analytics events
@@ -1225,7 +1236,7 @@ const SytamAnalytics = {
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.clics + '</div><div style="font-size:.6rem;color:var(--tl)">Vues</div></div>' +
-          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.qteTotal + '</div><div style="font-size:.6rem;color:var(--tl)">Vendus <span style="color:#999">(' + d.cmdCount + ' cmd)</span></div></div>' +
+          '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.qteTotal + '</div><div style="font-size:.6rem;color:var(--tl)">Vendus <span style="color:#999">(' + d.cmdCount + ' cmds)</span></div></div>' +
           '<div style="text-align:center;background:var(--bg-card);padding:6px;border-radius:4px"><div style="font-size:1rem;font-weight:700;color:var(--tx)">' + d.tauxConv + '%</div><div style="font-size:.6rem;color:var(--tl)">Conversion</div></div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">' +
