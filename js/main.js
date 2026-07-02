@@ -872,32 +872,6 @@
         localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
       }
 
-      // Decrement stock for each item
-      items.forEach(function(item) {
-        var prod = DB.getById(item.productId);
-        if (!prod || !prod.colors) return;
-        var colorName = '', sizeName = '';
-        if (item.variantLabel) {
-          var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
-          parts.forEach(function(p) {
-            if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
-            if (p.indexOf('taille:') === 0 || p.indexOf('Taille:') === 0) sizeName = p.split(':')[1].trim();
-          });
-        }
-        if (!colorName) return;
-        var color = null;
-        for (var ci = 0; ci < prod.colors.length; ci++) {
-          if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
-        }
-        if (!color) return;
-        if (sizeName && color.stocks && color.stocks[sizeName] !== undefined) {
-          color.stocks[sizeName] = Math.max(0, color.stocks[sizeName] - item.qty);
-        } else if (color.stock !== undefined) {
-          color.stock = Math.max(0, color.stock - item.qty);
-        }
-        DB.update(prod.id, prod);
-      });
-
       SytamCart.clear();
       closeCheckout();
       document.getElementById('order-ref').textContent = order.id;

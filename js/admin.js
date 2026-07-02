@@ -252,16 +252,26 @@
     // Toujours syncer depuis Supabase (même sans permission notification)
     syncAllFromSupabase(function() {
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+      // Migration unique : flag stockApplique sur les commandes existantes (ancien système décrémentait au checkout)
+      if (!localStorage.getItem('sytam_stock_migrated')) {
+        for (var mi = 0; mi < orders.length; mi++) {
+          if (!orders[mi].stockApplique) orders[mi].stockApplique = true;
+        }
+        localStorage.setItem('sytam_stock_migrated', '1');
+        changed = true;
+      }
       // Auto-annulation des commandes en_attente depuis plus d'1h
       var now = Date.now();
-      var changed = false;
       for (var oi = 0; oi < orders.length; oi++) {
         var oo = orders[oi];
         if (oo.statut === 'en_attente' && oo.created_at) {
           var created = new Date(oo.created_at).getTime();
           if (now - created > 3600000) { // 1h = 3600000ms
+            // Restaurer stock si l'ancien système l'avait décrémenté
+            if (oo.stockApplique) ajusterStock(oo, 1);
             oo.statut = 'annulee';
             oo.mis_a_jour = new Date().toISOString();
+            oo.stockApplique = false;
             changed = true;
           }
         }
@@ -1166,10 +1176,62 @@
     if (badge) { badge.textContent = pending; badge.style.display = pending > 0 ? 'inline' : 'none'; }
   }
 
+  function ajusterStock(order, direction) {
+    // direction: -1 = retirer du stock (confirmation), +1 = remettre (annulation)
+    if (!order || !order.items) return;
+    order.items.forEach(function(item) {
+      var prod = DB.getById(item.productId);
+      if (!prod || !prod.colors) return;
+      var colorName = '', sizeName = '';
+      if (item.variantLabel) {
+        var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
+        parts.forEach(function(p) {
+          if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
+          if (p.indexOf('taille:') === 0 || p.indexOf('Taille:') === 0) sizeName = p.split(':')[1].trim();
+        });
+      }
+      if (!colorName) colorName = item.couleur || '';
+      if (!colorName) return;
+      var color = null;
+      for (var ci = 0; ci < prod.colors.length; ci++) {
+        if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
+      }
+      if (!color) return;
+      var qty = parseInt(item.qte || item.qty || 1) * direction;
+      if (sizeName && color.stocks && color.stocks[sizeName] !== undefined) {
+        color.stocks[sizeName] = Math.max(0, color.stocks[sizeName] + qty);
+      } else if (color.stock !== undefined) {
+        color.stock = Math.max(0, color.stock + qty);
+      }
+      DB.update(prod.id, prod);
+    });
+  }
+
   function updateStatus(id, status) {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var o = orders.find(function (x) { return x.id === id; });
-    if (o) { o.statut = status; o.mis_a_jour = new Date().toISOString(); localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2'); }
+    if (!o) return;
+    var oldStatus = o.statut;
+    o.statut = status;
+    o.mis_a_jour = new Date().toISOString();
+    // Stock : confirmation = retirer, annulation = remettre
+    var wasConfirmed = oldStatus !== 'en_attente' && oldStatus !== 'annulee';
+    var isNowConfirmed = status !== 'en_attente' && status !== 'annulee';
+    if (!wasConfirmed && isNowConfirmed && !o.stockApplique) {
+      // Nouvelle confirmation : stock pas encore décrémenté
+      ajusterStock(o, -1);
+      o.stockApplique = true;
+    } else if (!wasConfirmed && !isNowConfirmed && o.stockApplique) {
+      // Annulation d'une commande en_attente (ancien système avait décrémenté au checkout)
+      ajusterStock(o, 1);
+      o.stockApplique = false;
+    } else if (wasConfirmed && !isNowConfirmed && o.stockApplique) {
+      // Annulation d'une commande confirmée : remettre le stock
+      ajusterStock(o, 1);
+      o.stockApplique = false;
+    }
+    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+    pushToSupabase('sytam_orders_v2');
     loadOrders(); loadDashboard();
     showToast('✓ Statut mis à jour');
   }
@@ -1177,8 +1239,12 @@
   function deleteOrder(id) {
     if (!confirm('Supprimer cette commande ?')) return;
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    orders = orders.filter(function(o) { return o.id !== id; });
-    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders)); pushToSupabase('sytam_orders_v2');
+    var o = orders.find(function (x) { return x.id === id; });
+    // Restaurer le stock si la commande était confirmée
+    if (o && o.stockApplique) ajusterStock(o, 1);
+    orders = orders.filter(function(x) { return x.id !== id; });
+    localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+    pushToSupabase('sytam_orders_v2');
     loadOrders(); loadDashboard();
     showToast('✓ Commande supprimée');
   }

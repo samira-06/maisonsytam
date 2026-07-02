@@ -1173,10 +1173,10 @@ const SytamAnalytics = {
       var tailleBars = configuredSizes.slice(0).sort().map(function(t) {
         var cnt = d.tailles[t] || 0;
         var pct = tailleTotal > 0 ? Math.round(cnt / tailleTotal * 100) : 0;
-        return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
-          '<span style="width:24px;flex-shrink:0;font-weight:600">' + t + '</span>' +
-          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:#B8935A;border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
-          '<span style="width:36px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:' + (cnt ? 600 : 400) + '">' + cnt + '</span>' +
+        return '<div style="font-size:.72rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
+          '<span style="width:28px;flex-shrink:0;font-weight:600;color:var(--tx)">' + t + '</span>' +
+          '<div style="flex:1;height:16px;background:var(--bg-card);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:#B8935A;border-radius:4px;min-width:' + (cnt ? 6 : 0) + 'px"></div></div>' +
+          '<span style="width:40px;text-align:right;font-size:.72rem;color:var(--tx);font-weight:700">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
@@ -1191,11 +1191,11 @@ const SytamAnalytics = {
         var cnt = d.couleurs[c] || 0;
         var pct = coulTotal > 0 ? Math.round(cnt / coulTotal * 100) : 0;
         var hex = colorHexMap[c.toLowerCase()] || '#B8935A';
-        return '<div style="font-size:.7rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
+        return '<div style="font-size:.72rem;margin:3px 0;display:flex;align-items:center;gap:4px">' +
           '<span style="width:12px;height:12px;border-radius:50%;background:' + hex + ';border:1px solid #ddd;flex-shrink:0"></span>' +
-          '<span style="width:68px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + c + '</span>' +
-          '<div style="flex:1;height:14px;background:var(--bg-card);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:' + hex + ';border-radius:3px;min-width:' + (cnt ? 4 : 0) + 'px"></div></div>' +
-          '<span style="width:36px;text-align:right;font-size:.65rem;color:var(--tx);font-weight:' + (cnt ? 600 : 400) + '">' + cnt + '</span>' +
+          '<span style="width:68px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)">' + c + '</span>' +
+          '<div style="flex:1;height:16px;background:var(--bg-card);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + (pct || 2) + '%;background:' + hex + ';border-radius:4px;min-width:' + (cnt ? 6 : 0) + 'px"></div></div>' +
+          '<span style="width:40px;text-align:right;font-size:.72rem;color:var(--tx);font-weight:700">' + cnt + '</span>' +
         '</div>';
       }).join('');
 
