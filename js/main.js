@@ -855,8 +855,12 @@
       localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
       var _pushAttempts = 0;
       function _tryPush() {
-        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready || _pushAttempts >= 5) return;
+        if (_pushAttempts >= 20) return;
         _pushAttempts++;
+        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
+          setTimeout(_tryPush, 3000);
+          return;
+        }
         SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
           .then(function(r) {
             if (!(r && r.ok) && _pushAttempts < 5) {
