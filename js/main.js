@@ -33,10 +33,14 @@
   function getEffectiveVariants(p) {
     if (p.variantes && p.variantes.length) return p.variantes;
     if (p.colors && p.colors.length) {
-      if (p.sizes && p.sizes.length) {
+      var sizes = p.sizes && p.sizes.length ? p.sizes : [];
+      if (!sizes.length) {
+        p.colors.forEach(function(c) { if (c.stocks) Object.keys(c.stocks).forEach(function(s) { if (sizes.indexOf(s) === -1) sizes.push(s); }); });
+      }
+      if (sizes.length) {
         var result = [];
         p.colors.forEach(function(c) {
-          p.sizes.forEach(function(s) {
+          sizes.forEach(function(s) {
             var stock = (c.stocks && c.stocks[s] !== undefined) ? c.stocks[s] : (c.stock || 0);
             result.push({ id: 'c_' + c.name + '_' + s, attributs: { couleur: c.name, taille: s }, stock: stock });
           });
