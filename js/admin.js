@@ -216,14 +216,14 @@
             DB._data = supabaseItems;
             DB._migrateData();
           }
-          done++; if (done === total) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) cb(); }
+          done++; if (done === total) { updateSupabaseStatus('✓', 'Synchronisé'); if (cb) try { cb(); } catch(e) { console.warn('syncAllFromSupabase callback error:', e); } }
         })
         .catch(function(err) {
           console.warn('syncAllFromSupabase ⚠ échec pour', k, err);
           if (localData) {
             try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
           }
-          done++; if (done === total) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) cb(); }
+          done++; if (done === total) { updateSupabaseStatus('⚠', 'Sync échoué'); if (cb) try { cb(); } catch(e) { console.warn('syncAllFromSupabase callback error:', e); } }
         });
     });
     // Analytics (objet unique, pas un tableau)
