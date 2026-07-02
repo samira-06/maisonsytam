@@ -483,17 +483,12 @@ const SytamAnalytics = {
           '<button class="btn-add btn-sm" onclick="SytamAnalytics.exportProductCSV()" style="font-size:.75rem;background:var(--gold)">⬇ CSV produits</button>' +
         '</div>' +
       '</div>' +
-      // SECTION 1 — KPIs élargis (12 cards)
+      // SECTION 1 — KPIs (7 cards)
       '<div class="stats-grid">' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div class="stat-val">' + (d.totalVisits || 0) + '</div><div class="stat-lbl">Vues totales</div><div class="stat-sub">Ajd : ' + (daily.visits || 0) + '</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="stat-val">' + (d.totalUnique || 0) + '</div><div class="stat-lbl">Visiteurs uniques</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div><div class="stat-val">' + (d.totalProductClicks || 0) + '</div><div class="stat-lbl">Clics produits</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-val">' + (d.totalAddToCart || 0) + '</div><div class="stat-lbl">Ajouts panier</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div><div class="stat-val">' + (d.totalRemoveFromCart || 0) + '</div><div class="stat-lbl">Retraits panier</div></div>' +
+        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="stat-val">' + conversionGlobal + '%</div><div class="stat-lbl">Tx conversion</div><div class="stat-sub">Commandes / Vues</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div><div class="stat-val">' + confirmedOrders + '</div><div class="stat-lbl">Commandes confirmées</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div><div class="stat-val">' + conversionGlobal + '%</div><div class="stat-lbl">Taux conversion</div><div class="stat-sub">Visites → commandes</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div><div class="stat-val">' + _fmtAnalytics(panierMoyen) + ' F</div><div class="stat-lbl">Panier moyen</div></div>' +
-        '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val">' + avgTime + '</div><div class="stat-lbl">Temps moyen / visiteur</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="stat-val">' + (bestName.length > 18 ? bestName.slice(0,16) + '…' : bestName) + '</div><div class="stat-lbl">⭐ Meilleure vente</div><div class="stat-sub">' + (prodSalesSorted.length ? prodSales[prodSalesSorted[0]] : 0) + ' unités</div></div>' +
         '<div class="stat-card"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#A32D2D" stroke-width="2"><path d="M10 14L21 3M21 3l-7 18-4-7-7-4 18-7z"/></svg></div><div class="stat-val">' + (worstName.length > 18 ? worstName.slice(0,16) + '…' : worstName) + '</div><div class="stat-lbl">⚠ Moins vendue</div><div class="stat-sub">' + (prodSalesSorted.length > 1 ? prodSales[prodSalesSorted[prodSalesSorted.length - 1]] : 0) + ' unités</div></div>' +
         '<div class="stat-card" onclick="document.querySelector(\'[data-anafilter=\\\'inactif\\\']\').click();document.getElementById(\'anaProdSection\').scrollIntoView({behavior:\'smooth\'})" style="cursor:pointer"><div class="stat-ico"><svg viewBox="0 0 24 24" fill="none" stroke="var(--er)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="stat-val">' + epuises.length + '</div><div class="stat-lbl">🚫 Produits épuisés</div><div class="stat-sub">Cliquez pour voir</div></div>' +
@@ -502,7 +497,7 @@ const SytamAnalytics = {
       '<div class="analytics-chart-grid">' +
         '<div class="card" style="margin-bottom:0">' +
           '<div class="card-title">' +
-            'Trafic' +
+            'Visites &amp; ventes' +
             '<span style="display:inline-flex;gap:4px;font-weight:400">' +
               '<button class="btn-sm ' + (chartRange === '7' ? 'btn-add' : 'btn-del') + '" onclick="SytamAnalytics._setChartRange(7)" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">7 jours</button>' +
               '<button class="btn-sm ' + (chartRange === '30' ? 'btn-add' : 'btn-del') + '" onclick="SytamAnalytics._setChartRange(30)" style="padding:2px 8px;font-size:.65rem;border:none;border-radius:4px">30 jours</button>' +
@@ -603,7 +598,7 @@ const SytamAnalytics = {
       return { date: date, visits: day.visits || 0, clicks: day.clicks || 0, carts: day.addToCart || 0, orders: ordersByDate[date] || 0 };
     });
     var maxVal = 1;
-    dataPoints.forEach(function(p) { maxVal = Math.max(maxVal, p.visits, p.clicks, p.carts, p.orders); });
+    dataPoints.forEach(function(p) { maxVal = Math.max(maxVal, p.visits, p.orders); });
     if (maxVal < 5) maxVal = 5;
     var W = 700, H = 240, pad = { top: 20, right: 20, bottom: 32, left: 48 };
     var chartW = W - pad.left - pad.right;
@@ -612,8 +607,6 @@ const SytamAnalytics = {
     var scaleY = function(v) { return pad.top + chartH - (v / maxVal) * chartH; };
     var lines = [
       { key: 'visits', color: '#B8956A', label: 'Vues' },
-      { key: 'clicks', color: '#C9A96E', label: 'Clics' },
-      { key: 'carts', color: '#3B6D11', label: 'Ajouts panier' },
       { key: 'orders', color: '#A32D2D', label: 'Commandes' },
     ];
     // Grille horizontale
@@ -644,11 +637,13 @@ const SytamAnalytics = {
       return '<path d="' + fillPath + '" fill="' + line.color + '" fill-opacity="0.05" stroke="none"/>' +
         '<path d="' + _smoothPath(pts) + '" fill="none" stroke="' + line.color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
     }).join('');
-    // Points + valeurs au survol
+    // Points avec valeurs
     var dots = lines.map(function(line) {
       return dataPoints.map(function(p, idx) {
         var cx = scaleX(idx), cy = scaleY(p[line.key]);
-        return '<circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="' + line.color + '" stroke="#fff" stroke-width="1.5"/>';
+        var val = p[line.key];
+        return '<circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="' + line.color + '" stroke="#fff" stroke-width="1.5"/>' +
+          (val > 0 ? '<text x="' + cx + '" y="' + (cy - 8) + '" text-anchor="middle" font-size="7" font-weight="bold" fill="' + line.color + '">' + val + '</text>' : '');
       }).join('');
     }).join('');
     // Axe X avec jour/mois
@@ -1074,19 +1069,35 @@ const SytamAnalytics = {
     var pCarts = agg.addToCart || {};
     var pRemoves = agg.removeFromCart || {};
 
-    // Grouper les données par produit
+    // Map nom → id pour le fallback
+    var nameToId = {};
+    Object.keys(productsMap).forEach(function(k) { if (productsMap[k] && productsMap[k].nom) nameToId[productsMap[k].nom] = k; });
+
+    // Grouper les données par produit (avec fallback par nom)
     var prodData = {};
     orders.forEach(function(o) {
       if (!o.items) return;
       o.items.forEach(function(item) {
         var pid = item.productId || '';
+        if (!pid || !productsMap[pid]) {
+          if (item.nom && nameToId[item.nom]) pid = nameToId[item.nom];
+        }
         if (!pid) return;
         if (!prodData[pid]) prodData[pid] = { id: pid, nom: item.nom || pid, prix: item.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
         prodData[pid].cmdCount++;
         prodData[pid].qteTotal += parseInt(item.qte || item.qty || 1);
         prodData[pid].ca += (item.prix || 0) * parseInt(item.qte || item.qty || 1);
-        var taille = this._getTaille(item.variantLabel) || 'N/D';
-        var couleur = item.couleur || 'N/D';
+        var taille = this._getTaille(item.variantLabel) || '';
+        var couleur = item.couleur || '';
+        if (!taille && item.variantLabel) {
+          var _vp = item.variantLabel.split(',').map(function(s){return s.trim();});
+          _vp.forEach(function(p) {
+            if (p.indexOf('taille:')===0||p.indexOf('Taille:')===0) taille = p.split(':')[1].trim();
+            if (!couleur && (p.indexOf('couleur:')===0||p.indexOf('Couleur:')===0)) couleur = p.split(':')[1].trim();
+          });
+        }
+        if (!taille) taille = 'N/D';
+        if (!couleur) couleur = 'N/D';
         prodData[pid].tailles[taille] = (prodData[pid].tailles[taille] || 0) + parseInt(item.qte || item.qty || 1);
         prodData[pid].couleurs[couleur] = (prodData[pid].couleurs[couleur] || 0) + parseInt(item.qte || item.qty || 1);
       }.bind(this));
@@ -1113,14 +1124,15 @@ const SytamAnalytics = {
       d.badgeClass = isTop ? 'ok' : isWeak ? 'er' : isInactive ? 'tl' : 'tx';
     });
 
-    // Cross-sell : produits achetés ensemble
+    // Cross-sell : produits achetés ensemble (utilisation de nom comme clé pour éviter split bug)
     var crossSell = {};
     orders.forEach(function(o) {
       if (!o.items || o.items.length < 2) return;
-      var ids = o.items.map(function(i) { return i.productId; }).filter(Boolean);
+      var ids = o.items.map(function(i) { return i.productId || i.nom || ''; }).filter(Boolean);
       for (var i = 0; i < ids.length; i++) {
         for (var j = i + 1; j < ids.length; j++) {
-          var key = [ids[i], ids[j]].sort().join('_');
+          var pair = [ids[i], ids[j]].sort();
+          var key = pair[0] + '|||' + pair[1];
           crossSell[key] = (crossSell[key] || 0) + 1;
         }
       }
@@ -1178,15 +1190,16 @@ const SytamAnalytics = {
       // Cross-sell : produits achetés avec celui-ci
       var crossList = [];
       Object.keys(crossSell).forEach(function(key) {
-        var parts = key.split('_');
+        var parts = key.split('|||');
         if (parts[0] === pid) crossList.push({ id: parts[1], count: crossSell[key] });
         else if (parts[1] === pid) crossList.push({ id: parts[0], count: crossSell[key] });
       });
       crossList.sort(function(a, b) { return b.count - a.count; });
       var crossHtml = crossList.slice(0, 3).map(function(c) {
-        var pName = (productsMap[c.id] && productsMap[c.id].nom) || prodData[c.id] && prodData[c.id].nom || c.id;
+        var p = productsMap[c.id];
+        var pName = (p && p.nom) || (prodData[c.id] && prodData[c.id].nom) || c.id;
         return '<span style="font-size:.68rem;color:var(--tl);display:inline-block;margin:2px 4px 2px 0;background:var(--bg-card);padding:2px 6px;border-radius:3px">' + pName + ' (' + c.count + ')</span>';
-      }).join('') || '<span style="color:var(--tl);font-size:.7rem">Aucun</span>';
+      }).join('') || '<span style="color:var(--tl);font-size:.7rem">—</span>';
 
       // Badge
       var badgeHtml = d.badge ? '<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:3px;background:' + (d.badgeClass === 'ok' ? 'rgba(59,109,17,0.12);color:#3B6D11' : d.badgeClass === 'er' ? 'rgba(163,45,45,0.12);color:#A32D2D' : d.badgeClass === 'tl' ? 'var(--bg-card);color:var(--tl)' : 'rgba(133,79,11,0.12);color:#854F0B') + '">' + d.badge + '</span>' : '';

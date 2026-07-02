@@ -231,7 +231,7 @@
         <div class="product-card-img">
           <img src="${img}" alt="${p.nom}" onerror="this.src='${placeholdersvg}'">
           <button class="wishlist-heart${inWish ? ' active' : ''}" onclick="event.stopPropagation();if(!AccountApp.isLoggedIn()){SytamApp.navigate('account')}else{AccountApp.toggleWishlist('${p.id}');this.classList.toggle('active');this.textContent=this.classList.contains('active')?'♥':'♡'}">${inWish ? '♥' : '♡'}</button>
-          ${p.promo_pct ? '<span class="badge" style="background:var(--danger);left:auto;right:10px">-' + p.promo_pct + '%</span>' : ''}
+          ${p.promo_pct ? '<span class="badge" style="background:var(--danger)">-' + p.promo_pct + '%</span>' : ''}
           ${p.tag === 'nouveau' ? '<span class="badge">Nouveau</span>' : ''}
           ${p.tag === 'tendance' ? '<span class="badge" style="background:var(--gold);color:#fff">Populaire</span>' : ''}
           ${totalS === 0 ? '<span class="badge badge-warn">Épuisé</span>' : ''}
