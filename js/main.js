@@ -886,6 +886,32 @@
         localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
       }
 
+      // Decrement stock for each item
+      items.forEach(function(item) {
+        var prod = DB.getById(item.productId);
+        if (!prod || !prod.colors) return;
+        var colorName = '', sizeName = '';
+        if (item.variantLabel) {
+          var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
+          parts.forEach(function(p) {
+            if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
+            if (p.indexOf('taille:') === 0 || p.indexOf('Taille:') === 0) sizeName = p.split(':')[1].trim();
+          });
+        }
+        if (!colorName) return;
+        var color = null;
+        for (var ci = 0; ci < prod.colors.length; ci++) {
+          if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
+        }
+        if (!color) return;
+        if (sizeName && color.stocks && color.stocks[sizeName] !== undefined) {
+          color.stocks[sizeName] = Math.max(0, color.stocks[sizeName] - item.qty);
+        } else if (color.stock !== undefined) {
+          color.stock = Math.max(0, color.stock - item.qty);
+        }
+        DB.update(prod.id, prod);
+      });
+
       SytamCart.clear();
       closeCheckout();
       document.getElementById('order-ref').textContent = order.id;
@@ -1283,8 +1309,9 @@
       resultDiv.style.display = 'block';
       var lastUpdate = found.created_at || found.mis_a_jour || '';
       var dateStr = lastUpdate ? new Date(lastUpdate).toLocaleString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      var cancelBtn = found.statut === 'en_attente' ? '<div style="text-align:center;margin-top:16px"><button class="btn-del" onclick="SytamApp.cancelOrder(\'' + found.id + '\',\'' + phoneDigits + '\')" style="padding:10px 24px;border-radius:8px;font-size:.85rem">Annuler cette commande</button></div>' : '';
       resultDiv.innerHTML = cardHtml + timelineHtml +
-        '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + dateStr + '</p>';
+        '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + dateStr + '</p>' + cancelBtn;
     }
     // Chercher Supabase d'abord (données à jour), fallback localStorage
     function trySupabase() {
@@ -1305,12 +1332,32 @@
     trySupabase();
   }
 
+  function cancelOrder(orderId, phoneDigits) {
+    if (!confirm('Voulez-vous vraiment annuler cette commande ?')) return;
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    for (var ci = 0; ci < orders.length; ci++) {
+      var clean = (orders[ci].telephone || '').replace(/[^0-9]/g, '');
+      if (orders[ci].id.toUpperCase() === orderId && clean === phoneDigits) {
+        if (orders[ci].statut !== 'en_attente') { alert('Cette commande ne peut plus être annulée.'); return; }
+        orders[ci].statut = 'annulee';
+        orders[ci].mis_a_jour = new Date().toISOString();
+        localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+        if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
+          SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
+        }
+        SytamApp.trackOrder(orderId, phoneDigits);
+        return;
+      }
+    }
+    alert('Commande introuvable.');
+  }
+
   window.SytamApp = {
     init, navigate, navigateToCategory, renderShop, quickView, closeQuickView,
     selectVariantAttr, changeQty, addFromModal,
     toggleCart, toggleMenu, renderCart, cartQty, cartRemove,
     showCheckout, closeCheckout, submitOrder, closeOrderSuccess, renderCheckoutSummary,
-    applyPromo, heroSlide, trackOrder,
+    applyPromo, heroSlide, trackOrder, cancelOrder,
     openSizeGuide, closeSizeGuide, openGeneralSizeGuide, showSizeGuideCategory,
     scrollHoriz: function (id, dir) {
       var el = document.getElementById(id);
