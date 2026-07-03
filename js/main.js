@@ -691,8 +691,8 @@
     if (!trigger) return 'dakar_centre';
     var val = (trigger.querySelector('span').textContent || '').toLowerCase();
     if (!val || val === 'sélectionnez' || val === 'non applicable hors dakar') return 'dakar_centre';
-    var banlieue = ['parcelles','grand yoff','guediawaye','pikine','thiaroye','yeumbeul','diamaguène','dalifort','mbao','keur massar','malika','hamo','guinaw rails','ndiarème','jaxaay','mbeubeuss','tivaouane','wakhinane','golf nord','kounoune','niayes','sipres','gadaye','sam notaire','cité aliou','cité biagui','cité douane','cité enseignants','cité gadaye','keur mbaye fall'];
-    var regions = ['rufisque','bargny','sébikotane','diamniadio','sangalkam','sendou','bambilor','lac rose'];
+    var banlieue = ['parcelles','grand yoff','guediawaye','pikine','thiaroye','yeumbeul','diamaguène','dalifort','mbao','keur massar','malika','guinaw rails','ndiarème','jaxaay','mbeubeuss','golf nord','sipres','gadaye','sam notaire','cité aliou','cité biagui','cité douane','cité enseignants','cité gadaye','keur mbaye fall'];
+    var regions = ['rufisque','bargny','sébikotane','diamniadio','sangalkam','bambilor','lac rose'];
     for (var i = 0; i < banlieue.length; i++) { if (val.indexOf(banlieue[i]) !== -1) return 'dakar_banlieue'; }
     for (var i = 0; i < regions.length; i++) { if (val.indexOf(regions[i]) !== -1) return 'regions'; }
     for (var i = 0; i < NEIGHBORHOODS.length; i++) {

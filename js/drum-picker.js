@@ -10,28 +10,26 @@ var QUARTIERS = [
   "HLM","Hock","Jet d'Eau","Karack","Khar Yalla","Le Virage",
   "Liberté 1","Liberté 2","Liberté 3","Liberté 4",
   "Liberté 5","Liberté 6","Madeleine","Mamelles",
-  "Médina","Médina Gounass","Mermoz","Ngor","Niary Tally","Nimzatt",
+  "Médina","Médina Gounass","Mermoz","Ngor","Niary Tally",
   "Ouakam","Ouest Foire","Parcelles Assainies","Patte d'Oie",
   "Petit Mbao","Pikine","Pikine Icotaf","Pikine Technopole","Point E",
   "Rebeuss","Route de l'Aéroport","Sacré-Cœur","Sam Notaire",
   "Sicap Amitié","Sicap Dieuppeul","Sicap Foire","Soprim","Thiaroye","Thiaroye sur Mer",
-  "Tilène","Wakhinane Nimzatt","Yarakh","Yeumbeul",
+  "Tilène","Yarakh","Yeumbeul",
   "Yoff","Zone de Captage",
   // Banlieue — Pikine / Guédiawaye / Keur Massar / Mbao
   "Cité Aliou Sow","Cité Biagui","Cité Douane","Cité Enseignants",
   "Cité Gadaye","Dalifort Foirail","Djiddah Thiaroye Kao","Gadaye",
   "Keur Massar","Keur Mbaye Fall",
   "Golf Nord","Guédiawaye","Guinaw Rails Nord","Guinaw Rails Sud",
-  "Hamo 4","Hamo 5","Hamo 6","Hamo 7","Jaxaay",
-  "Kounoune","Lac Rose","Malika","Mbao","Mbeubeuss","Ndiarème Limamoulaye","Niayes",
+  "Jaxaay",
+  "Lac Rose","Malika","Mbao","Mbeubeuss","Ndiarème Limamoulaye",
   "Nord Foire","Pikine Est","Pikine Nord","Pikine Ouest","Pikine Sud",
-  "Sam Notaire Extension","Sangle","Sipres 1","Sipres 2","Sipres 3",
-  "Sipres 4","Tivaouane Diacksao","Tivaouane Peulh Niague",
-  "Tivaoune Peul",
-  "Wakhinane",
+  "Sam Notaire Extension","Sipres 1","Sipres 2","Sipres 3",
+  "Sipres 4",
   // Régions
   "Bambilor","Bargny","Diamniadio","Rufisque","Sangalkam",
-  "Sébikotane","Sendou"
+  "Sébikotane"
 ];
 
 var REGIONS = [
