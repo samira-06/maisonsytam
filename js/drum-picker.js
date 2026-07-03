@@ -1,7 +1,7 @@
 // Hardcoded data lists
 var QUARTIERS = [
   // Dakar Centre
-  "Aïnoumady","Almadies","Amitié","Arafat","Bel Air","Biscuiterie",
+  "Almadies","Amitié","Arafat","Bel Air","Biscuiterie",
   "Bopp","Cambérène","Castors","Centenaire","Cité Avion","Cité Damel",
   "Cité Djily Mbaye","Cité Keur Gorgui","Cité Lobatt Fall","Cité Millionnaire",
   "Cité Mixta","Colobane","Dakar Plateau","Dalifort","Derklé","Diamaguène",
