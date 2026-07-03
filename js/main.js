@@ -1125,9 +1125,13 @@
           remoteOrders.forEach(function(o) {
             if (o && o.id) {
               if (!merged[o.id]) { merged[o.id] = o; changed = true; }
-              else if (merged[o.id].statut !== o.statut) {
-                merged[o.id].statut = o.statut;
-                changed = true;
+              else {
+                var locDate = merged[o.id].mis_a_jour || merged[o.id].created_at || '';
+                var remDate = o.mis_a_jour || o.created_at || '';
+                if (remDate > locDate) {
+                  merged[o.id] = o;
+                  changed = true;
+                }
               }
             }
           });

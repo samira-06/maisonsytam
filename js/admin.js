@@ -197,6 +197,24 @@
               if (item && item.phone && !seen[item.phone]) seen[item.phone] = item;
             });
             supabaseItems = Object.values(seen);
+          } else if (k === 'sytam_orders_v2') {
+            // Ordres : garder la version la plus récente (mis_a_jour ou created_at)
+            var seen = {};
+            supabaseItems.forEach(function(item) {
+              if (item && item.id) seen[item.id] = item;
+            });
+            localItems.forEach(function(item) {
+              if (item && item.id) {
+                if (!seen[item.id]) {
+                  seen[item.id] = item;
+                } else {
+                  var supDate = seen[item.id].mis_a_jour || seen[item.id].created_at || '';
+                  var locDate = item.mis_a_jour || item.created_at || '';
+                  if (locDate > supDate) seen[item.id] = item;
+                }
+              }
+            });
+            supabaseItems = Object.values(seen);
           } else {
             // Pour les autres données, merger local + distant
             var seen = {};
