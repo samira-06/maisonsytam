@@ -1129,7 +1129,8 @@ const SytamAnalytics = {
     Object.keys(pClicks).forEach(function(pid) {
       var key = (pClicks[pid].name || pid).trim().toLowerCase();
       if (!prodData[key]) {
-        prodData[key] = { id: pid, key: key, nom: pClicks[pid].name || pid, prix: 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
+        var _pp = productsMap[pid] || {};
+        prodData[key] = { id: pid, key: key, nom: _pp.nom || pClicks[pid].name || pid, prix: _pp.prix || 0, cmdCount: 0, qteTotal: 0, ca: 0, tailles: {}, couleurs: {} };
       }
     });
 
@@ -1137,6 +1138,11 @@ const SytamAnalytics = {
     Object.keys(prodData).forEach(function(key) {
       var d = prodData[key];
       var pid = d.id;
+      // Prix : si pas dans les commandes, prendre depuis la fiche produit
+      if (!d.prix || d.prix === 0) {
+        var _pp = productsMap[pid] || {};
+        d.prix = _pp.prix || 0;
+      }
       d.clics = (pClicks[pid] && pClicks[pid].count) || 0;
       d.ajouts = (pCarts[pid] && pCarts[pid].count) || 0;
       d.retraits = (pRemoves[pid] && pRemoves[pid].count) || 0;
