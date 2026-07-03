@@ -14,7 +14,7 @@ var QUARTIERS = [
   "Ouakam","Ouest Foire","Parcelles Assainies","Patte d'Oie",
   "Petit Mbao","Pikine","Pikine Icotaf","Pikine Technopole","Point E",
   "Rebeuss","Route de l'Aéroport","Sacré-Cœur","Sam Notaire",
-  "Sicap Amitié","Sicap Dieuppeul","Soprim","Thiaroye","Thiaroye sur Mer",
+  "Sicap Amitié","Sicap Dieuppeul","Sicap Foire","Soprim","Thiaroye","Thiaroye sur Mer",
   "Tilène","Wakhinane Nimzatt","Yarakh","Yeumbeul",
   "Yoff","Zone de Captage",
   // Banlieue — Pikine / Guédiawaye / Keur Massar / Mbao
