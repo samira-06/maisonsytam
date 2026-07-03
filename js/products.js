@@ -77,6 +77,7 @@ const NEIGHBORHOODS = [
   { nom: 'Sicap Amitié', zone: 'dakar_centre' },
   { nom: 'Sicap Dieuppeul', zone: 'dakar_centre' },
   { nom: 'Sicap Foire', zone: 'dakar_centre' },
+  { nom: 'VDN', zone: 'dakar_centre' },
   { nom: 'Soprim', zone: 'dakar_centre' },
   { nom: 'Yarakh', zone: 'dakar_centre' },
   // Nouveaux quartiers Dakar Centre

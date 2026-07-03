@@ -15,7 +15,7 @@ var QUARTIERS = [
   "Petit Mbao","Pikine","Pikine Icotaf","Pikine Technopole","Point E",
   "Rebeuss","Route de l'Aéroport","Sacré-Cœur","Sam Notaire",
   "Sicap Amitié","Sicap Dieuppeul","Sicap Foire","Soprim","Thiaroye","Thiaroye sur Mer",
-  "Tilène","Yarakh","Yeumbeul",
+  "Tilène","VDN","Yarakh","Yeumbeul",
   "Yoff","Zone de Captage",
   // Banlieue — Pikine / Guédiawaye / Keur Massar / Mbao
   "Cité Aliou Sow","Cité Biagui","Cité Douane","Cité Enseignants",
