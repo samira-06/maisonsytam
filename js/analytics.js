@@ -341,7 +341,21 @@ const SytamAnalytics = {
 
   // ---- RENDU ADMIN ----
   _getOrders() {
-    try { return JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]'); } catch(e) { return []; }
+    try {
+      var raw = localStorage.getItem('sytam_orders_v2');
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        console.warn('analytics _getOrders: orders not an array, fixing');
+        localStorage.setItem('sytam_orders_v2', '[]');
+        return [];
+      }
+      return parsed;
+    } catch(e) {
+      console.warn('analytics _getOrders parse error, resetting:', e);
+      localStorage.setItem('sytam_orders_v2', '[]');
+      return [];
+    }
   },
   _countOrders(status) {
     var orders = this._getOrders();
@@ -1180,6 +1194,11 @@ const SytamAnalytics = {
 
     if (!list.length) return '<p style="color:var(--tl);font-size:.82rem;padding:16px;text-align:center">Aucun produit dans cette catégorie</p>';
 
+    // Debug : compter les commandes et items lus
+    var totalOrders = orders.length;
+    var totalItems = orders.reduce(function(s, o) { return s + (o.items ? o.items.length : 0); }, 0);
+    var debugInfo = '<div style="font-size:.65rem;color:var(--tl);margin-bottom:8px;padding:4px 8px;background:var(--bg-card);border-radius:4px">📊 ' + totalOrders + ' commandes · ' + totalItems + ' articles lus · ' + list.length + ' produits analysés</div>';
+
     list.sort(function(a, b) { return prodData[b].cmdCount - prodData[a].cmdCount; });
 
     var cards = list.map(function(key) {
@@ -1262,7 +1281,7 @@ const SytamAnalytics = {
       '</div>';
     }).join('');
 
-    return '<div style="column-count:2;column-gap:16px">' + cards + '</div>';
+    return '<div style="column-count:2;column-gap:16px">' + debugInfo + cards + '</div>';
   },
 
   exportCSVFile() {
