@@ -851,20 +851,25 @@ const SytamAnalytics = {
     var counts = {}, regionCounts = {}, quartierTotals = {}, quartierNotFound = 0;
     orders.forEach(function(o) {
       var q = '';
-      if (o.quartier) { q = o.quartier; } else if (o.adresse) { var addr = o.adresse.split(',')[0].trim(); q = addr; }
-      if (q) {
+      if (o.quartier && o.quartier.trim()) { q = o.quartier.trim(); } else if (o.adresse) { q = o.adresse.split(',')[0].trim().replace(/\s*\([^)]*\)\s*$/, ''); }
+      if (q && q !== 'Non applicable hors Dakar' && q !== 'Sélectionnez') {
         if (!counts[q]) counts[q] = 0;
         counts[q]++;
         if (!quartierTotals[q]) quartierTotals[q] = 0;
         quartierTotals[q] += (o.total || 0);
       } else { quartierNotFound++; }
-      var r = o.region || 'Non spécifié';
+      var r = o.region || '';
+      if (!r && o.adresse) {
+        var m = o.adresse.match(/\(([^)]+)\)\s*$/);
+        if (m) r = m[1];
+      }
+      if (!r) r = 'Non spécifié';
       regionCounts[r] = (regionCounts[r] || 0) + 1;
     });
     var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
     var regionsSorted = Object.keys(regionCounts).sort(function(a, b) { return regionCounts[b] - regionCounts[a]; });
     if (!sorted.length) return '<p style="color:var(--tl);font-size:.82rem;padding:12px 0">Aucun quartier trouvé</p>';
-    var top = sorted.slice(0, 12);
+    var top = sorted.slice(0, 30);
     var maxVal = counts[top[0]] || 1;
     var barH = 20, gap = 6, padLeft = 140, padRight = 40, charW = 600;
     var totalH = top.length * (barH + gap) + 10;
