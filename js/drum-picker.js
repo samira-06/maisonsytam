@@ -1,18 +1,35 @@
 // Hardcoded data lists
 var QUARTIERS = [
-  "Almadies","Amitié","Arafat","Bel Air","Biscuiterie",
-  "Cambérène","Castors","Cité Keur Gorgui","Cité Lobatt Fall","Cité Millionnaire",
-  "Colobane","Dakar Plateau","Dalifort","Diamaguène","Dieuppeul",
-  "Fann Résidence","Fass","Golf Sud","Grand Dakar","Grand Yoff",
-  "Gueule Tapée","Guédiawaye","Hann Bel Air","Hann Maristes","HLM",
-  "Keur Massar","Keur Mbaye Fall","Khar Yalla","Liberté 1","Liberté 2",
-  "Liberté 3","Liberté 4","Liberté 5","Liberté 6","Madeleine",
-  "Malika","Mbao","Médina","Médina Gounass","Mermoz",
-  "Ngor","Nimzatt","Ouakam","Ouest Foire","Parcelles Assainies",
-  "Patte d'Oie","Pikine","Pikine Icotaf","Pikine Technopole","Point E",
-  "Rebeuss","Rufisque","Sacré-Cœur","Sam Notaire","Sicap Amitié",
-  "Sicap Dieuppeul","Soprim","Thiaroye","Thiaroye sur Mer","Tivaoune Peul",
-  "Wakhinane Nimzatt","Yarakh","Yeumbeul","Yoff"
+  // Dakar Centre
+  "Aïnoumady","Almadies","Amitié","Arafat","Bel Air","Biscuiterie",
+  "Bopp","Cambérène","Castors","Centenaire","Cité Avion","Cité Damel",
+  "Cité Djily Mbaye","Cité Keur Gorgui","Cité Lobatt Fall","Cité Millionnaire",
+  "Cité Mixta","Colobane","Dakar Plateau","Dalifort","Derklé","Diamaguène",
+  "Dieuppeul","Fan Hock","Fann Résidence","Fass","Gibraltar","Golf Sud",
+  "Grand Dakar","Grand Yoff","Gueule Tapée","Hann Bel Air","Hann Maristes",
+  "HLM","Hock","Jet d'Eau","Karack","Keur Massar","Keur Mbaye Fall",
+  "Khar Yalla","Le Virage","Liberté 1","Liberté 2","Liberté 3","Liberté 4",
+  "Liberté 5","Liberté 6","Madeleine","Malika","Mamelles","Mbao",
+  "Médina","Médina Gounass","Mermoz","Ngor","Niary Tally","Nimzatt",
+  "Ouakam","Ouest Foire","Parcelles Assainies","Patte d'Oie",
+  "Petit Mbao","Pikine","Pikine Icotaf","Pikine Technopole","Point E",
+  "Rebeuss","Route de l'Aéroport","Sacré-Cœur","Sam Notaire",
+  "Sicap Amitié","Sicap Dieuppeul","Soprim","Thiaroye","Thiaroye sur Mer",
+  "Tilène","Tivaoune Peul","Wakhinane Nimzatt","Yarakh","Yeumbeul",
+  "Yoff","Zone de Captage",
+  // Banlieue — Pikine / Guédiawaye / Keur Massar / Mbao
+  "Cité Aliou Sow","Cité Biagui","Cité Douane","Cité Enseignants",
+  "Cité Gadaye","Dalifort Foirail","Djiddah Thiaroye Kao","Gadaye",
+  "Golf Nord","Guédiawaye","Guinaw Rails Nord","Guinaw Rails Sud",
+  "Hamo 4","Hamo 5","Hamo 6","Hamo 7","Jaxaay",
+  "Kounoune","Lac Rose","Mbeubeuss","Ndiarème Limamoulaye","Niayes",
+  "Nord Foire","Pikine Est","Pikine Nord","Pikine Ouest","Pikine Sud",
+  "Sam Notaire Extension","Sangle","Sipres 1","Sipres 2","Sipres 3",
+  "Sipres 4","Tivaouane Diacksao","Tivaouane Peulh Niague",
+  "Wakhinane",
+  // Régions
+  "Bambilor","Bargny","Diamniadio","Rufisque","Sangalkam",
+  "Sébikotane","Sendou"
 ];
 
 var REGIONS = [
