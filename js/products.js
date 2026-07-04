@@ -314,9 +314,15 @@ const DB = {
                 if (lp && p.colors && lp.colors) {
                   p.colors.forEach(function(sc) {
                     var lc = lp.colors.find(function(c) { return c.name === sc.name; });
-                    if (lc) {
-                      if (lc.stocks) { Object.keys(lc.stocks).forEach(function(sz) { if (sc.stocks) sc.stocks[sz] = lc.stocks[sz]; }); }
-                      else if (lc.stock !== undefined && sc.stock !== undefined) sc.stock = lc.stock;
+                    if (lc && (lc.stock !== undefined || (lc.stocks && Object.keys(lc.stocks).length))) {
+                      if (lc.stocks) {
+                        if (!sc.stocks) sc.stocks = {};
+                        Object.keys(lc.stocks).forEach(function(sz) { sc.stocks[sz] = lc.stocks[sz]; });
+                        delete sc.stock;
+                      } else if (lc.stock !== undefined) {
+                        sc.stock = lc.stock;
+                        delete sc.stocks;
+                      }
                     }
                   });
                 }

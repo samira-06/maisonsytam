@@ -975,8 +975,8 @@
   }
 
   function sizeStockInputsHtml(sizes, prefix) {
-    if (!sizes || !sizes.length) return '<input type="number" class="c-stock-' + prefix + '" placeholder="Stock" value="" min="0">';
-    return sizes.map(function(s) { return '<input type="number" class="c-stock-' + prefix + '-' + s.toLowerCase() + '" placeholder="' + s + '" value="" min="0" style="width:48px">'; }).join('');
+    if (!sizes || !sizes.length) return '<input type="number" class="c-stock-' + prefix + '" placeholder="Stock" value="10" min="0">';
+    return sizes.map(function(s) { return '<input type="number" class="c-stock-' + prefix + '-' + s.toLowerCase() + '" placeholder="' + s + '" value="0" min="0" style="width:48px">'; }).join('');
   }
 
   function getHexForColor(name) { return COLOR_HEX_MAP[name] || '#B8956A'; }
@@ -1008,10 +1008,11 @@
     var stockHtml = (typeof stock === 'object' && stock !== null)
       ? (ALL_SIZES.length
           ? ALL_SIZES.map(function(s) {
-              return '<input type="number" class="c-stock-' + s.toLowerCase() + '" placeholder="' + s + '" value="" min="0" style="width:48px">';
+              var v = stock[s] || 0;
+              return '<input type="number" class="c-stock-' + s.toLowerCase() + '" placeholder="' + s + '" value="' + v + '" min="0" style="width:48px">';
             }).join('')
-          : '<input type="number" class="c-stock" placeholder="Stock" value="" min="0">')
-      : '<input type="number" class="c-stock" placeholder="Stock" value="" min="0">';
+          : '<input type="number" class="c-stock" placeholder="Stock" value="0" min="0">')
+      : '<input type="number" class="c-stock" placeholder="Stock" value="' + (typeof stock === 'number' ? stock : 0) + '" min="0">';
     return '<input type="color" class="c-hex" value="' + hex + '">' +
       '<input type="text" class="c-name" placeholder="Nom couleur" value="' + name.replace(/"/g, '&quot;') + '">' +
       stockHtml +
