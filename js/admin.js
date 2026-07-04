@@ -177,8 +177,14 @@
                   item.colors.forEach(function(sc) {
                     var lc = localItem.colors.find(function(c) { return c.name === sc.name; });
                     if (lc && (lc.stock !== undefined || (lc.stocks && Object.keys(lc.stocks).length))) {
-                      if (lc.stocks) { Object.keys(lc.stocks).forEach(function(sz) { if (sc.stocks) sc.stocks[sz] = lc.stocks[sz]; }); }
-                      else if (sc.stock !== undefined) sc.stock = lc.stock;
+                      if (lc.stocks) {
+                        if (!sc.stocks) sc.stocks = {};
+                        Object.keys(lc.stocks).forEach(function(sz) { sc.stocks[sz] = lc.stocks[sz]; });
+                        delete sc.stock;
+                      } else if (lc.stock !== undefined) {
+                        sc.stock = lc.stock;
+                        delete sc.stocks;
+                      }
                     }
                   });
                 }
@@ -916,6 +922,7 @@
         });
       }
     }
+      var colorsHaveSizes = colors.some(function(c) { return c.stocks && Object.keys(c.stocks).length; });
     var allCatOptions = (typeof CATEGORIES !== 'undefined' ? CATEGORIES.map(function(c) { return c.nom; }) : []).concat(['jupes', 'manteaux', 'cardigan', 'collants', 'nikab', 'jellabas']).filter(function(v,i,a) { return a.indexOf(v) === i; }).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     var mesures = (product && product.mesures) || {};
     // Convert old format to new structured format
@@ -957,7 +964,7 @@
       '<div class="form-group"><label class="form-label">Images</label><div id="image-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' + (images ? images.split('\n').filter(Boolean).map(function(u, idx) { return '<div style="position:relative;display:inline-block"><img src="' + u + '" style="width:60px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--bd)"><button type="button" class="btn-del btn-sm" onclick="SytamAdmin.removeImage(this)" style="position:absolute;top:-6px;right:-6px;padding:2px 5px;font-size:.65rem;border-radius:50%;line-height:1">✕</button></div>'; }).join('') : '') + '</div><div style="display:flex;gap:8px;margin-bottom:6px"><input type="file" accept="image/*" id="imageUpload" style="flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px;font-size:.8rem" onchange="SytamAdmin.uploadImage(this)"><button type="button" class="btn-del btn-sm" onclick="this.previousElementSibling.value=\'\'" style="padding:8px 12px">✕</button></div><textarea class="form-input" name="images" rows="2" placeholder="https://...">' + images + '</textarea></div>' +
       '<div class="form-group"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">COULEURS &amp; STOCKS</label>' +
       '<div id="colors-list">' + renderColorsEdit(colors) + '</div>' +
-      '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + sizeStockInputsHtml(ALL_SIZES, 'add') + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
+      '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + (colorsHaveSizes ? sizeStockInputsHtml(ALL_SIZES, 'add') : sizeStockInputsHtml([], 'add')) + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
       '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE</label>' +
       '<div id="mesure-editor">' + renderMesureEditor(mesures) + '</div>' +
       '<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="new-mesure-name" placeholder="Ex: Longueur" style="flex:1;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font-size:.8rem"><button type="button" class="btn-add btn-sm" onclick="SytamAdmin.addMesureField()">+ Ajouter</button></div>' +
@@ -968,8 +975,8 @@
   }
 
   function sizeStockInputsHtml(sizes, prefix) {
-    if (!sizes || !sizes.length) return '<input type="number" class="c-stock-' + prefix + '" placeholder="Stock" value="10" min="0">';
-    return sizes.map(function(s) { return '<input type="number" class="c-stock-' + prefix + '-' + s.toLowerCase() + '" placeholder="' + s + '" value="0" min="0" style="width:48px">'; }).join('');
+    if (!sizes || !sizes.length) return '<input type="number" class="c-stock-' + prefix + '" placeholder="Stock" value="" min="0">';
+    return sizes.map(function(s) { return '<input type="number" class="c-stock-' + prefix + '-' + s.toLowerCase() + '" placeholder="' + s + '" value="" min="0" style="width:48px">'; }).join('');
   }
 
   function getHexForColor(name) { return COLOR_HEX_MAP[name] || '#B8956A'; }
@@ -998,12 +1005,13 @@
   function cRowHtml(hex, name, stock, img) {
     var imgAttr = img ? 'value="' + img.replace(/"/g, '&quot;') + '"' : 'value=""';
     var imgStyle = img ? '' : 'display:none;';
-    var stockHtml = ALL_SIZES.length
-      ? ALL_SIZES.map(function(s) {
-          var v = (typeof stock === 'object' && stock !== null) ? (stock[s] || 0) : (typeof stock === 'number' ? stock : 0);
-          return '<input type="number" class="c-stock-' + s.toLowerCase() + '" placeholder="' + s + '" value="' + v + '" min="0" style="width:48px">';
-        }).join('')
-      : '<input type="number" class="c-stock" placeholder="Stock" value="' + (typeof stock === 'number' ? stock : 0) + '" min="0">';
+    var stockHtml = (typeof stock === 'object' && stock !== null)
+      ? (ALL_SIZES.length
+          ? ALL_SIZES.map(function(s) {
+              return '<input type="number" class="c-stock-' + s.toLowerCase() + '" placeholder="' + s + '" value="" min="0" style="width:48px">';
+            }).join('')
+          : '<input type="number" class="c-stock" placeholder="Stock" value="" min="0">')
+      : '<input type="number" class="c-stock" placeholder="Stock" value="" min="0">';
     return '<input type="color" class="c-hex" value="' + hex + '">' +
       '<input type="text" class="c-name" placeholder="Nom couleur" value="' + name.replace(/"/g, '&quot;') + '">' +
       stockHtml +
@@ -1029,9 +1037,15 @@
     if (!name) { showToast('Erreur', 'Donne un nom à la couleur'); return; }
     var div = document.createElement('div');
     div.className = 'c-row';
-    var stockVal = {};
-    if (ALL_SIZES.length) { ALL_SIZES.forEach(function(s) { var inp = document.querySelector('.c-stock-add-' + s.toLowerCase()); stockVal[s] = parseInt(inp && inp.value) || 0; }); }
-    else { var stockInp = document.querySelector('.c-stock-add'); stockVal = parseInt(stockInp && stockInp.value) || 0; }
+    var existingHasSizes = list.querySelector('.c-stock-s, .c-stock-m, .c-stock-l, .c-stock-xl');
+    var stockVal;
+    if (existingHasSizes) {
+      stockVal = {};
+      ALL_SIZES.forEach(function(s) { var inp = document.querySelector('.c-stock-add-' + s.toLowerCase()); stockVal[s] = parseInt(inp && inp.value) || 0; });
+    } else {
+      var stockInp = document.querySelector('.c-stock-add');
+      stockVal = parseInt(stockInp && stockInp.value) || 10;
+    }
     div.innerHTML = cRowHtml(hex, name.replace(/"/g, '&quot;'), stockVal, '') + '<button type="button" class="btn-del btn-sm c-remove" onclick="this.closest(\'.c-row\').remove()">✕</button>';
     list.appendChild(div);
     var addRow = document.querySelector('.c-add-row');
@@ -1041,7 +1055,7 @@
       if (addHex) addHex.value = '#B8956A';
       if (addName) addName.value = '';
       addRow.querySelectorAll('.c-stock-add, [class^="c-stock-add-"]').forEach(function(inp) {
-        inp.value = inp.className === 'c-stock-add' ? '10' : '0';
+        inp.value = '';
       });
     }
   }
@@ -1057,7 +1071,8 @@
         hex: row.querySelector('.c-hex') && row.querySelector('.c-hex').value || '#B8956A',
         image: row.querySelector('.c-img-data') && row.querySelector('.c-img-data').value || ''
       };
-      if (ALL_SIZES.length) {
+      var hasSizeInputs = row.querySelector('.c-stock-s, .c-stock-m, .c-stock-l, .c-stock-xl');
+      if (hasSizeInputs) {
         c.stocks = {};
         ALL_SIZES.forEach(function(s) {
           var si = row.querySelector('.c-stock-' + s.toLowerCase());
@@ -1080,7 +1095,7 @@
       en_avant: f.querySelector('[name="tag"]').value === 'nouveau',
       images: f.querySelector('[name="images"]').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
       colors: colors.length ? colors : [],
-      sizes: ALL_SIZES.length ? ALL_SIZES : [],
+      sizes: colors.some(function(c) { return c.stocks && Object.keys(c.stocks).length; }) ? ALL_SIZES : [],
       variantes: [],
       mesures: {},
     };

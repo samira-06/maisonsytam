@@ -911,6 +911,17 @@
         }
         DB.update(prod.id, prod);
       });
+      // Retry push products to Supabase
+      (function _retryProdPush(attempts) {
+        if (attempts >= 20) return;
+        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
+          setTimeout(function() { _retryProdPush(attempts + 1); }, 3000);
+          return;
+        }
+        var products = DB.list();
+        SupabaseAPI.upsert('store_data', { key: 'sytam_products_v4', value: products })
+          .catch(function() { setTimeout(function() { _retryProdPush(attempts + 1); }, 3000); });
+      })(0);
 
       SytamCart.clear();
       closeCheckout();
