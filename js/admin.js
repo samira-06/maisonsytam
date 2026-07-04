@@ -174,18 +174,17 @@
                 seen[item.id] = item;
                 var localItem = localMap[item.id];
                 if (localItem && item.colors && localItem.colors) {
-                  item.colors.forEach(function(sc) {
-                    var lc = localItem.colors.find(function(c) { return c.name === sc.name; });
-                    if (lc && (lc.stock !== undefined || (lc.stocks && Object.keys(lc.stocks).length))) {
-                      if (lc.stocks) {
-                        if (!sc.stocks) sc.stocks = {};
-                        Object.keys(lc.stocks).forEach(function(sz) { sc.stocks[sz] = lc.stocks[sz]; });
-                        delete sc.stock;
-                      } else if (lc.stock !== undefined) {
-                        sc.stock = lc.stock;
-                        delete sc.stocks;
-                      }
+                  // Remplacer les couleurs Supabase par les couleurs locales
+                  // (préserve suppressions et ajouts de couleurs)
+                  item.colors = localItem.colors.map(function(lc) {
+                    var sc = item.colors.find(function(c) { return c.name === lc.name; });
+                    if (sc) {
+                      var merged = Object.assign({}, sc, lc);
+                      if (lc.stocks) { merged.stocks = Object.assign({}, lc.stocks); delete merged.stock; }
+                      else if (lc.stock !== undefined) { merged.stock = lc.stock; delete merged.stocks; }
+                      return merged;
                     }
+                    return lc;
                   });
                 }
               }

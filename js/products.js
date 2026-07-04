@@ -312,18 +312,18 @@ const DB = {
                 seen[p.id] = p;
                 var lp = localData && Array.isArray(localData) ? localData.find(function(x) { return x && x.id === p.id; }) : null;
                 if (lp && p.colors && lp.colors) {
-                  p.colors.forEach(function(sc) {
-                    var lc = lp.colors.find(function(c) { return c.name === sc.name; });
-                    if (lc && (lc.stock !== undefined || (lc.stocks && Object.keys(lc.stocks).length))) {
-                      if (lc.stocks) {
-                        if (!sc.stocks) sc.stocks = {};
-                        Object.keys(lc.stocks).forEach(function(sz) { sc.stocks[sz] = lc.stocks[sz]; });
-                        delete sc.stock;
-                      } else if (lc.stock !== undefined) {
-                        sc.stock = lc.stock;
-                        delete sc.stocks;
-                      }
+                  // Remplacer les couleurs Supabase par les couleurs locales
+                  // (préserve les suppressions et ajouts de couleurs)
+                  p.colors = lp.colors.map(function(lc) {
+                    var sc = p.colors.find(function(c) { return c.name === lc.name; });
+                    if (sc) {
+                      // Copier les données Supabase (hex, image) mais garder le stock local
+                      var merged = Object.assign({}, sc, lc);
+                      if (lc.stocks) { merged.stocks = Object.assign({}, lc.stocks); delete merged.stock; }
+                      else if (lc.stock !== undefined) { merged.stock = lc.stock; delete merged.stocks; }
+                      return merged;
                     }
+                    return lc;
                   });
                 }
               }
