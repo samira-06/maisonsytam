@@ -312,8 +312,7 @@ const DB = {
                 seen[p.id] = p;
                 var lp = localData && Array.isArray(localData) ? localData.find(function(x) { return x && x.id === p.id; }) : null;
                 if (lp && p.colors && lp.colors) {
-                  // Remplacer les couleurs Supabase par les couleurs locales
-                  // (préserve les suppressions et ajouts de couleurs)
+                  console.log('LOAD MERGE: product', p.nom, 'Supabase colors:', JSON.stringify(p.colors), 'Local colors:', JSON.stringify(lp.colors));
                   p.colors = lp.colors.map(function(lc) {
                     var sc = p.colors.find(function(c) { return c.name === lc.name; });
                     if (sc) {
@@ -325,6 +324,7 @@ const DB = {
                     }
                     return lc;
                   });
+                  console.log('LOAD MERGE: result colors:', JSON.stringify(p.colors));
                 }
               }
             });

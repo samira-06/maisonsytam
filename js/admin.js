@@ -174,8 +174,7 @@
                 seen[item.id] = item;
                 var localItem = localMap[item.id];
                 if (localItem && item.colors && localItem.colors) {
-                  // Remplacer les couleurs Supabase par les couleurs locales
-                  // (préserve suppressions et ajouts de couleurs)
+                  console.log('ADMIN SYNC MERGE: product', item.nom, 'Supabase colors:', JSON.stringify(item.colors), 'Local colors:', JSON.stringify(localItem.colors));
                   item.colors = localItem.colors.map(function(lc) {
                     var sc = item.colors.find(function(c) { return c.name === lc.name; });
                     if (sc) {
@@ -186,6 +185,7 @@
                     }
                     return lc;
                   });
+                  console.log('ADMIN SYNC MERGE: result colors:', JSON.stringify(item.colors));
                 }
               }
             });
@@ -1104,6 +1104,7 @@
     if (mesureData.fields && mesureData.fields.length) {
       data.mesures = mesureData;
     }
+    console.log('SAVE PRODUCT:', data.nom, 'colors:', JSON.stringify(data.colors), 'sizes:', data.sizes);
     if (editingId) DB.update(editingId, data); else DB.add(data);
     closeModal();
     loadProducts();
