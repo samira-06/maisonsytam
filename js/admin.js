@@ -109,7 +109,6 @@
     var total = keys.length + 1; // +1 pour analytics
     var done = 0;
     keys.forEach(function(k) {
-      var localData = localStorage.getItem(k);
       SupabaseAPI.get('store_data?key=eq.' + k + '&select=value')
         .then(function(result) {
           var supabaseVal = null;
@@ -118,6 +117,8 @@
               supabaseVal = result[0].value;
             }
           } catch(e) { console.warn('syncAllFromSupabase parse error for', k, e); }
+          // Toujours lire le localStorage APRÈS la réponse (évite les données obsolètes)
+          var localData = localStorage.getItem(k);
           var localVal = null;
           try { localVal = JSON.parse(localData || 'null'); } catch(e) { localVal = null; }
           // Loyalty = objet (pas un tableau)
@@ -243,6 +244,7 @@
         })
         .catch(function(err) {
           console.warn('syncAllFromSupabase ⚠ échec pour', k, err);
+          var localData = localStorage.getItem(k);
           if (localData) {
             try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(localData) }); } catch(e) {}
           }
