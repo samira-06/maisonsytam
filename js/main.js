@@ -73,13 +73,16 @@
         _startFeaturedScroll();
       });
     };
-    var _waitSupabase = setInterval(function() {
-      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-        clearInterval(_waitSupabase);
-        _periodicPull(_doRender);
-      }
-    }, 200);
-    setTimeout(function() { clearInterval(_waitSupabase); _doRender(); }, 8000);
+    // Pull produits depuis Supabase au chargement
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+      SupabaseAPI.get('sytam_products_v4').then(function(data) {
+        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
+          localStorage.setItem('sytam_products_v4', JSON.stringify(data[0].value));
+          if (typeof DB !== 'undefined') DB.reloadFromLocal();
+          _doRender();
+        } else { _doRender(); }
+      }).catch(function() { _doRender(); });
+    } else { _doRender(); }
   }
 
   function _renderFromData(data) {
@@ -743,34 +746,23 @@
     for (var i = 0; i < refs.length; i++) {
       if (refs[i].code === code) { found = refs[i]; break; }
     }
-    if (!found && typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.get('store_data?key=eq.sytam_referrals&select=value').then(function(result) {
-        try {
-          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-            var remoteRefs = result[0].value;
-            var merged = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
-            var seen = {};
-            remoteRefs.forEach(function(r) { if (r && r.id) seen[r.id] = r; });
-            merged.forEach(function(r) { if (r && r.id && !seen[r.id]) seen[r.id] = r; });
-            var all = Object.values(seen);
-            localStorage.setItem('sytam_referrals', JSON.stringify(all));
-            for (var j = 0; j < all.length; j++) {
-              if (all[j].code === code) { found = all[j]; break; }
-            }
-            if (found) {
-              _appliedPromo = found;
-              msg.textContent = '✓ Code ' + code + ' : -' + found.reduction + '%';
-              msg.style.color = 'var(--ok)';
-              renderCheckoutSummary();
-            } else {
-              msg.textContent = 'Code de parrainage invalide';
-              msg.style.color = 'var(--er)';
-            }
+    if (!found && typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+      SupabaseAPI.get('sytam_referrals').then(function(data) {
+        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
+          localStorage.setItem('sytam_referrals', JSON.stringify(data[0].value));
+          for (var j = 0; j < data[0].value.length; j++) {
+            if (data[0].value[j].code === code) { found = data[0].value[j]; break; }
+          }
+          if (found) {
+            _appliedPromo = found;
+            msg.textContent = '✓ Code ' + code + ' : -' + found.reduction + '%';
+            msg.style.color = 'var(--ok)';
+            renderCheckoutSummary();
           } else {
             msg.textContent = 'Code de parrainage invalide';
             msg.style.color = 'var(--er)';
           }
-        } catch(e) {
+        } else {
           msg.textContent = 'Code de parrainage invalide';
           msg.style.color = 'var(--er)';
         }
@@ -849,30 +841,13 @@
         mis_a_jour: new Date().toISOString(),
       };
 
-      // Sauvegarder la commande : localStorage immédiatement, puis Supabase en tâche de fond
+      // Sauvegarder la commande dans localStorage + push vers Supabase
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
       orders.unshift(order);
       localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-      var _pushAttempts = 0;
-      function _tryPush() {
-        if (_pushAttempts >= 20) return;
-        _pushAttempts++;
-        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
-          setTimeout(_tryPush, 3000);
-          return;
-        }
-        var _myAttempt = _pushAttempts;
-        SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders })
-          .then(function(r) {
-            if (!(r && r.ok) && _myAttempt < 20) {
-              setTimeout(_tryPush, 3000);
-            }
-          })
-          .catch(function() {
-            if (_myAttempt < 20) setTimeout(_tryPush, 3000);
-          });
+      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+        SupabaseAPI.upsert('sytam_orders_v2', orders).catch(function(){});
       }
-      _tryPush();
       // Notifier via ntfy
       sendNtfyNotification(order);
 
@@ -911,18 +886,6 @@
         }
         DB.update(prod.id, prod);
       });
-      // Retry push products to Supabase
-      (function _retryProdPush(attempts) {
-        if (attempts >= 20) return;
-        if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) {
-          setTimeout(function() { _retryProdPush(attempts + 1); }, 3000);
-          return;
-        }
-        var products = DB.list();
-        SupabaseAPI.upsert('store_data', { key: 'sytam_products_v4', value: products })
-          .catch(function() { setTimeout(function() { _retryProdPush(attempts + 1); }, 3000); });
-      })(0);
-
       SytamCart.clear();
       closeCheckout();
       document.getElementById('order-ref').textContent = order.id;
@@ -1108,166 +1071,7 @@
     xhr.send(body);
   }
 
-  // Périodiquement, pousse les données locales vers Supabase
-  function _periodicSync() {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) return;
-    var _keys = ['sytam_orders_v2', 'sytam_messages', 'sytam_referrals', 'sytam_loyalty_v2', 'sytam_analytics_v1', 'sytam_product_costs', 'sytam_accounts'];
-    _keys.forEach(function(k) {
-      var d = localStorage.getItem(k);
-      if (d) {
-        try { SupabaseAPI.upsert('store_data', { key: k, value: JSON.parse(d) }); } catch(e) {}
-      }
-    });
-  }
-  setInterval(_periodicSync, 15000);
 
-  // Périodiquement, tire les données depuis Supabase (pour voir les changements admin)
-  function _periodicPull(cb) {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp.ready) { if (cb) cb(); return; }
-    // Commandes : on récupère les statuts à jour et on pousse les commandes locales manquantes
-    SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value').then(function(result) {
-      try {
-        var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-        var merged = {};
-        localOrders.forEach(function(o) { if (o && o.id) merged[o.id] = o; });
-        var changed = false;
-        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-          var remoteOrders = result[0].value;
-          remoteOrders.forEach(function(o) {
-            if (o && o.id) {
-              if (!merged[o.id]) { merged[o.id] = o; changed = true; }
-              else {
-                var locDate = merged[o.id].mis_a_jour || merged[o.id].created_at || '';
-                var remDate = o.mis_a_jour || o.created_at || '';
-                if (remDate > locDate) {
-                  merged[o.id] = o;
-                  changed = true;
-                }
-              }
-            }
-          });
-        }
-        // Pousser les commandes locales qui ne sont pas encore dans Supabase
-        var remoteIds = {};
-        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-          result[0].value.forEach(function(o) { if (o && o.id) remoteIds[o.id] = true; });
-        }
-        var needPush = localOrders.some(function(o) { return o && o.id && !remoteIds[o.id]; });
-        if (needPush) {
-          SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: localOrders });
-        }
-        if (changed) {
-          localStorage.setItem('sytam_orders_v2', JSON.stringify(Object.values(merged)));
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    // Analytics : merger les données distantes
-    SupabaseAPI.get('store_data?key=eq.sytam_analytics_v1&select=value').then(function(result) {
-      try {
-        if (result && result.length && result[0] && result[0].value && typeof SytamAnalytics !== 'undefined') {
-          SytamAnalytics.loadFromSync({ value: result[0].value });
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    // Événements analytics
-    SupabaseAPI.get('store_data?key=eq.sytam_analytics_events&select=value').then(function(result) {
-      try {
-        if (result && result.length && result[0] && Array.isArray(result[0].value) && typeof SytamAnalytics !== 'undefined') {
-          SytamAnalytics.loadEventsFromSync(result[0].value);
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    // Références : merger les codes de parrainage distants
-    SupabaseAPI.get('store_data?key=eq.sytam_referrals&select=value').then(function(result) {
-      try {
-        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-          var remoteRefs = result[0].value;
-          var localRefs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
-          var seen = {};
-          remoteRefs.forEach(function(r) { if (r && r.id) seen[r.id] = r; });
-          localRefs.forEach(function(r) {
-            if (r && r.id && !seen[r.id]) { seen[r.id] = r; }
-          });
-          var merged = Object.values(seen);
-          if (merged.length) localStorage.setItem('sytam_referrals', JSON.stringify(merged));
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    // Comptes : merger les données distantes (déduplication par téléphone)
-    SupabaseAPI.get('store_data?key=eq.sytam_accounts&select=value').then(function(result) {
-      try {
-        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-          var remoteAccounts = result[0].value;
-          var localAccounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
-          var phoneMap = {};
-          remoteAccounts.forEach(function(a) { if (a && a.phone) phoneMap[a.phone] = a; });
-          localAccounts.forEach(function(a) {
-            if (a && a.phone && !phoneMap[a.phone]) phoneMap[a.phone] = a;
-          });
-          localStorage.setItem('sytam_accounts', JSON.stringify(Object.values(phoneMap)));
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    // Produits : merger les données distantes (préserver les stocks locaux)
-    SupabaseAPI.get('store_data?key=eq.sytam_products_v4&select=value').then(function(result) {
-      try {
-        if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-          var remoteProducts = result[0].value;
-          var localProducts = DB.list();
-          var localMap = {};
-          localProducts.forEach(function(p) { if (p && p.id) localMap[p.id] = p; });
-          var changed = false;
-          remoteProducts.forEach(function(rp) {
-            if (rp && rp.id) {
-              if (!localMap[rp.id]) { localProducts.push(rp); changed = true; }
-              else {
-                // Mettre à jour nom, prix, promo, images, couleurs MAIS garder le stock local
-                var lp = localMap[rp.id];
-                var oldStock = lp.colors ? JSON.parse(JSON.stringify(lp.colors)) : null;
-                Object.keys(rp).forEach(function(k) {
-                  if (k !== 'colors') lp[k] = rp[k];
-                });
-                // Restaurer les stocks locaux
-                if (oldStock && lp.colors && Array.isArray(lp.colors)) {
-                  lp.colors.forEach(function(lc) {
-                    var remoteColor = rp.colors ? rp.colors.find(function(rc) { return rc.name === lc.name; }) : null;
-                    if (remoteColor) {
-                      var matchedLocal = oldStock.find(function(os) { return os.name === lc.name; });
-                      if (matchedLocal) {
-                        if (matchedLocal.stocks) {
-                          Object.keys(matchedLocal.stocks).forEach(function(sz) {
-                            if (lc.stocks) lc.stocks[sz] = matchedLocal.stocks[sz];
-                          });
-                        } else if (matchedLocal.stock !== undefined) {
-                          lc.stock = matchedLocal.stock;
-                        }
-                      }
-                    }
-                  });
-                }
-                changed = true;
-              }
-            }
-          });
-          // Supprimer les produits locaux qui n'existent plus dans Supabase ou qui sont dans la liste de suppression
-          var remoteIds = {};
-          remoteProducts.forEach(function(rp) { if (rp && rp.id) remoteIds[rp.id] = true; });
-          var deletedIds = {};
-          try { var d = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); d.forEach(function(id) { deletedIds[id] = true; }); } catch(e) {}
-          var beforeCount = localProducts.length;
-          localProducts = localProducts.filter(function(lp) { return lp && lp.id && remoteIds[lp.id] && !deletedIds[lp.id]; });
-          if (localProducts.length !== beforeCount) changed = true;
-          if (changed) {
-            localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));
-            if (typeof DB !== 'undefined') { DB._data = localProducts; DB.reloadFromLocal(); }
-            if (state.currentPage === 'shop') renderShop();
-          }
-        }
-      } catch(e) {}
-    }).catch(function() {});
-    if (cb) setTimeout(cb, 100);
-  }
-  setInterval(_periodicPull, 30000);
 
   // --- Suivi de commande ---
   function trackOrder() {
@@ -1328,23 +1132,23 @@
       resultDiv.innerHTML = cardHtml + timelineHtml +
         '<p style="font-size:.78rem;color:var(--text-lighter);text-align:center;margin-top:12px">Dernière mise à jour : ' + dateStr + '</p>' + cancelBtn;
     }
-    // Chercher Supabase d'abord (données à jour), fallback localStorage
-    function trySupabase() {
-      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-        SupabaseAPI.get('store_data?key=eq.sytam_orders_v2&select=value')
-          .then(function(result) {
-            if (result && result.length && result[0].value) { showOrder(result[0].value); }
-            else { tryLocal(); }
-          })
-          .catch(function() { tryLocal(); });
-      } else { tryLocal(); }
-    }
-    function tryLocal() {
-      var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-      if (orders.length) { showOrder(orders); return; }
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    if (orders.length) { showOrder(orders); return; }
+    // Fallback Supabase
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+      SupabaseAPI.get('sytam_orders_v2').then(function(data) {
+        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
+          localStorage.setItem('sytam_orders_v2', JSON.stringify(data[0].value));
+          showOrder(data[0].value);
+        } else {
+          resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
+        }
+      }).catch(function() {
+        resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
+      });
+    } else {
       resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
     }
-    trySupabase();
   }
 
   function cancelOrder(orderId, phoneDigits) {
@@ -1357,10 +1161,10 @@
         orders[ci].statut = 'annulee';
         orders[ci].mis_a_jour = new Date().toISOString();
         localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-        if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-          SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
+        if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+          SupabaseAPI.upsert('sytam_orders_v2', orders).catch(function(){});
         }
-        SytamApp.trackOrder(orderId, phoneDigits);
+        trackOrder();
         return;
       }
     }

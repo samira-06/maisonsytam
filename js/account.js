@@ -8,8 +8,8 @@ window.AccountApp = (function() {
 
   function _saveAccounts(list) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: STORAGE_KEY, value: list });
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+      SupabaseAPI.upsert(STORAGE_KEY, list).catch(function(){});
     }
   }
 
@@ -82,21 +82,24 @@ window.AccountApp = (function() {
       _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
       return { success: true };
     }
-    // Pas trouvé en local → tenter une sync Supabase puis réessayer
-    if (typeof SupabaseAPI !== 'undefined' && callback) {
-      SupabaseAPI.get('store_data?key=eq.' + STORAGE_KEY + '&select=value')
-        .then(function(result) {
-          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(result[0].value));
-            var retry = _loginSync(phone, password);
-            if (callback) callback(retry);
+    // Fallback Supabase si pas trouvé en local
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
+      SupabaseAPI.get(STORAGE_KEY).then(function(data) {
+        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data[0].value));
+          var accounts2 = _getAccounts();
+          for (var j = 0; j < accounts2.length; j++) {
+            if (accounts2[j].phone === phone) { found = accounts2[j]; break; }
+          }
+          if (found) {
+            if (found.password !== _hash(password)) { if (callback) callback({ error: 'Mot de passe incorrect.' }); return; }
+            _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
+            if (callback) callback({ success: true });
             return;
           }
-          if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
-        })
-        .catch(function() {
-          if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
-        });
+        }
+        if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
+      }).catch(function() { if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' }); });
       return { pending: true };
     }
     return { error: 'Aucun compte trouvé avec ce numéro.' };
@@ -272,31 +275,26 @@ window.AccountApp = (function() {
     if (found) return _doSendRecovery(found, email);
     var errEl = document.getElementById('ac-forgot-error');
     var btn = document.getElementById('ac-forgot-btn');
-    if (typeof SupabaseAPI !== 'undefined') {
+    // Fallback Supabase
+    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
       errEl.textContent = '⏳ Vérification...';
       errEl.style.display = 'block';
-      SupabaseAPI.get('store_data?key=eq.' + STORAGE_KEY + '&select=value')
-        .then(function(result) {
-          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(result[0].value));
-            var accounts2 = _getAccounts();
-            for (var j = 0; j < accounts2.length; j++) {
-              if ((accounts2[j].email || '').toLowerCase() === email) { found = accounts2[j]; break; }
-            }
+      SupabaseAPI.get(STORAGE_KEY).then(function(data) {
+        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data[0].value));
+          var accounts2 = _getAccounts();
+          for (var j = 0; j < accounts2.length; j++) {
+            if ((accounts2[j].email || '').toLowerCase() === email) { found = accounts2[j]; break; }
           }
-          if (found) {
-            _doSendRecovery(found, email);
-          } else {
-            errEl.textContent = 'Aucun compte trouvé avec cet email.';
-            errEl.style.background = '';
-            errEl.style.color = '';
-          }
-        })
-        .catch(function() {
-          errEl.textContent = 'Aucun compte trouvé avec cet email.';
-          errEl.style.background = '';
-          errEl.style.color = '';
-        });
+          if (found) return _doSendRecovery(found, email);
+        }
+        errEl.textContent = 'Aucun compte trouvé avec cet email.';
+        errEl.style.background = '';
+        errEl.style.color = '';
+      }).catch(function() {
+        errEl.textContent = 'Aucun compte trouvé avec cet email.';
+        errEl.style.display = 'block';
+      });
     } else {
       errEl.textContent = 'Aucun compte trouvé avec cet email.';
       errEl.style.display = 'block';
@@ -521,20 +519,37 @@ window.AccountApp = (function() {
     var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '{}');
     var loyaltyData = loyalty[session.phone] || { orders: 0, total: 0 };
     var wishlist = acc ? (acc.wishlist || []) : [];
+    var initial = session.name ? session.name.charAt(0).toUpperCase() : session.phone.slice(-2);
 
     container.innerHTML =
       '<div class="account-dashboard">' +
-        '<div class="account-sidebar">' +
-          '<div class="account-avatar">' + (session.name ? session.name.charAt(0).toUpperCase() : session.phone.slice(-2)) + '</div>' +
-          '<h3>' + (session.name || 'Client') + '</h3>' +
-          '<p class="account-phone">' + session.phone + '</p>' +
-          '<nav class="account-nav">' +
-            '<a class="active" data-actab="profile" onclick="AccountApp._switchAcTab(\'profile\')">👤 Mon Profil</a>' +
-            '<a data-actab="orders" onclick="AccountApp._switchAcTab(\'orders\')">📦 Mes Commandes (' + myOrders.length + ')</a>' +
-            '<a data-actab="wishlist" onclick="AccountApp._switchAcTab(\'wishlist\')">♥ Mes Favoris (' + wishlist.length + ')</a>' +
-            '<a data-actab="loyalty" onclick="AccountApp._switchAcTab(\'loyalty\')">⭐ Ma Fidélité</a>' +
-            '<a data-actab="logout" onclick="AccountApp.logout()" style="color:var(--danger);margin-top:20px">🚪 Déconnexion</a>' +
-          '</nav>' +
+        '<div class="ac-header">' +
+          '<div class="ac-header-avatar">' + initial + '</div>' +
+          '<div class="ac-header-info">' +
+            '<h3>' + (session.name || 'Client') + '</h3>' +
+            '<span class="ac-phone">' + session.phone + '</span>' +
+          '</div>' +
+          '<button class="ac-logout" onclick="AccountApp.logout()">🚪 Quitter</button>' +
+        '</div>' +
+        '<div class="ac-cards-grid">' +
+          '<div class="ac-card-item active" data-actab="profile" onclick="AccountApp._switchAcTab(\'profile\')">' +
+            '<span class="ac-card-icon">👤</span>' +
+            '<span class="ac-card-label">Mon Profil</span>' +
+          '</div>' +
+          '<div class="ac-card-item" data-actab="orders" onclick="AccountApp._switchAcTab(\'orders\')">' +
+            '<span class="ac-card-icon">📦</span>' +
+            '<span class="ac-card-label">Mes Commandes</span>' +
+            '<span class="ac-card-badge">' + myOrders.length + '</span>' +
+          '</div>' +
+          '<div class="ac-card-item" data-actab="wishlist" onclick="AccountApp._switchAcTab(\'wishlist\')">' +
+            '<span class="ac-card-icon">♥</span>' +
+            '<span class="ac-card-label">Mes Favoris</span>' +
+            '<span class="ac-card-badge">' + wishlist.length + '</span>' +
+          '</div>' +
+          '<div class="ac-card-item" data-actab="loyalty" onclick="AccountApp._switchAcTab(\'loyalty\')">' +
+            '<span class="ac-card-icon">⭐</span>' +
+            '<span class="ac-card-label">Ma Fidélité</span>' +
+          '</div>' +
         '</div>' +
         '<div class="account-main" id="ac-main-content">' +
           _profileHtml(session, acc, myOrders, loyaltyData) +
@@ -553,9 +568,9 @@ window.AccountApp = (function() {
     var loyaltyData = loyalty[session.phone] || { orders: 0, total: 0 };
     var main = document.getElementById('ac-main-content');
     if (!main) return;
-    document.querySelectorAll('.account-nav a').forEach(function(a) { a.classList.remove('active'); });
-    var link = document.querySelector('.account-nav a[data-actab="' + tab + '"]');
-    if (link) link.classList.add('active');
+    document.querySelectorAll('.ac-card-item').forEach(function(c) { c.classList.remove('active'); });
+    var card = document.querySelector('.ac-card-item[data-actab="' + tab + '"]');
+    if (card) card.classList.add('active');
     switch (tab) {
       case 'profile': main.innerHTML = _profileHtml(session, acc, myOrders, loyaltyData); break;
       case 'orders': main.innerHTML = _ordersHtml(myOrders); break;
@@ -717,16 +732,6 @@ window.AccountApp = (function() {
   }
 
   function init() {
-    // Try to sync accounts from Supabase on load
-    if (typeof SupabaseAPI !== 'undefined') {
-      SupabaseAPI.get('store_data?key=eq.' + STORAGE_KEY + '&select=value')
-        .then(function(result) {
-          if (result && result.length && result[0] && Array.isArray(result[0].value)) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(result[0].value));
-          }
-        })
-        .catch(function() {});
-    }
     _updateBanner();
     // Vérifier token de récupération dans l'URL (initialisation directe)
     setTimeout(function() {

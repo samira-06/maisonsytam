@@ -96,7 +96,6 @@
           <div><h1>Tableau de bord</h1><p id="adminDate">Bienvenue sur votre espace de gestion</p></div>
         </div>
         <div class="topbar-right" style="display:flex;align-items:center;gap:10px">
-          <div style="font-size:.75rem;color:var(--tl)" id="supabase-status">—</div>
           <div style="font-size:.8rem;color:var(--tl)" id="topDate"></div>
         </div>
       </div>
@@ -150,8 +149,6 @@
             <option value="livree">Livrées</option>
             <option value="annulee">Annulées</option>
           </select>
-          <span id="supabase-status" style="font-size:.75rem;color:var(--tl);margin-right:6px"></span>
-          <button class="btn-add btn-sm" onclick="SytamAdmin.syncNow()" title="Synchroniser depuis Supabase">🔄</button>
         </div>
       </div>
       <div class="card">
@@ -324,10 +321,11 @@
 </div>
 </div>
 
-<script src="js/supabase-config.js"></script>
-<script src="js/supabase-loader.js?v=5"></script>
-<script src="js/products.js?v=5"></script>
-<script src="js/analytics.js?v=5"></script>
-<script src="js/admin.js?v=5"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js?v=6"></script>
+<script src="js/supabase-loader.js?v=6"></script>
+<script src="js/products.js?v=6"></script>
+<script src="js/analytics.js?v=6"></script>
+<script src="js/admin.js?v=6"></script>
 </body>
 </html>

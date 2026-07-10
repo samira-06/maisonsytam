@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Maison SYTAM — Élégance & Modestie</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23B8956A'/><text x='16' y='23' font-size='20' fill='white' text-anchor='middle' font-family='serif'>S</text></svg>">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -343,15 +343,16 @@
 </footer>
 
 <!-- ==================== SCRIPTS ==================== -->
-<script src="js/supabase-config.js"></script>
-<script src="js/supabase-loader.js"></script>
-<script src="js/i18n.js?v=5"></script>
-<script src="js/products.js?v=5"></script>
-<script src="js/cart.js?v=5"></script>
-<script src="js/drum-picker.js?v=5"></script>
-<script src="js/analytics.js?v=5"></script>
-<script src="js/main.js?v=5"></script>
-<script src="js/account.js?v=5"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js?v=6"></script>
+<script src="js/supabase-loader.js?v=6"></script>
+<script src="js/i18n.js?v=6"></script>
+<script src="js/products.js?v=6"></script>
+<script src="js/cart.js?v=6"></script>
+<script src="js/drum-picker.js?v=6"></script>
+<script src="js/analytics.js?v=6"></script>
+<script src="js/main.js?v=6"></script>
+<script src="js/account.js?v=6"></script>
     <script src="emailjs.min.js"></script>
 <script>emailjs.init(localStorage.getItem('sytam_emailjs_pubkey') || '')</script>
 <script>
@@ -443,7 +444,7 @@ function handleCheckout(form) {
   var _ntfyTotal = _ntfyItems.reduce(function(s,i) { return s + (i.price||0)*(i.qty||1); }, 0);
   SytamApp.submitOrder(data);
   form.reset();
-  // Notifier ntfy + pousser vers Supabase (inline, contourne le cache)
+  // Notifier ntfy (inline, contourne le cache)
   var ntfyTopic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
   if (ntfyTopic) {
     var itemNames = _ntfyItems.map(function(i) { return i.productName + ' x' + (i.qty||1); }).join(', ');
@@ -455,13 +456,7 @@ function handleCheckout(form) {
     x.setRequestHeader('Tags', 'shopping_cart');
     x.send(body);
   }
-  // Pousser la commande vers Supabase (même si main.js est en cache)
-  setTimeout(function() {
-    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
-    if (orders.length && typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: 'sytam_orders_v2', value: orders });
-    }
-  }, 1000);
+
   document.querySelectorAll('.payment-option').forEach(function(o,i) { o.classList.toggle('active', i===0); });
   var payInfo = document.getElementById('payment-info');
   if (payInfo) payInfo.innerHTML = 'Envoyez votre paiement au <strong>77 478 98 75</strong> et envoyez la capture sur WhatsApp pour confirmer votre commande.';

@@ -212,7 +212,7 @@ const SEED_PRODUCTS = [
   { id: 'p_s3', nom: 'Ensemble Sport Legging + Tunique', categorie: 'sport', sous_type: 'Ensemble sport', description: 'Ensemble sport legging + tunique longue. Tissu stretch confortable.', prix: 25000, images: [_ph('Ensemble Sport')], tag: 'tendance', colors: ['Noir','Gris','Bleu Marine'].map(function(c) { return _colorObj(c, 40); }), created_at: '2024-04-10' },
 ];
 
-// ---- DB Layer (Supabase + localStorage fallback) ----
+// ---- DB Layer (localStorage only, seed via data.json) ----
 var DB_KEY = 'sytam_products_v4';
 
 const DB = {
@@ -244,7 +244,6 @@ const DB = {
         changed = true;
         p.tag = seed.tag;
       }
-      // Migrate old mesures format to new structured format
       if (p.mesures && !p.mesures.fields) {
         var oldSizes = ['S','M','L','XL'];
         var firstVal = '';
@@ -255,7 +254,6 @@ const DB = {
           }
         }
         if (firstVal && firstVal.indexOf(':') !== -1) {
-          // Old format: "Longueur: 140cm" → extract fields
           var sample = p.mesures[oldSizes[0]] || p.mesures[oldSizes[1]] || [];
           var fields = sample.map(function(m) { var parts = m.split(':'); return parts.length >= 2 ? parts[0].trim() : 'Mesure'; });
           p.mesures.fields = fields;
@@ -266,7 +264,6 @@ const DB = {
           });
           changed = true;
         } else if (firstVal && firstVal.indexOf(':') === -1) {
-          // Values without labels - create generic fields
           var sample2 = p.mesures[oldSizes[0]] || p.mesures[oldSizes[1]] || [];
           p.mesures.fields = sample2.map(function(_, i) { return 'Mesure ' + (i + 1); });
           changed = true;
@@ -278,114 +275,37 @@ const DB = {
   },
 
   _load() {
-    // Toujours charger Supabase d'abord, puis fusionner avec localStorage
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      DB._loadFromSupabase();
-    } else {
-      DB._fallback();
+    var stored = localStorage.getItem(DB_KEY);
+    if (stored) {
+      try { DB._data = JSON.parse(stored); DB._migrateData(); DB._ready = true; DB._notifyReady(); return; } catch(e) {}
     }
-  },
-
-  _loadFromSupabase() {
-    console.log('DB: _loadFromSupabase');
-    var fallbackTimer = setTimeout(function() {
-      console.log('DB: Supabase timeout, fallback');
-      if (!DB._ready) DB._fallback();
-    }, 15000);
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.get('store_data?key=eq.' + DB_KEY + '&select=value')
-        .then(function(result) {
-          clearTimeout(fallbackTimer);
-          var localData = null;
-          var stored = localStorage.getItem(DB_KEY);
-          if (stored) { try { localData = JSON.parse(stored); } catch(e) {} }
-          var supabaseData = result && result.length && result[0].value ? result[0].value : null;
-          if (supabaseData && Array.isArray(supabaseData) && supabaseData.length) {
-            // Fusion : Supabase d'abord, puis garder les produits locaux non supprimés
-            var deleted = [];
-            try { deleted = JSON.parse(localStorage.getItem('sytam_deleted_products') || '[]'); } catch(e) {}
-            var deletedMap = {}; deleted.forEach(function(did) { deletedMap[did] = true; });
-            var seen = {};
-            // Supabase d'abord (avec stocks locaux fusionnés)
-            supabaseData.forEach(function(p) {
-              if (p && p.id && !deletedMap[p.id]) {
-                seen[p.id] = p;
-                var lp = localData && Array.isArray(localData) ? localData.find(function(x) { return x && x.id === p.id; }) : null;
-                if (lp && p.colors && lp.colors) {
-                  console.log('LOAD MERGE: product', p.nom, 'Supabase colors:', JSON.stringify(p.colors), 'Local colors:', JSON.stringify(lp.colors));
-                  p.colors = lp.colors.map(function(lc) {
-                    var sc = p.colors.find(function(c) { return c.name === lc.name; });
-                    if (sc) {
-                      // Copier les données Supabase (hex, image) mais garder le stock local
-                      var merged = Object.assign({}, sc, lc);
-                      if (lc.stocks) { merged.stocks = Object.assign({}, lc.stocks); delete merged.stock; }
-                      else if (lc.stock !== undefined) { merged.stock = lc.stock; delete merged.stocks; }
-                      return merged;
-                    }
-                    return lc;
-                  });
-                  console.log('LOAD MERGE: result colors:', JSON.stringify(p.colors));
-                }
-              }
-            });
-            // Puis garder les produits locaux qui ne sont ni dans Supabase ni supprimés
-            if (localData && Array.isArray(localData)) {
-              localData.forEach(function(p) {
-                if (p && p.id && !seen[p.id] && !deletedMap[p.id]) seen[p.id] = p;
-              });
-            }
-            DB._data = Object.values(seen);
+    // Tentative seed depuis data.json
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'data/data.json', true);
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        try {
+          var remote = JSON.parse(xhr.responseText);
+          if (remote.products && Array.isArray(remote.products) && remote.products.length) {
+            DB._data = remote.products;
             DB._migrateData();
-          } else if (localData && Array.isArray(localData) && localData.length) {
-            DB._data = localData;
-            DB._migrateData();
-          } else {
-            DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
-            DB._migrateData();
-          }
-          localStorage.setItem(DB_KEY, JSON.stringify(DB._data));
-          SupabaseAPI.upsert('store_data', { key: DB_KEY, value: DB._data });
-          if (!DB._ready) {
+            localStorage.setItem(DB_KEY, JSON.stringify(DB._data));
             DB._ready = true;
             DB._notifyReady();
-          } else {
-            // Données mises à jour après le fallback → re-notifier les callbacks
-            DB._notified = false;
-            DB._notifyReady();
+            return;
           }
-        })
-        .catch(function() {
-          clearTimeout(fallbackTimer);
-          DB._fallback();
-        });
-    } else {
-      clearTimeout(fallbackTimer);
+        } catch(e) {}
+      }
       DB._fallback();
-    }
+    };
+    xhr.onerror = function() { DB._fallback(); };
+    xhr.send();
   },
 
   _fallback() {
-    console.log('DB: _fallback', localStorage.getItem(DB_KEY) ? 'localStorage' : 'seed');
-    var stored = localStorage.getItem(DB_KEY);
-    if (stored) {
-      try { DB._data = JSON.parse(stored); }
-      catch(e) { DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS)); }
-    } else {
-      DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
-    }
+    console.log('DB: fallback to SEED_PRODUCTS');
+    DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
     DB._migrateData();
-    DB._ready = true;
-    DB._notifyReady();
-  },
-
-  _loadLocal() {
-    var stored = localStorage.getItem(DB_KEY);
-    if (stored) {
-      try { DB._data = JSON.parse(stored); }
-      catch(e) { DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS)); }
-    } else {
-      DB._data = JSON.parse(JSON.stringify(SEED_PRODUCTS));
-    }
     DB._ready = true;
     DB._notifyReady();
   },
@@ -393,9 +313,6 @@ const DB = {
   _save() {
     if (!this._data) return;
     localStorage.setItem(DB_KEY, JSON.stringify(this._data));
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: DB_KEY, value: this._data });
-    }
   },
 
   _notifyReady() {

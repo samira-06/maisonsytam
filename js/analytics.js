@@ -255,29 +255,8 @@ const SytamAnalytics = {
 
   _sync() {
     if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.upsert('store_data', { key: this.AGG_KEY, value: this._agg });
-      SupabaseAPI.upsert('store_data', { key: this.EVENTS_KEY, value: this._events.slice(-5000) });
+      SupabaseAPI.upsert('sytam_analytics_v1', this._agg).catch(function(){});
     }
-  },
-
-  loadFromSync(data) {
-    if (data && data.value) {
-      var merged = this._mergeData(this._agg, data.value);
-      this._agg = merged;
-      this._saveAgg();
-    }
-  },
-
-  loadEventsFromSync(remoteEvents) {
-    if (!Array.isArray(remoteEvents) || !remoteEvents.length) return;
-    var existing = {};
-    this._events.forEach(function(e) { existing[e.ts + '_' + e.s + '_' + (e.d && e.d.productId || '')] = true; });
-    remoteEvents.forEach(function(e) {
-      var key = e.ts + '_' + e.s + '_' + (e.d && e.d.productId || '');
-      if (!existing[key]) { SytamAnalytics._events.push(e); existing[key] = true; }
-    });
-    this._events.sort(function(a, b) { return a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0; });
-    this._saveEvents();
   },
 
   _mergeData(local, remote) {
