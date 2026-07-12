@@ -254,9 +254,6 @@ const SytamAnalytics = {
   },
 
   _sync() {
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.upsert('sytam_analytics_v1', this._agg).catch(function(){});
-    }
   },
 
   _mergeData(local, remote) {

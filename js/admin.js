@@ -8,22 +8,70 @@
   function qsa(s, c) { return (c || document).querySelectorAll(s); }
   function fmt(n) { return (n || 0).toLocaleString('fr-FR'); }
 
-  // SYNC SUPABASE — simple push/pull, pas d'intervalles, pas de merge complexe
-  function _syncToSupabase(key) {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp || !SupabaseApp.ready) return;
-    try {
-      var val = localStorage.getItem(key);
-      if (val) SupabaseAPI.upsert(key, JSON.parse(val)).catch(function(){});
-    } catch(e) {}
+  // SYNC GITHUB — push/pull produits via GitHub API
+  function _syncProductsToGitHub() {
+    var token = localStorage.getItem('sytam_github_token');
+    if (!token) return;
+    var products = DB.list();
+    var content = JSON.stringify({ products: products, updated_at: new Date().toISOString() });
+    _ghReadFile('data/products.json').then(function(existing) {
+      var sha = existing ? existing.sha : null;
+      var body = { message: 'Sync produits depuis admin', content: btoa(unescape(encodeURIComponent(content))) };
+      if (sha) body.sha = sha;
+      fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', {
+        method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(function(e) { console.warn('GitHub sync failed:', e); });
+    }).catch(function() {
+      // File doesn't exist yet, create it
+      var body = { message: 'Sync produits depuis admin', content: btoa(unescape(encodeURIComponent(content))) };
+      fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', {
+        method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(function(e) { console.warn('GitHub sync failed:', e); });
+    });
   }
-  function _syncFromSupabase(key, callback) {
-    if (typeof SupabaseAPI === 'undefined' || !SupabaseApp || !SupabaseApp.ready) { if (callback) callback(null); return; }
-    SupabaseAPI.get(key).then(function(data) {
-      if (data && data.length && data[0] && data[0].value) {
-        localStorage.setItem(key, JSON.stringify(data[0].value));
+  function _ghReadFile(path) {
+    var token = localStorage.getItem('sytam_github_token');
+    if (!token) return Promise.reject('no token');
+    return fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/' + path, {
+      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    }).then(function(r) { if (r.status === 404) return null; if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function _syncProductsFromGitHub() {
+    var token = localStorage.getItem('sytam_github_token');
+    if (!token) return;
+    _ghReadFile('data/products.json').then(function(data) {
+      if (!data) return;
+      var json = JSON.parse(atob(data.content));
+      if (json.products && Array.isArray(json.products)) {
+        localStorage.setItem('sytam_products_v4', JSON.stringify(json.products));
+        if (typeof DB !== 'undefined') DB.reloadFromLocal();
+        loadProducts();
       }
-      if (callback) callback(data);
-    }).catch(function(){ if (callback) callback(null); });
+    }).catch(function(){});
+  }
+
+  function _syncOrdersToGitHub() {
+    var token = localStorage.getItem('sytam_github_token');
+    if (!token) return;
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var content = JSON.stringify({ orders: orders, updated_at: new Date().toISOString() });
+    _ghReadFile('data/orders.json').then(function(existing) {
+      var sha = existing ? existing.sha : null;
+      var body = { message: 'Sync commandes depuis admin', content: btoa(unescape(encodeURIComponent(content))) };
+      if (sha) body.sha = sha;
+      fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', {
+        method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(function(e) { console.warn('GitHub sync orders failed:', e); });
+    }).catch(function() {
+      var body = { message: 'Sync commandes depuis admin', content: btoa(unescape(encodeURIComponent(content))) };
+      fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', {
+        method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).catch(function(e) { console.warn('GitHub sync orders failed:', e); });
+    });
   }
 
   // LOGIN
@@ -39,12 +87,12 @@
     $('topDate').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
     loadNtfyTopic();
     loadEmailJsConfig();
+    loadGithubToken();
     DB.onReady(function() {
       DB.reloadFromLocal();
       loadDashboard(); loadProducts(); loadOrders(); loadReferrals();
-      // Pull commandes et produits depuis Supabase
-      _syncFromSupabase('sytam_orders_v2', function() { loadOrders(); loadDashboard(); });
-      _syncFromSupabase('sytam_products_v4', function() { if (typeof DB !== 'undefined') DB.reloadFromLocal(); loadProducts(); });
+      // Pull produits depuis GitHub
+      _syncProductsFromGitHub();
     });
     initNotifications();
   }
@@ -79,13 +127,13 @@
   function pollOrders() {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var changed = false;
-    // Pull commandes depuis Supabase pour voir les nouvelles commandes clients
+    // Pull commandes depuis GitHub si token présent
     try {
       var _pulled = false;
-      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-        SupabaseAPI.get('sytam_orders_v2').then(function(data) {
-          if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-            var remote = data[0].value;
+      if (typeof GhSyncAPI !== 'undefined' && localStorage.getItem('sytam_github_token')) {
+        GhSyncAPI.getOrders().then(function(data) {
+          if (data && data.orders && Array.isArray(data.orders)) {
+            var remote = data.orders;
             var localById = {};
             orders.forEach(function(o) { if (o && o.id) localById[o.id] = o; });
             remote.forEach(function(o) {
@@ -207,6 +255,18 @@
     showToast('✓ Configuration EmailJS sauvegardée');
   }
 
+  function saveGithubToken() {
+    var token = ($('github-token') && $('github-token').value.trim()) || '';
+    localStorage.setItem('sytam_github_token', token);
+    var msg = $('github-msg');
+    if (msg) { msg.textContent = '✓ Token sauvegardé'; setTimeout(function() { msg.textContent = ''; }, 3000); }
+    showToast('✓ Token GitHub sauvegardé');
+    if (token) _syncProductsToGitHub();
+  }
+  function loadGithubToken() {
+    var saved = localStorage.getItem('sytam_github_token');
+    if (saved && $('github-token')) $('github-token').value = saved;
+  }
   function loadEmailJsConfig() {
     if ($('emailjs-pubkey')) $('emailjs-pubkey').value = localStorage.getItem('sytam_emailjs_pubkey') || '';
     if ($('emailjs-service')) $('emailjs-service').value = localStorage.getItem('sytam_emailjs_service') || '';
@@ -938,7 +998,7 @@
     if (editingId) DB.update(editingId, data); else DB.add(data);
     closeModal();
     loadProducts();
-    _syncToSupabase('sytam_products_v4');
+    _syncProductsToGitHub();
     showToast('✓ Produit ' + (editingId ? 'modifié' : 'ajouté'));
     } catch(e) { showToast('Erreur', 'Impossible de sauvegarder: ' + e.message); }
   }
@@ -946,7 +1006,7 @@
   function deleteProduct(id) {
     if (!confirm('Supprimer ce produit ?')) return;
     DB.delete(id);
-    _syncToSupabase('sytam_products_v4');
+    _syncProductsToGitHub();
     loadProducts();
     showToast('✓ Produit supprimé');
   }
@@ -1031,7 +1091,7 @@
     o.statut = status;
     o.mis_a_jour = new Date().toISOString();
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-    _syncToSupabase('sytam_orders_v2');
+    _syncOrdersToGitHub();
     loadOrders(); loadDashboard();
     showToast('✓ Statut mis à jour');
   }
@@ -1041,7 +1101,7 @@
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     orders = orders.filter(function(x) { return x.id !== id; });
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-    _syncToSupabase('sytam_orders_v2');
+    _syncOrdersToGitHub();
     loadOrders(); loadDashboard();
     showToast('✓ Commande supprimée');
   }
@@ -1106,7 +1166,6 @@
     var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
     refs.push({ id: Date.now().toString(36), code: code, reduction: reduction, used: 0, actif: actif });
     localStorage.setItem('sytam_referrals', JSON.stringify(refs));
-    _syncToSupabase('sytam_referrals');
     closeModal();
     loadReferrals();
     showToast('✓ Code ' + code + ' créé');
@@ -1116,7 +1175,6 @@
     var refs = JSON.parse(localStorage.getItem('sytam_referrals') || '[]');
     refs = refs.filter(function(r) { return r.id !== id; });
     localStorage.setItem('sytam_referrals', JSON.stringify(refs));
-    _syncToSupabase('sytam_referrals');
     loadReferrals();
   }
 
@@ -1317,7 +1375,6 @@
   }
   function _saveCosts(costs) {
     localStorage.setItem('sytam_product_costs', JSON.stringify(costs));
-    _syncToSupabase('sytam_product_costs');
   }
   function _fmt(n) { return (n || 0).toLocaleString('fr-FR'); }
 
@@ -2515,7 +2572,6 @@
     }
     entry.points = (entry.points || 0) + pts;
     localStorage.setItem('sytam_loyalty_v2', JSON.stringify(loyalty));
-    _syncToSupabase('sytam_loyalty_v2');
     // Refresh dossier section G
     var d = _getClientData();
     var content = document.getElementById('clientDossierContent');
@@ -2545,7 +2601,6 @@
       }
     }
     localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
-    _syncToSupabase('sytam_accounts');
     showToast('✅', 'Statut noté comme "' + newStatus + '" dans les notes');
     _showClientDossier(phone);
   }
@@ -2559,7 +2614,6 @@
       }
     }
     localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
-    _syncToSupabase('sytam_accounts');
     showToast('✅', 'Marquée comme à relancer');
   }
 
@@ -2569,7 +2623,7 @@
       if (orders[i].id === orderId) { orders[i].statut = newStatus; break; }
     }
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-    _syncToSupabase('sytam_orders_v2');
+    _syncOrdersToGitHub();
     showToast('Statut', 'Commande ' + orderId + ' → ' + newStatus + ' ✅');
     _showClientDossier(phone);
   }
@@ -2591,7 +2645,6 @@
       accounts.push({ phone: phone, note: val, created_at: new Date().toISOString() });
     }
     localStorage.setItem('sytam_accounts', JSON.stringify(accounts));
-    _syncToSupabase('sytam_accounts');
     showToast('Note', 'Note enregistrée ✅');
   }
 
@@ -2670,7 +2723,7 @@
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,
     updateMeasurePlaceholders, addMesureField, removeMesureField,
-    loadAnalytics, syncAnalytics, loadFinance, loadClients,
+    loadAnalytics, syncAnalytics, loadFinance, loadClients, saveGithubToken,
     _setFinancePeriod, _setFinanceCustom, _saveFinanceCosts, _updateFinanceRow, _getCosts,
     _setClientFilter, _setClientSort, _saveClientNote, _exportClientsCSV,
     _showClientDossier, _hideClientDossier, _openClientDrawer, _closeClientDrawer, _switchClientSubtab, _addFidelityPoints, _dossierChangeStatus, _markRelance, _updateDossierOrderStatus,

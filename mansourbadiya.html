@@ -300,6 +300,13 @@
           <button class="btn-add" onclick="SytamAdmin.saveNtfyTopic()">Sauvegarder</button>
         </div>
         <div class="card">
+          <div class="card-title">🔑 Sync GitHub — sync PC ↔ téléphone</div>
+          <p style="font-size:.72rem;color:var(--tl);margin:0 0 8px">Colle ton <strong>token GitHub</strong> pour synchroniser les produits entre l'admin (PC/téléphone) et le site client. Le token est stocké uniquement dans ton navigateur.</p>
+          <div class="form-group"><label class="form-label">Token GitHub (ghp_... ou github_pat_...)</label><input class="form-input" id="github-token" placeholder="github_pat_..." type="password"></div>
+          <button class="btn-add" onclick="SytamAdmin.saveGithubToken()">Sauvegarder</button>
+          <span id="github-msg" style="font-size:.75rem;color:var(--ok);margin-left:8px"></span>
+        </div>
+        <div class="card">
           <div class="card-title">Email (EmailJS) — Mot de passe oublié</div>
           <p style="font-size:.72rem;color:var(--tl);margin:0 0 8px">Créez un compte gratuit sur <a href="https://emailjs.com" target="_blank" style="color:var(--ac)">emailjs.com</a>, créez un template d'email avec les variables <code>{{link}}</code> et <code>{{email}}</code>, puis collez les clés ici.</p>
           <div class="form-group"><label class="form-label">Clé publique (Public Key)</label><input class="form-input" id="emailjs-pubkey" placeholder="Ex: xxxx_xxxxxxxxxxxxx"></div>
@@ -321,8 +328,7 @@
 </div>
 </div>
 
-<script src="js/supabase-config.js?v=8"></script>
-<script src="js/supabase-loader.js?v=8"></script>
+<script src="js/github-sync.js?v=1"></script>
 <script src="js/products.js?v=7"></script>
 <script src="js/analytics.js?v=7"></script>
 <script src="js/admin.js?v=7"></script>

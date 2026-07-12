@@ -281,7 +281,7 @@ const DB = {
     }
     // Tentative seed depuis data.json
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'data/data.json', true);
+    xhr.open('GET', 'data/products.json?v=' + Date.now(), true);
     xhr.onload = function() {
       if (xhr.status === 200) {
         try {

@@ -8,9 +8,6 @@ window.AccountApp = (function() {
 
   function _saveAccounts(list) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.upsert(STORAGE_KEY, list).catch(function(){});
-    }
   }
 
   function _hash(pwd) {
@@ -81,26 +78,6 @@ window.AccountApp = (function() {
       if (found.password !== _hash(password)) return { error: 'Mot de passe incorrect.' };
       _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
       return { success: true };
-    }
-    // Fallback Supabase si pas trouvé en local
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.get(STORAGE_KEY).then(function(data) {
-        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data[0].value));
-          var accounts2 = _getAccounts();
-          for (var j = 0; j < accounts2.length; j++) {
-            if (accounts2[j].phone === phone) { found = accounts2[j]; break; }
-          }
-          if (found) {
-            if (found.password !== _hash(password)) { if (callback) callback({ error: 'Mot de passe incorrect.' }); return; }
-            _saveSession({ phone: found.phone, name: found.name, email: found.email, address: found.address || { phone: found.phone, region: 'Dakar', quartier: '', address_detail: '' } });
-            if (callback) callback({ success: true });
-            return;
-          }
-        }
-        if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' });
-      }).catch(function() { if (callback) callback({ error: 'Aucun compte trouvé avec ce numéro.' }); });
-      return { pending: true };
     }
     return { error: 'Aucun compte trouvé avec ce numéro.' };
   }
@@ -274,31 +251,8 @@ window.AccountApp = (function() {
     }
     if (found) return _doSendRecovery(found, email);
     var errEl = document.getElementById('ac-forgot-error');
-    var btn = document.getElementById('ac-forgot-btn');
-    // Fallback Supabase
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      errEl.textContent = '⏳ Vérification...';
-      errEl.style.display = 'block';
-      SupabaseAPI.get(STORAGE_KEY).then(function(data) {
-        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data[0].value));
-          var accounts2 = _getAccounts();
-          for (var j = 0; j < accounts2.length; j++) {
-            if ((accounts2[j].email || '').toLowerCase() === email) { found = accounts2[j]; break; }
-          }
-          if (found) return _doSendRecovery(found, email);
-        }
-        errEl.textContent = 'Aucun compte trouvé avec cet email.';
-        errEl.style.background = '';
-        errEl.style.color = '';
-      }).catch(function() {
-        errEl.textContent = 'Aucun compte trouvé avec cet email.';
-        errEl.style.display = 'block';
-      });
-    } else {
-      errEl.textContent = 'Aucun compte trouvé avec cet email.';
-      errEl.style.display = 'block';
-    }
+    errEl.textContent = 'Aucun compte trouvé avec cet email.';
+    errEl.style.display = 'block';
   }
 
   function _doSendRecovery(found, email) {

@@ -73,16 +73,17 @@
         _startFeaturedScroll();
       });
     };
-    // Pull produits depuis Supabase au chargement
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.get('sytam_products_v4').then(function(data) {
-        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-          localStorage.setItem('sytam_products_v4', JSON.stringify(data[0].value));
-          if (typeof DB !== 'undefined') DB.reloadFromLocal();
-          _doRender();
-        } else { _doRender(); }
-      }).catch(function() { _doRender(); });
-    } else { _doRender(); }
+    // Pull produits depuis GitHub Pages
+    fetch('data/products.json?v=' + Date.now()).then(function(r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    }).then(function(json) {
+      if (json && json.products && Array.isArray(json.products) && json.products.length) {
+        localStorage.setItem('sytam_products_v4', JSON.stringify(json.products));
+        if (typeof DB !== 'undefined') DB.reloadFromLocal();
+      }
+      _doRender();
+    }).catch(function() { _doRender(); });
   }
 
   function _renderFromData(data) {
@@ -746,30 +747,9 @@
     for (var i = 0; i < refs.length; i++) {
       if (refs[i].code === code) { found = refs[i]; break; }
     }
-    if (!found && typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.get('sytam_referrals').then(function(data) {
-        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-          localStorage.setItem('sytam_referrals', JSON.stringify(data[0].value));
-          for (var j = 0; j < data[0].value.length; j++) {
-            if (data[0].value[j].code === code) { found = data[0].value[j]; break; }
-          }
-          if (found) {
-            _appliedPromo = found;
-            msg.textContent = '✓ Code ' + code + ' : -' + found.reduction + '%';
-            msg.style.color = 'var(--ok)';
-            renderCheckoutSummary();
-          } else {
-            msg.textContent = 'Code de parrainage invalide';
-            msg.style.color = 'var(--er)';
-          }
-        } else {
-          msg.textContent = 'Code de parrainage invalide';
-          msg.style.color = 'var(--er)';
-        }
-      }).catch(function() {
-        msg.textContent = 'Code de parrainage invalide';
-        msg.style.color = 'var(--er)';
-      });
+    if (!found) {
+      msg.textContent = 'Code de parrainage invalide';
+      msg.style.color = 'var(--er)';
       return;
     }
     if (!found) { msg.textContent = 'Code de parrainage invalide'; msg.style.color = 'var(--er)'; return; }
@@ -841,13 +821,10 @@
         mis_a_jour: new Date().toISOString(),
       };
 
-      // Sauvegarder la commande dans localStorage + push vers Supabase
+      // Sauvegarder la commande dans localStorage
       var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
       orders.unshift(order);
       localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-      if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-        SupabaseAPI.upsert('sytam_orders_v2', orders).catch(function(){});
-      }
       // Notifier via ntfy
       sendNtfyNotification(order);
 
@@ -1134,21 +1111,7 @@
     }
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     if (orders.length) { showOrder(orders); return; }
-    // Fallback Supabase
-    if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-      SupabaseAPI.get('sytam_orders_v2').then(function(data) {
-        if (data && data.length && data[0] && Array.isArray(data[0].value)) {
-          localStorage.setItem('sytam_orders_v2', JSON.stringify(data[0].value));
-          showOrder(data[0].value);
-        } else {
-          resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
-        }
-      }).catch(function() {
-        resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
-      });
-    } else {
-      resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
-    }
+    resultDiv.style.display = 'block'; resultDiv.innerHTML = '<p style="color:var(--danger)">Aucune commande trouvée.</p>';
   }
 
   function cancelOrder(orderId, phoneDigits) {
@@ -1161,9 +1124,6 @@
         orders[ci].statut = 'annulee';
         orders[ci].mis_a_jour = new Date().toISOString();
         localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
-        if (typeof SupabaseAPI !== 'undefined' && SupabaseApp && SupabaseApp.ready) {
-          SupabaseAPI.upsert('sytam_orders_v2', orders).catch(function(){});
-        }
         trackOrder();
         return;
       }
