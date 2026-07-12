@@ -127,22 +127,6 @@
   function pollOrders() {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var changed = false;
-    // Pull commandes depuis GitHub si token présent
-    try {
-      var _pulled = false;
-      if (typeof GhSyncAPI !== 'undefined' && localStorage.getItem('sytam_github_token')) {
-        GhSyncAPI.getOrders().then(function(data) {
-          if (data && data.orders && Array.isArray(data.orders)) {
-            var remote = data.orders;
-            var localById = {};
-            orders.forEach(function(o) { if (o && o.id) localById[o.id] = o; });
-            remote.forEach(function(o) {
-              if (o && o.id && !localById[o.id]) { orders.unshift(o); changed = true; }
-            });
-          }
-        }).catch(function(){});
-      }
-    } catch(e) {}
     // Auto-annulation des commandes en_attente depuis plus d'1h
     var now = Date.now();
     for (var oi = 0; oi < orders.length; oi++) {
@@ -159,7 +143,31 @@
     if (changed) {
       localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
     }
-    refreshCurrentTab();
+    // Pull commandes depuis GitHub si token présent
+    if (typeof GhSyncAPI !== 'undefined' && localStorage.getItem('sytam_github_token')) {
+      GhSyncAPI.getOrders().then(function(data) {
+        if (data && data.orders && Array.isArray(data.orders)) {
+          var remote = data.orders;
+          var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+          var localById = {};
+          localOrders.forEach(function(o) { if (o && o.id) localById[o.id] = o; });
+          var ghChanged = false;
+          remote.forEach(function(o) {
+            if (o && o.id && !localById[o.id]) { localOrders.unshift(o); ghChanged = true; }
+          });
+          if (ghChanged) {
+            localStorage.setItem('sytam_orders_v2', JSON.stringify(localOrders));
+            refreshCurrentTab();
+          }
+        }
+        _afterPoll();
+      }).catch(function() { _afterPoll(); });
+    } else {
+      _afterPoll();
+    }
+  }
+  function _afterPoll() {
+    var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
     if (pending > _notifLastCount && _notifLastCount > 0) {
       var diff = pending - _notifLastCount;
@@ -179,6 +187,14 @@
       });
     }
     _notifLastCount = pending;
+  }
+  function syncNow() {
+    var token = localStorage.getItem('sytam_github_token');
+    if (!token) { showToast('⚠️', 'Token GitHub non défini dans Paramètres'); return; }
+    showToast('🔄', 'Synchro en cours…');
+    _syncOrdersToGitHub();
+    _syncProductsToGitHub();
+    setTimeout(function() { loadOrders(); showToast('✅', 'Synchro terminée'); }, 2000);
   }
   function sendNtfy(order) {
     var topic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
@@ -2742,7 +2758,7 @@
     _toggleProductSizes,
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
-    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic, saveEmailJsConfig,
+    loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic, saveEmailJsConfig, syncNow,
 
     openReferralModal, saveReferral, deleteReferral, loadReferrals,
     loadLoyalty, searchLoyalty, exportData, importData, restoreDefaults,

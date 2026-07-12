@@ -141,7 +141,7 @@
     <div class="tab" id="tab-orders">
       <div class="topbar">
         <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Commandes</h1><p>Gestion des commandes boutique</p></div></div>
-        <div class="topbar-right">
+        <div class="topbar-right" style="display:flex;align-items:center;gap:8px">
           <select class="form-input" style="width:auto;padding:.5rem .8rem" id="orderFilter" onchange="SytamAdmin.loadOrders()">
             <option value="all">Toutes</option>
             <option value="en_attente">En attente</option>
@@ -149,6 +149,7 @@
             <option value="livree">Livrées</option>
             <option value="annulee">Annulées</option>
           </select>
+          <button class="btn-add btn-sm" onclick="SytamAdmin.syncNow()" style="font-size:.75rem;padding:.4rem .7rem">🔄 Sync</button>
         </div>
       </div>
       <div class="card">
