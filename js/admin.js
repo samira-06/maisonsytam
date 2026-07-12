@@ -153,11 +153,17 @@
           localOrders.forEach(function(o) { if (o && o.id) localById[o.id] = o; });
           var ghChanged = false;
           remote.forEach(function(o) {
-            if (o && o.id && !localById[o.id]) { localOrders.unshift(o); ghChanged = true; }
+            if (o && o.id) {
+              if (!localById[o.id]) {
+                localOrders.unshift(o); ghChanged = true;
+              } else if (localById[o.id].statut !== o.statut || localById[o.id].mis_a_jour !== o.mis_a_jour) {
+                for (var k in o) localById[o.id][k] = o[k];
+                ghChanged = true;
+              }
+            }
           });
           if (ghChanged) {
             localStorage.setItem('sytam_orders_v2', JSON.stringify(localOrders));
-            refreshCurrentTab();
           }
         }
         _afterPoll();
@@ -168,6 +174,7 @@
   }
   function _afterPoll() {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    refreshCurrentTab();
     var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
     if (pending > _notifLastCount && _notifLastCount > 0) {
       var diff = pending - _notifLastCount;

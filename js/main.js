@@ -863,10 +863,32 @@
         }
         DB.update(prod.id, prod);
       });
-      // Sync vers GitHub via la même fonction que l'admin
-      if (typeof _ghWriteFile !== 'undefined' && localStorage.getItem('sytam_github_token')) {
-        _ghWriteFile('data/products.json', JSON.stringify({ products: DB.getAll(), updated_at: new Date().toISOString() }), 'Sync stock (client)').catch(function(e) { console.warn('GitHub stock push fail:', e); });
-        _ghWriteFile('data/orders.json', JSON.stringify({ orders: orders, updated_at: new Date().toISOString() }), 'Sync commande (client)').catch(function(e) { console.warn('GitHub orders push fail:', e); });
+      // Sync vers GitHub
+      var ghToken = localStorage.getItem('sytam_github_token');
+      if (ghToken) {
+        var syncEl = document.getElementById('sync-status');
+        var ghProducts = JSON.stringify({ products: DB.getAll(), updated_at: new Date().toISOString() });
+        var ghOrders = JSON.stringify({ orders: orders, updated_at: new Date().toISOString() });
+        function _doPush(file, body, retries) {
+          retries = retries || 0;
+          var headers = { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+          fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/' + file, { method: 'GET', headers: headers })
+            .then(function(r) { return r.json(); })
+            .then(function(existing) {
+              var payload = { message: 'Sync ' + file, content: btoa(unescape(encodeURIComponent(body))) };
+              if (existing && existing.sha) payload.sha = existing.sha;
+              return fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/' + file, { method: 'PUT', headers: headers, body: JSON.stringify(payload) });
+            }).then(function(r) {
+              if (!r.ok && r.status === 409 && retries < 3) { return _doPush(file, body, retries + 1); }
+              if (!r.ok) throw new Error(r.status);
+            }).catch(function(e) { console.warn('GitHub ' + file + ' push fail:', e); if (syncEl) syncEl.textContent = '⚠️ Échec synchro'; });
+        }
+        _doPush('products.json', ghProducts);
+        _doPush('orders.json', ghOrders);
+        if (syncEl) syncEl.textContent = '🔄 Synchronisation...';
+      } else {
+        var syncEl = document.getElementById('sync-status');
+        if (syncEl) syncEl.style.display = 'none';
       }
       SytamCart.clear();
       closeCheckout();
