@@ -12,18 +12,11 @@
         .then(function(data) { return data; });
     },
     upsert: function(key, value) {
-      return fetch(url + '/rest/v1/store_data?key=eq.' + encodeURIComponent(key), {
-        method: 'PATCH', headers: headers, body: JSON.stringify({ key: key, value: value })
-      }).then(function(r) {
-        if (r.status === 404) {
-          // Table doesn't exist yet → POST to create
-          return fetch(url + '/rest/v1/store_data', {
-            method: 'POST', headers: headers, body: JSON.stringify({ key: key, value: value })
-          }).then(function(r2) { if (!r2.ok) throw new Error(r2.status); return r2.json(); });
-        }
-        if (!r.ok) throw new Error(r.status);
-        return r.json();
-      });
+      return fetch(url + '/rest/v1/store_data', {
+        method: 'POST',
+        headers: { 'apikey': anonKey, 'Authorization': 'Bearer ' + anonKey, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: key, value: value })
+      }).then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); });
     }
   };
   console.log('Supabase ready');
