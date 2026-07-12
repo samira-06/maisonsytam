@@ -866,7 +866,8 @@
     if (!name) { showToast('Erreur', 'Donne un nom à la couleur'); return; }
     var div = document.createElement('div');
     div.className = 'c-row';
-    var existingHasSizes = list.querySelector('.c-stock-s, .c-stock-m, .c-stock-l, .c-stock-xl');
+    var hasSizesCheck = document.getElementById('has-sizes');
+    var existingHasSizes = list.querySelector('.c-stock-s, .c-stock-m, .c-stock-l, .c-stock-xl') || (hasSizesCheck && hasSizesCheck.checked);
     var stockVal;
     if (existingHasSizes) {
       stockVal = {};
