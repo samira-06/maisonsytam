@@ -41,7 +41,7 @@ const NEIGHBORHOODS = [
   { nom: 'Liberté 6', zone: 'dakar_centre_proche' },
   { nom: 'Sicap Liberté', zone: 'dakar_centre_proche' },
   { nom: 'Foire', zone: 'dakar_centre' },
-  { nom: 'Castor', zone: 'dakar_centre_proche' },
+  { nom: 'Castors', zone: 'dakar_centre_proche' },
   { nom: 'Point E', zone: 'dakar_centre' },
   { nom: 'Sacré Cœur', zone: 'dakar_centre' },
   { nom: 'HLM', zone: 'dakar_centre' },
