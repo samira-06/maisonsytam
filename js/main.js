@@ -669,15 +669,21 @@
     var nameInput = document.querySelector('#checkout-form [name="name"]');
     var phoneInput = document.querySelector('#checkout-form [name="phone"]');
     var regionInput = document.getElementById('region-input');
-    var quartierInput = document.getElementById('quartier-input');
+    var regionTrigger = document.querySelector('#region-trigger span');
+    var quartierTrigger = document.querySelector('#quartier-trigger span');
+    var quartierHidden = document.querySelector('#checkout-form [name="address"]');
     var addrDetail = document.getElementById('address-detail-input');
     if (nameInput && addr.name) nameInput.value = addr.name;
     if (phoneInput && addr.phone) phoneInput.value = addr.phone;
     if (regionInput && addr.region) {
       regionInput.value = addr.region;
+      if (regionTrigger) regionTrigger.textContent = addr.region;
       if (typeof handleRegionChange === 'function') handleRegionChange(addr.region);
     }
-    if (quartierInput && addr.quartier) quartierInput.value = addr.quartier;
+    if (quartierTrigger && addr.quartier) {
+      quartierTrigger.textContent = addr.quartier;
+      if (quartierHidden) quartierHidden.value = addr.quartier;
+    }
     if (addrDetail && addr.address_detail) addrDetail.value = addr.address_detail;
     renderCheckoutSummary();
   }
@@ -685,10 +691,10 @@
   function _neighborhoodZone() {
     var regionInput = document.getElementById('region-input');
     if (regionInput && regionInput.value !== 'Dakar') return 'regions';
-    var quartierInput = document.getElementById('quartier-input');
-    if (!quartierInput) return 'dakar_centre';
-    var val = (quartierInput.value || '').toLowerCase();
-    if (!val) return 'dakar_centre';
+    var trigger = document.getElementById('quartier-trigger');
+    if (!trigger) return 'dakar_centre';
+    var val = (trigger.querySelector('span').textContent || '').toLowerCase();
+    if (!val || val === 'sélectionnez' || val === 'non applicable hors dakar') return 'dakar_centre';
     var banlieue = ['parcelles','grand yoff','guediawaye','pikine','thiaroye','yeumbeul','diamaguène','dalifort','mbao','keur massar','malika','guinaw rails','ndiarème','jaxaay','mbeubeuss','golf nord','sipres','gadaye','sam notaire','cité aliou','cité biagui','cité douane','cité enseignants','cité gadaye','keur mbaye fall'];
     var regions = ['rufisque','bargny','sébikotane','diamniadio','sangalkam','bambilor','lac rose'];
     for (var i = 0; i < banlieue.length; i++) { if (val.indexOf(banlieue[i]) !== -1) return 'dakar_banlieue'; }
@@ -915,16 +921,32 @@
         renderShop({ category: chip.dataset.cat });
       }
     });
-    // region input change handler
-    document.addEventListener('change', function(e) {
-      if (e.target.id === 'region-input') {
-        handleRegionChange(e.target.value);
-        if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
-      }
-    });
-    document.addEventListener('input', function(e) {
-      if (e.target.id === 'quartier-input' || e.target.id === 'region-input') {
-        if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
+    // quartier + region picker
+    document.addEventListener('click', function(e) {
+      var qTrig = e.target.closest('[data-picker="quartier"]');
+      var rTrig = e.target.closest('[data-picker="region"]');
+      if (qTrig) {
+        DrumPicker.open({
+          items: QUARTIERS,
+          title: 'Choisir un quartier',
+          onConfirm: function(v) {
+            qTrig.querySelector('span').textContent = v;
+            document.querySelector('[name="address"]').value = v;
+            if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
+          }
+        });
+      } else if (rTrig) {
+        DrumPicker.open({
+          items: REGIONS,
+          title: 'Choisir une région',
+          showSearch: false,
+          onConfirm: function(v) {
+            rTrig.querySelector('span').textContent = v;
+            document.getElementById('region-input').value = v;
+            handleRegionChange(v);
+            if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
+          }
+        });
       }
     });
     window.addEventListener('hashchange', () => navigate(window.location.hash.slice(1) || 'home'));

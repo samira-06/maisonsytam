@@ -235,12 +235,18 @@
         <div class="picker-row">
           <div class="form-group" id="quartier-group">
             <label>Quartier</label>
-            <input type="text" name="address" id="quartier-input" placeholder="Ex: Mermoz, Sacré-Cœur...">
+            <div class="picker-trigger" id="quartier-trigger" data-picker="quartier">
+              <span>Sélectionnez</span>
+            </div>
+            <input type="hidden" name="address" value="">
             <span class="field-error" id="quartier-error"></span>
           </div>
           <div class="form-group" id="region-group">
             <label>Région</label>
-            <input type="text" name="region" id="region-input" value="Dakar" placeholder="Dakar, Thiès, Saint-Louis...">
+            <div class="picker-trigger" id="region-trigger" data-picker="region">
+              <span>Dakar</span>
+            </div>
+            <input type="hidden" name="region" id="region-input" value="Dakar">
           </div>
         </div>
         <div class="form-group">
@@ -341,6 +347,7 @@
 <script src="js/i18n.js?v=7"></script>
 <script src="js/products.js?v=7"></script>
 <script src="js/cart.js?v=7"></script>
+<script src="js/drum-picker.js?v=7"></script>
 <script src="js/analytics.js?v=7"></script>
 <script src="js/main.js?v=7"></script>
 <script src="js/account.js?v=7"></script>
@@ -364,27 +371,33 @@ function selectPayment(el) {
 function handleRegionChange(regionVal) {
   var isDakar = regionVal === 'Dakar';
   var qGroup = document.getElementById('quartier-group');
-  var qInput = document.getElementById('quartier-input');
+  var qTrigger = document.getElementById('quartier-trigger');
+  var qHidden = document.querySelector('[name="address"]');
   var addrLabel = document.getElementById('address-optional-text');
   var addrInput = document.getElementById('address-detail-input');
-  if (!qGroup || !qInput || !addrLabel || !addrInput) return;
+  if (!qGroup || !qTrigger || !qHidden || !addrLabel || !addrInput) return;
 
+  // Clear errors
   document.getElementById('quartier-error').textContent = '';
   document.getElementById('address-error').textContent = '';
 
   if (isDakar) {
-    qGroup.style.display = '';
-    qInput.required = true;
+    qGroup.classList.remove('region-disabled');
+    qTrigger.style.pointerEvents = '';
+    qTrigger.querySelector('span').textContent = 'Sélectionnez';
+    qHidden.value = '';
     addrLabel.textContent = '(optionnel)';
     addrLabel.style.color = '';
+    addrInput.removeAttribute('required');
   } else {
-    qGroup.style.display = 'none';
-    qInput.required = false;
-    qInput.value = '';
-    addrLabel.textContent = '(obligatoire pour les régions)';
-    addrLabel.style.color = 'var(--danger)';
+    qGroup.classList.add('region-disabled');
+    qTrigger.style.pointerEvents = 'none';
+    qTrigger.querySelector('span').textContent = 'Non applicable hors Dakar';
+    qHidden.value = '';
+    addrLabel.textContent = '(OBLIGATOIRE) *';
+    addrLabel.style.color = '#d32f2f';
+    addrInput.setAttribute('required', '');
   }
-}
   if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
 }
 
@@ -392,16 +405,17 @@ function handleCheckout(form) {
   var fd = new FormData(form);
   var region = fd.get('region') || 'Dakar';
   var isDakar = region === 'Dakar';
-  var quartier = (fd.get('address') || '').trim();
+  var quartier = fd.get('address') || document.querySelector('#quartier-trigger span').textContent;
   var addressDetail = (fd.get('address_detail') || '').trim();
 
   // Clear errors
   document.getElementById('quartier-error').textContent = '';
   document.getElementById('address-error').textContent = '';
 
+  // Conditional validation
   if (isDakar) {
-    if (!quartier) {
-      document.getElementById('quartier-error').textContent = 'Veuillez entrer un quartier';
+    if (!quartier || quartier === 'Sélectionnez' || quartier === 'Non applicable hors Dakar') {
+      document.getElementById('quartier-error').textContent = 'Veuillez choisir un quartier';
       return;
     }
   } else {
@@ -444,8 +458,12 @@ function handleCheckout(form) {
   document.querySelectorAll('.payment-option').forEach(function(o,i) { o.classList.toggle('active', i===0); });
   var payInfo = document.getElementById('payment-info');
   if (payInfo) payInfo.innerHTML = 'Envoyez votre paiement au <strong>77 478 98 75</strong> et envoyez la capture sur WhatsApp pour confirmer votre commande.';
-  document.getElementById('quartier-input').value = '';
-  document.getElementById('region-input').value = 'Dakar';
+  document.querySelector('#quartier-trigger span').textContent = 'Sélectionnez';
+  document.querySelector('[name="address"]').value = '';
+  var regionInput = document.getElementById('region-input');
+  var regionTrigger = document.getElementById('region-trigger');
+  if (regionInput) regionInput.value = 'Dakar';
+  if (regionTrigger) regionTrigger.querySelector('span').textContent = 'Dakar';
   handleRegionChange('Dakar');
 }
 function handleContact() {
