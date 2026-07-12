@@ -863,6 +863,31 @@
         }
         DB.update(prod.id, prod);
       });
+      // Sync vers GitHub (token partagé via localStorage entre index et admin)
+      var ghToken = localStorage.getItem('sytam_github_token');
+      if (ghToken) {
+        try {
+          var ghProducts = JSON.stringify({ products: DB.getAll(), updated_at: new Date().toISOString() });
+          var ghOrders = JSON.stringify({ orders: orders, updated_at: new Date().toISOString() });
+          var ghHeaders = { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+          // Push produits (stock mis à jour)
+          fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', { method: 'GET', headers: ghHeaders })
+            .then(function(r) { return r.json(); })
+            .then(function(existing) {
+              var body = { message: 'Sync stock', content: btoa(unescape(encodeURIComponent(ghProducts))) };
+              if (existing && existing.sha) body.sha = existing.sha;
+              fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', { method: 'PUT', headers: ghHeaders, body: JSON.stringify(body) }).catch(function(){});
+            }).catch(function(){});
+          // Push commande
+          fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', { method: 'GET', headers: ghHeaders })
+            .then(function(r) { return r.json(); })
+            .then(function(existing) {
+              var body = { message: 'Sync commande', content: btoa(unescape(encodeURIComponent(ghOrders))) };
+              if (existing && existing.sha) body.sha = existing.sha;
+              fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', { method: 'PUT', headers: ghHeaders, body: JSON.stringify(body) }).catch(function(){});
+            }).catch(function(){});
+        } catch(e) {}
+      }
       SytamCart.clear();
       closeCheckout();
       document.getElementById('order-ref').textContent = order.id;
