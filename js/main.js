@@ -927,7 +927,6 @@
         if (window.SytamApp && SytamApp.renderCheckoutSummary) SytamApp.renderCheckoutSummary();
       }
     });
-    });
     window.addEventListener('hashchange', () => navigate(window.location.hash.slice(1) || 'home'));
     var _scrollTimer;
     window.addEventListener('scroll', function() {
