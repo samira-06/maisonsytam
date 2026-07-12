@@ -742,6 +742,7 @@
       }
     }
     var _defPlaceholder = getMeasurePlaceholder(categorie);
+    var _hasSizes = colors.some(function(c) { return c.stocks && Object.keys(c.stocks).length; });
 
     openModal(
       '<button class="modal-close" onclick="SytamAdmin.closeModal()">✕</button>' +
@@ -756,8 +757,9 @@
       '<div class="form-group"><label class="form-label">Description</label><textarea class="form-input" name="description" rows="3">' + desc + '</textarea></div>' +
       '<div class="form-group"><label class="form-label">Images</label><div id="image-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' + (images ? images.split('\n').filter(Boolean).map(function(u, idx) { return '<div style="position:relative;display:inline-block"><img src="' + u + '" style="width:60px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--bd)"><button type="button" class="btn-del btn-sm" onclick="SytamAdmin.removeImage(this)" style="position:absolute;top:-6px;right:-6px;padding:2px 5px;font-size:.65rem;border-radius:50%;line-height:1">✕</button></div>'; }).join('') : '') + '</div><div style="display:flex;gap:8px;margin-bottom:6px"><input type="file" accept="image/*" id="imageUpload" style="flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px;font-size:.8rem" onchange="SytamAdmin.uploadImage(this)"><button type="button" class="btn-del btn-sm" onclick="this.previousElementSibling.value=\'\'" style="padding:8px 12px">✕</button></div><textarea class="form-input" name="images" rows="2" placeholder="https://...">' + images + '</textarea></div>' +
       '<div class="form-group"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">COULEURS &amp; STOCKS</label>' +
+      '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:.82rem;cursor:pointer"><input type="checkbox" id="has-sizes" ' + (_hasSizes ? 'checked' : '') + ' onchange="SytamAdmin._toggleProductSizes(this.checked)"> Disponible en tailles (S, M, L, XL)</label>' +
       '<div id="colors-list">' + renderColorsEdit(colors) + '</div>' +
-      '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + (colorsHaveSizes ? sizeStockInputsHtml(ALL_SIZES, 'add') : sizeStockInputsHtml([], 'add')) + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
+      '<div class="c-add-row"><input type="color" class="c-hex-add" value="#B8956A"><input type="text" class="c-name-add" placeholder="Nom couleur (ex: Doré)">' + (_hasSizes ? sizeStockInputsHtml(ALL_SIZES, 'add') : sizeStockInputsHtml([], 'add')) + '<button type="button" class="btn-add btn-sm c-add-btn" onclick="SytamAdmin.addColor()">+ Ajouter</button></div>' +
       '<div class="form-group" style="margin-top:16px"><label class="form-label" style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.5px">MESURES PAR TAILLE</label>' +
       '<div id="mesure-editor">' + renderMesureEditor(mesures) + '</div>' +
       '<div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="new-mesure-name" placeholder="Ex: Longueur" style="flex:1;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;font-size:.8rem"><button type="button" class="btn-add btn-sm" onclick="SytamAdmin.addMesureField()">+ Ajouter</button></div>' +
@@ -821,6 +823,39 @@
     return colors.map(function (c) {
       return '<div class="c-row">' + cRowHtml(c.hex || getHexForColor(c.name), c.name, c.stocks || c.stock, c.image || '') + '<button type="button" class="btn-del btn-sm c-remove" onclick="this.closest(\'.c-row\').remove()">✕</button></div>';
     }).join('');
+  }
+
+  function _toggleProductSizes(hasSizes) {
+    var list = document.getElementById('colors-list');
+    if (!list) return;
+    var rows = list.querySelectorAll('.c-row');
+    rows.forEach(function(row) {
+      var name = row.querySelector('.c-name') && row.querySelector('.c-name').value || '';
+      var hex = row.querySelector('.c-hex') && row.querySelector('.c-hex').value || '#B8956A';
+      var img = row.querySelector('.c-img-data') && row.querySelector('.c-img-data').value || '';
+      if (hasSizes) {
+        var stock = parseInt(row.querySelector('.c-stock') && row.querySelector('.c-stock').value) || 0;
+        row.innerHTML = cRowHtml(hex, name.replace(/"/g, '&quot;'), (function(){ var o={}; ALL_SIZES.forEach(function(s){o[s]=stock}); return o; })(), img) + '<button type="button" class="btn-del btn-sm c-remove" onclick="this.closest(\'.c-row\').remove()">✕</button>';
+      } else {
+        var stocks = {};
+        ALL_SIZES.forEach(function(s) {
+          var inp = row.querySelector('.c-stock-' + s.toLowerCase());
+          if (inp) stocks[s] = parseInt(inp.value) || 0;
+        });
+        var totalStock = Object.keys(stocks).length ? Object.values(stocks).reduce(function(a,b){return a+b},0) : 0;
+        row.innerHTML = cRowHtml(hex, name.replace(/"/g, '&quot;'), totalStock, img) + '<button type="button" class="btn-del btn-sm c-remove" onclick="this.closest(\'.c-row\').remove()">✕</button>';
+      }
+    });
+    // Also update the add-row
+    var addRow = document.querySelector('.c-add-row');
+    if (addRow) {
+      var addHex = addRow.querySelector('.c-hex-add') && addRow.querySelector('.c-hex-add').value || '#B8956A';
+      var addName = addRow.querySelector('.c-name-add') && addRow.querySelector('.c-name-add').value || '';
+      addRow.querySelectorAll('.c-stock-add, [class^="c-stock-add-"]').forEach(function(e) { e.remove(); });
+      var stockHtml = hasSizes ? sizeStockInputsHtml(ALL_SIZES, 'add') : sizeStockInputsHtml([], 'add');
+      var nameInput = addRow.querySelector('.c-name-add');
+      nameInput.insertAdjacentHTML('afterend', stockHtml);
+    }
   }
 
   function addColor() {
@@ -2626,6 +2661,7 @@
     checkAuth, login, logout, goTab, toggleSidebar,
     openProductModal, editProduct: function (id) { openProductModal(DB.getById(id)); },
     deleteProduct, addColor, saveProduct, closeModal, closeModalOut, uploadImage, uploadColorImage, removeImage,
+    _toggleProductSizes,
     viewOrder, updateStatus, deleteOrder, openMessage, deleteMessage,
 
     loadDashboard, loadOrders, loadMessages, showToast, changePwd, saveSettings, saveNtfyTopic, saveEmailJsConfig,
