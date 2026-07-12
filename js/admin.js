@@ -1088,9 +1088,33 @@
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var o = orders.find(function (x) { return x.id === id; });
     if (!o) return;
+    var oldStatus = o.statut;
     o.statut = status;
     o.mis_a_jour = new Date().toISOString();
     localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
+    // Décompte du stock quand la commande est confirmée
+    if (status === 'confirmee' && oldStatus !== 'confirmee') {
+      (o.items || []).forEach(function(item) {
+        var prod = DB.getById(item.productId);
+        if (!prod || !prod.colors) return;
+        var colorName = item.couleur || '';
+        if (!colorName && item.variantLabel) {
+          var parts = item.variantLabel.split(',').map(function(s) { return s.trim(); });
+          parts.forEach(function(p) {
+            if (p.indexOf('couleur:') === 0 || p.indexOf('Couleur:') === 0) colorName = p.split(':')[1].trim();
+          });
+        }
+        if (!colorName) return;
+        var color = null;
+        for (var ci = 0; ci < prod.colors.length; ci++) {
+          if (prod.colors[ci].name === colorName) { color = prod.colors[ci]; break; }
+        }
+        if (!color) return;
+        if (color.stock !== undefined) color.stock = Math.max(0, color.stock - (item.qte || 1));
+        DB.update(prod.id, prod);
+      });
+      _syncProductsToGitHub();
+    }
     _syncOrdersToGitHub();
     loadOrders(); loadDashboard();
     showToast('✓ Statut mis à jour');

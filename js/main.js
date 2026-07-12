@@ -811,36 +811,7 @@
             var _parts = i.variantLabel.split(',').map(function(s) { return s.trim(); });
             _parts.forEach(function(p) {
               if (p.indexOf('Couleur:') === 0 || p.indexOf('couleur:') === 0) _c = p.split(':')[1].trim();
-      });
-      // Sync vers GitHub pour voir les changements sur tous les appareils
-      if (localStorage.getItem('sytam_github_token')) {
-        try {
-          var allProducts = DB.getAll();
-          var ghContent = JSON.stringify({ products: allProducts, updated_at: new Date().toISOString() });
-          var ghToken = localStorage.getItem('sytam_github_token');
-          fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', {
-            method: 'GET', headers: { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json' }
-          }).then(function(r) { return r.json(); }).then(function(existing) {
-            var body = { message: 'Sync stock', content: btoa(unescape(encodeURIComponent(ghContent))) };
-            if (existing && existing.sha) body.sha = existing.sha;
-            fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/products.json', {
-              method: 'PUT', headers: { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-            }).catch(function(){});
-          }).catch(function(){});
-          var ghOrders = JSON.stringify({ orders: orders, updated_at: new Date().toISOString() });
-          fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', {
-            method: 'GET', headers: { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json' }
-          }).then(function(r) { return r.json(); }).then(function(existing) {
-            var body = { message: 'Sync commande', content: btoa(unescape(encodeURIComponent(ghOrders))) };
-            if (existing && existing.sha) body.sha = existing.sha;
-            fetch('https://api.github.com/repos/samira-06/maisonsytam/contents/data/orders.json', {
-              method: 'PUT', headers: { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-            }).catch(function(){});
-          }).catch(function(){});
-        } catch(e) {}
-      }
+            });
           }
           return { nom: i.productName, variantLabel: i.variantLabel, prix: i.price, qte: i.qty, productId: i.productId, couleur: _c };
         }),
