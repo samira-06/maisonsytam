@@ -1906,7 +1906,7 @@
     var accounts = JSON.parse(localStorage.getItem('sytam_accounts') || '[]');
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     var products = typeof DB !== 'undefined' && DB.getAll ? DB.getAll() : [];
-    var analytics = JSON.parse(localStorage.getItem('sytam_analytics_v1') || '[]');
+    var analytics = (function(){ try { var a = JSON.parse(localStorage.getItem('sytam_analytics_v1')); return Array.isArray(a) ? a : []; } catch(e){ return []; } })();
     var clientMap = {};
     accounts.forEach(function(acc) {
       var co = orders.filter(function(o) { return o && o.telephone && o.telephone.replace(/[^0-9]/g, '') === acc.phone; });
@@ -2446,6 +2446,7 @@
   }
 
   function _dossierSectionD(c, products, acc, analytics) {
+    if (!Array.isArray(analytics)) analytics = [];
     var prodCount = {};
     c.orders.forEach(function(o) { if (o.items) o.items.forEach(function(it) { var n = it.nom || ''; if (n) prodCount[n] = (prodCount[n] || 0) + parseInt(it.qte || it.qty || 1); }); });
     var top3 = Object.keys(prodCount).sort(function(a, b) { return prodCount[b] - prodCount[a]; }).slice(0, 3);
@@ -2565,6 +2566,7 @@
   }
 
   function _dossierSectionF(c, analytics, phone) {
+    if (!Array.isArray(analytics)) analytics = [];
     // Count sessions/visits from analytics events for this phone
     var visits = 0;
     var totalTime = 0;
