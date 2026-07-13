@@ -1120,7 +1120,7 @@
     showToast('✓ Message supprimé');
   }
 
-  function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   // ORDERS
   function loadOrders() {
@@ -2029,7 +2029,7 @@
         '<td style="text-align:center">' + statusBadge + '</td>' +
         '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(favProdName) + '">' + esc(favProdName) + '</td>' +
         '<td style="font-size:.72rem;color:var(--tl);white-space:nowrap">' + lastDate + '</td>' +
-        '<td class="actions-cell"><button class="btn-sm btn-add" onclick="SytamAdmin._openClientDrawer(\'' + c.phone + '\')" style="font-size:.6rem;padding:2px 8px">Détail</button></td>' +
+        '<td class="actions-cell"><button class="btn-sm btn-add" data-phone="' + esc(c.phone) + '" onclick="SytamAdmin._openClientDrawer(this.dataset.phone)" style="font-size:.6rem;padding:2px 8px">Détail</button></td>' +
       '</tr>';
     });
     if (!sortedList.length) coHtml += '<tr><td colspan="9" class="empty-state">Aucune cliente' + (searchVal ? ' trouvée' : '') + '</td></tr>';
@@ -2189,7 +2189,7 @@
   function _openClientDrawer(phone) {
     var d = _getClientData();
     var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
-    var c = clientMap[phone];
+    var c = clientMap[phone] || clientMap[phone.replace(/[^0-9]/g, '')];
     if (!c) { showToast('Erreur', 'Client introuvable'); return; }
     var acc = accounts.find(function(a) { return a.phone === phone; }) || null;
     var status = _getClientStatus(c);
@@ -2572,7 +2572,7 @@
     var cartAdds = 0;
     var sessions = analytics.filter(function(e) {
       if (!e || !e.phone) return false;
-      return e.phone.replace(/[^0-9]/g, '') === phone;
+      return e.phone.replace(/[^0-9]/g, '') === phone.replace(/[^0-9]/g, '');
     });
     visits = sessions.length;
     sessions.forEach(function(s) {

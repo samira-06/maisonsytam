@@ -242,7 +242,7 @@
     return `
       <div class="product-card" onclick="SytamApp.quickView('${p.id}')">
         <div class="product-card-img">
-          <img src="${img}" alt="${p.nom}" onerror="this.src='${placeholdersvg}'">
+          <img src="${img}" alt="${p.nom}" loading="lazy" onerror="this.src='${placeholdersvg}'">
           <button class="wishlist-heart${inWish ? ' active' : ''}" onclick="event.stopPropagation();if(!AccountApp.isLoggedIn()){SytamApp.navigate('account')}else{AccountApp.toggleWishlist('${p.id}');this.classList.toggle('active');this.textContent=this.classList.contains('active')?'♥':'♡'}">${inWish ? '♥' : '♡'}</button>
           ${p.promo_pct ? '<span class="badge" style="background:var(--danger)">-' + p.promo_pct + '%</span>' : ''}
           ${p.tag === 'nouveau' ? '<span class="badge">Nouveau</span>' : ''}
@@ -336,7 +336,7 @@
         <button class="modal-close" onclick="SytamApp.closeQuickView()">✕</button>
         <div class="modal-grid">
           <div class="modal-gallery" id="modal-gallery-wrap">
-            <img src="${img}" alt="${p.nom}" class="modal-main-img" id="modal-main-img">
+            <img src="${img}" alt="${p.nom}" class="modal-main-img" id="modal-main-img" loading="lazy">
             ${thumbsHtml}
           </div>
           <div class="modal-info">
