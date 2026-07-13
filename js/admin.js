@@ -199,9 +199,55 @@
     var token = localStorage.getItem('sytam_github_token');
     if (!token) { showToast('⚠️', 'Token GitHub non défini dans Paramètres'); return; }
     showToast('🔄', 'Synchro en cours…');
-    _syncOrdersToGitHub();
-    _syncProductsToGitHub();
-    setTimeout(function() { loadOrders(); showToast('✅', 'Synchro terminée'); }, 2000);
+    // 1. Pull commandes depuis GitHub (fusion)
+    var pullOrders = function() {
+      if (typeof GhSyncAPI === 'undefined') return Promise.resolve();
+      return GhSyncAPI.getOrders().then(function(data) {
+        if (data && data.orders && Array.isArray(data.orders)) {
+          var remote = data.orders;
+          var localOrders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+          var localById = {};
+          localOrders.forEach(function(o) { if (o && o.id) localById[o.id] = o; });
+          var changed = false;
+          remote.forEach(function(o) {
+            if (o && o.id) {
+              if (!localById[o.id]) { localOrders.unshift(o); changed = true; }
+              else if (localById[o.id].statut !== o.statut || localById[o.id].mis_a_jour !== o.mis_a_jour) {
+                for (var k in o) localById[o.id][k] = o[k]; changed = true;
+              }
+            }
+          });
+          if (changed) localStorage.setItem('sytam_orders_v2', JSON.stringify(localOrders));
+        }
+      }).catch(function() {});
+    };
+    // 2. Pull produits depuis GitHub
+    var pullProducts = function() {
+      if (typeof GhSyncAPI === 'undefined') return Promise.resolve();
+      return GhSyncAPI.getProducts().then(function(data) {
+        if (data && Array.isArray(data) && data.length) {
+          var localProducts = DB.getAll();
+          var localById = {};
+          localProducts.forEach(function(p) { if (p && p.id) localById[p.id] = p; });
+          var changed = false;
+          data.forEach(function(p) {
+            if (p && p.id && !localById[p.id]) { localProducts.push(p); changed = true; }
+          });
+          if (changed) {
+            localStorage.setItem('sytam_products_v4', JSON.stringify(localProducts));
+            DB.reloadFromLocal();
+          }
+        }
+      }).catch(function() {});
+    };
+    // Exécuter pull puis push
+    pullOrders().then(function() {
+      return pullProducts();
+    }).then(function() {
+      _syncOrdersToGitHub();
+      _syncProductsToGitHub();
+      setTimeout(function() { loadOrders(); showToast('✅', 'Synchro terminée'); }, 1500);
+    });
   }
   function sendNtfy(order) {
     var topic = localStorage.getItem('sytam_ntfy_topic') || 'sytam-shop';
