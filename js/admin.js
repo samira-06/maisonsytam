@@ -2605,7 +2605,7 @@
 
   function _dossierSectionG(c, orders, phone) {
     // Get fidelity data
-    var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+    var loyalty = (function(){ try { var l = JSON.parse(localStorage.getItem('sytam_loyalty_v2')); return Array.isArray(l) ? l : []; } catch(e){ return []; } })();
     var lEntry = loyalty.find(function(l) { return l.phone === phone; });
     var points = lEntry ? lEntry.points || 0 : 0;
     var redeemed = lEntry ? lEntry.redeemed || 0 : 0;
@@ -2659,7 +2659,7 @@
     if (pts === null || pts === '') return;
     pts = parseInt(pts) || 0;
     if (pts <= 0) { showToast('Erreur', 'Nombre invalide'); return; }
-    var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+    var loyalty = (function(){ try { var l = JSON.parse(localStorage.getItem('sytam_loyalty_v2')); return Array.isArray(l) ? l : []; } catch(e){ return []; } })();
     var entry = loyalty.find(function(l) { return l.phone === phone; });
     if (!entry) {
       entry = { phone: phone, points: 0, redeemed: 0 };
@@ -2777,7 +2777,7 @@
       var favSize = Object.keys(sizeCount).sort(function(a, b) { return sizeCount[b] - sizeCount[a]; })[0] || '';
       var daysSinceLast = c.lastOrder ? Math.floor((new Date() - new Date(c.lastOrder)) / 86400000) : '';
       // Find loyalty points
-      var loyalty = JSON.parse(localStorage.getItem('sytam_loyalty_v2') || '[]');
+      var loyalty = (function(){ try { var l = JSON.parse(localStorage.getItem('sytam_loyalty_v2')); return Array.isArray(l) ? l : []; } catch(e){ return []; } })();
       var lEntry = loyalty.find(function(l) { return l.phone === c.phone; });
       var pts = lEntry ? (lEntry.points || 0) : 0;
       return [
