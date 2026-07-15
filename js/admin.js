@@ -2212,7 +2212,7 @@
 
     body.innerHTML = sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG +
       '<div style="text-align:center;margin-top:8px;padding-top:12px;border-top:1px solid var(--bd)">' +
-        '<button class="btn-add" onclick="SytamAdmin._closeClientDrawer();SytamAdmin._showClientDossier(\'' + phone + '\')" style="font-size:.75rem">📋 Ouvrir le dossier complet en page entière</button>' +
+        '<button class="btn-add" data-dossier-phone="' + esc(phone) + '" onclick="SytamAdmin._closeClientDrawer();SytamAdmin._showClientDossier(this.dataset.dossierPhone)" style="font-size:.75rem">📋 Ouvrir le dossier complet en page entière</button>' +
       '</div>';
 
     document.getElementById('clientDrawer').classList.add('open');
@@ -2231,7 +2231,7 @@
   function _showClientDossier(phone) {
     var d = _getClientData();
     var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
-    var c = clientMap[phone];
+    var c = clientMap[phone] || clientMap[phone.replace(/[^0-9]/g, '')];
     if (!c) { showToast('Erreur', 'Client introuvable'); return; }
     var acc = accounts.find(function(a) { return a.phone === phone; }) || null;
     var status = _getClientStatus(c);
