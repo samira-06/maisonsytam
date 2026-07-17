@@ -2229,11 +2229,13 @@
   // ============================================================
 
   function _showClientDossier(phone) {
+    try {
     var d = _getClientData();
     var clientMap = d.clientMap, accounts = d.accounts, orders = d.orders, products = d.products;
     var c = clientMap[phone] || clientMap[phone.replace(/[^0-9]/g, '')];
     if (!c) { showToast('Erreur', 'Client introuvable'); return; }
-    var acc = accounts.find(function(a) { return a.phone === phone; }) || null;
+    var phoneClean = c.phone.replace(/[^0-9]/g, '');
+    var acc = accounts.find(function(a) { return a.phone && a.phone.replace(/[^0-9]/g, '') === phoneClean; }) || null;
     var status = _getClientStatus(c);
     var now = new Date();
     var daysSinceLast = c.lastOrder ? Math.floor((now - new Date(c.lastOrder)) / 86400000) : 999;
@@ -2272,6 +2274,7 @@
     var sectionH = _dossierSectionH(c, phone, acc);
 
     content.innerHTML = sectionA + sectionB + sectionC + sectionD + sectionE + sectionF + sectionG + sectionH;
+    } catch(e) { console.error('_showClientDossier err:', e); showToast('Erreur', e.message); }
   }
 
   function _hideClientDossier() {
