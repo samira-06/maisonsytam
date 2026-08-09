@@ -3,8 +3,9 @@ var GITHUB_REPO = 'maisonsytam';
 
 function _ghHeaders() {
   var token = localStorage.getItem('sytam_github_token');
-  if (!token) return null;
-  return { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+  var h = { 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
 }
 
 function _ghReadFile(path) {

@@ -39,8 +39,6 @@
     }).then(function(r) { if (r.status === 404) return null; if (!r.ok) throw new Error(r.status); return r.json(); });
   }
   function _syncProductsFromGitHub() {
-    var token = localStorage.getItem('sytam_github_token');
-    if (!token) return;
     _ghReadFile('data/products.json').then(function(data) {
       if (!data) return;
       var json = JSON.parse(atob(data.content));
@@ -49,7 +47,7 @@
         if (typeof DB !== 'undefined') DB.reloadFromLocal();
         loadProducts();
       }
-    }).catch(function(){});
+    }).catch(function(e) { console.warn('Pull produits GitHub échoué:', e); });
   }
 
   function _syncOrdersToGitHub() {
@@ -99,6 +97,7 @@
 
   // ---- NOTIFICATIONS ----
   var _notifLastCount = 0;
+  var _lastOrderPull = 0;
   var _currentTab = 'dashboard';
   function initNotifications() {
     if (('Notification' in window)) {
@@ -143,8 +142,11 @@
     if (changed) {
       localStorage.setItem('sytam_orders_v2', JSON.stringify(orders));
     }
-    // Pull commandes depuis GitHub si token présent
-    if (typeof GhSyncAPI !== 'undefined' && localStorage.getItem('sytam_github_token')) {
+    // Pull commandes depuis GitHub (lecture anonyme OK, throttle si pas de token)
+    var hasToken = !!localStorage.getItem('sytam_github_token');
+    var rateOk = hasToken || (Date.now() - _lastOrderPull >= 300000);
+    if (typeof GhSyncAPI !== 'undefined' && rateOk) {
+      _lastOrderPull = Date.now();
       GhSyncAPI.getOrders().then(function(data) {
         if (data && data.orders && Array.isArray(data.orders)) {
           var remote = data.orders;
@@ -167,7 +169,7 @@
           }
         }
         _afterPoll();
-      }).catch(function() { _afterPoll(); });
+      }).catch(function(e) { console.warn('Pull commandes GitHub échoué:', e); _afterPoll(); });
     } else {
       _afterPoll();
     }
@@ -197,7 +199,6 @@
   }
   function syncNow() {
     var token = localStorage.getItem('sytam_github_token');
-    if (!token) { showToast('⚠️', 'Token GitHub non défini dans Paramètres'); return; }
     showToast('🔄', 'Synchro en cours…');
     // 1. Pull commandes depuis GitHub (fusion)
     var pullOrders = function() {
@@ -244,9 +245,13 @@
     pullOrders().then(function() {
       return pullProducts();
     }).then(function() {
-      _syncOrdersToGitHub();
-      _syncProductsToGitHub();
-      setTimeout(function() { loadOrders(); showToast('✅', 'Synchro terminée'); }, 1500);
+      if (token) {
+        _syncOrdersToGitHub();
+        _syncProductsToGitHub();
+      } else {
+        console.warn('Sync: mode lecture seule détecté, token absent');
+      }
+      setTimeout(function() { loadOrders(); loadProducts(); showToast(token ? '✅' : '⚠️', token ? 'Synchro terminée' : 'Récupéré seulement — token requis pour ENVOYER'); }, 1500);
     });
   }
   function sendNtfy(order) {

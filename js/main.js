@@ -1130,7 +1130,7 @@
         return '<li class="track-step ' + cls + '"><span class="dot"></span><div class="step-label">' + s.label + '</div></li>';
       }).join('') + '</ul>';
       resultDiv.style.display = 'block';
-      var lastUpdate = found.created_at || found.mis_a_jour || '';
+      var lastUpdate = found.mis_a_jour || found.created_at || '';
       var dateStr = lastUpdate ? new Date(lastUpdate).toLocaleString('fr-FR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
       var cancelBtn = found.statut === 'en_attente' ? '<div style="text-align:center;margin-top:16px"><button class="btn-del" onclick="SytamApp.cancelOrder(\'' + found.id + '\',\'' + phoneDigits + '\')" style="padding:10px 24px;border-radius:8px;font-size:.85rem">Annuler cette commande</button></div>' : '';
       resultDiv.innerHTML = cardHtml + timelineHtml +
