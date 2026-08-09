@@ -2333,7 +2333,7 @@
     var monthly = {};
     c.orders.forEach(function(o) {
       if (o.created_at) {
-        var m = o.created_at.substring(0, 7);
+        var m = String(o.created_at).substring(0, 7);
         monthly[m] = (monthly[m] || 0) + (o.total || 0);
       }
     });
