@@ -1072,7 +1072,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
   stroke-linecap: round; stroke-linejoin: round;
 }
 .wishlist-heart:hover { transform: scale(1.08); }
-.wishlist-heart.active { color: #141414; }
+.wishlist-heart.active { color: var(--primary); }
 .wishlist-heart.active svg { fill: currentColor; }
 .modal-wishlist-heart {
   background: none; border: none; cursor: pointer;
@@ -1086,7 +1086,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
   stroke-linecap: round; stroke-linejoin: round;
 }
 .modal-wishlist-heart:hover { transform: scale(1.15); }
-.modal-wishlist-heart.active { color: #141414; }
+.modal-wishlist-heart.active { color: var(--primary); }
 .modal-wishlist-heart.active svg { fill: currentColor; }
 
 @media (max-width: 768px) {
