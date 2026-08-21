@@ -1060,18 +1060,18 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 .wishlist-heart {
   position: absolute; top: 16px; right: 16px; z-index: 2;
   width: 38px; height: 38px; border-radius: 50%;
-  background: rgba(255,255,255,.72); border: none;
+  background: none; border: none;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #2D2D2D;
+  cursor: pointer; color: #fff;
   transition: var(--transition);
-  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.45));
 }
+.wishlist-heart:hover { transform: scale(1.08); background: rgba(255,255,255,.25); }
 .wishlist-heart svg {
   width: 18px; height: 18px;
   fill: none; stroke: currentColor; stroke-width: 1.6;
   stroke-linecap: round; stroke-linejoin: round;
 }
-.wishlist-heart:hover { transform: scale(1.08); }
 .wishlist-heart.active { color: var(--primary); }
 .wishlist-heart.active svg { fill: currentColor; }
 .modal-wishlist-heart {
