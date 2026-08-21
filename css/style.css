@@ -580,6 +580,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
     border: 2px solid rgba(255,255,255,0.25);
     top: 10px; right: 10px;
   }
+  .modal-wishlist-heart { top: 14px; right: 66px; }
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .product-scroll .product-card { width: 180px; }
   .cart-panel { width: 100%; }
@@ -1075,17 +1076,20 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
 .wishlist-heart.active { color: var(--primary); }
 .wishlist-heart.active svg { fill: currentColor; }
 .modal-wishlist-heart {
-  background: none; border: none; cursor: pointer;
-  width: 34px; height: 34px; display: inline-flex;
-  align-items: center; justify-content: center;
-  float: right; color: #2D2D2D; transition: var(--transition);
+  position: absolute; top: 16px; right: 16px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: none; border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff;
+  transition: var(--transition);
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.45));
 }
 .modal-wishlist-heart svg {
-  width: 20px; height: 20px;
+  width: 18px; height: 18px;
   fill: none; stroke: currentColor; stroke-width: 1.6;
   stroke-linecap: round; stroke-linejoin: round;
 }
-.modal-wishlist-heart:hover { transform: scale(1.15); }
+.modal-wishlist-heart:hover { transform: scale(1.08); background: rgba(255,255,255,.25); }
 .modal-wishlist-heart.active { color: var(--primary); }
 .modal-wishlist-heart.active svg { fill: currentColor; }
 

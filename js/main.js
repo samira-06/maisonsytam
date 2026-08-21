@@ -322,7 +322,7 @@
         <button class="option-btn ${state.selectedVariant && state.selectedVariant.attributs && state.selectedVariant.attributs.taille === s ? 'active' : ''}" data-value="${s}" onclick="SytamApp.selectVariantAttr('taille','${s}')">${s}</button>
       `).join('');
       html += `</div></div>`;
-      html += `<div style="margin-top:4px;text-align:right"><button class="btn-link" onclick="SytamApp.openSizeGuide()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:.75rem;text-decoration:underline;opacity:.7">📏 Guide des tailles</button></div>`;
+      html += `<div style="margin-top:4px;text-align:right"><button class="btn-link" onclick="SytamApp.openSizeGuide()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:.75rem;opacity:.75">📏 Guide des tailles</button></div>`;
     }
 
     const stock = (state.selectedVariant && state.selectedVariant.stock) || 0;
@@ -337,12 +337,12 @@
         <div class="modal-grid">
           <div class="modal-gallery" id="modal-gallery-wrap">
             <img src="${img}" alt="${p.nom}" class="modal-main-img" id="modal-main-img" loading="lazy">
+            ${typeof AccountApp !== 'undefined' ? '<button class="modal-wishlist-heart' + (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn() && AccountApp.isInWishlist(p.id) ? ' active' : '') + '" aria-label="Ajouter aux favoris" onclick="if(!AccountApp.isLoggedIn()){SytamApp.navigate(\'account\')}else{AccountApp.toggleWishlist(\'' + p.id + '\');this.classList.toggle(\'active\')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' : ''}
             ${thumbsHtml}
           </div>
           <div class="modal-info">
             <span class="modal-cat-badge">${p.categorie}</span>
             <h2>${p.nom}</h2>
-            ${typeof AccountApp !== 'undefined' ? '<button class="modal-wishlist-heart' + (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn() && AccountApp.isInWishlist(p.id) ? ' active' : '') + '" aria-label="Ajouter aux favoris" onclick="if(!AccountApp.isLoggedIn()){SytamApp.navigate(\'account\')}else{AccountApp.toggleWishlist(\'' + p.id + '\');this.classList.toggle(\'active\')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' : ''}
             <p class="modal-price">${promoPriceHtml(p)}</p>
             <div class="modal-desc">${p.description}</div>
             ${html}
