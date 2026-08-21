@@ -243,7 +243,7 @@
       <div class="product-card" onclick="SytamApp.quickView('${p.id}')">
         <div class="product-card-img">
           <img src="${img}" alt="${p.nom}" loading="lazy" onerror="this.src='${placeholdersvg}'">
-          <button class="wishlist-heart${inWish ? ' active' : ''}" onclick="event.stopPropagation();if(!AccountApp.isLoggedIn()){SytamApp.navigate('account')}else{AccountApp.toggleWishlist('${p.id}');this.classList.toggle('active');this.textContent=this.classList.contains('active')?'♥':'♡'}">${inWish ? '♥' : '♡'}</button>
+          <button class="wishlist-heart${inWish ? ' active' : ''}" aria-label="Ajouter aux favoris" onclick="event.stopPropagation();if(!AccountApp.isLoggedIn()){SytamApp.navigate('account')}else{AccountApp.toggleWishlist('${p.id}');this.classList.toggle('active')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
           ${p.promo_pct ? '<span class="badge" style="background:var(--danger)">-' + p.promo_pct + '%</span>' : ''}
           ${p.tag === 'nouveau' ? '<span class="badge">Nouveau</span>' : ''}
           ${p.tag === 'tendance' ? '<span class="badge" style="background:var(--gold);color:#fff">Populaire</span>' : ''}
@@ -342,7 +342,7 @@
           <div class="modal-info">
             <span class="modal-cat-badge">${p.categorie}</span>
             <h2>${p.nom}</h2>
-            ${typeof AccountApp !== 'undefined' ? '<button class="modal-wishlist-heart" onclick="if(!AccountApp.isLoggedIn()){SytamApp.navigate(\'account\')}else{AccountApp.toggleWishlist(\'' + p.id + '\');var i=AccountApp.isInWishlist(\'' + p.id + '\');if(i){this.classList.add(\'active\');this.textContent=\'\u2665\'}else{this.classList.remove(\'active\');this.textContent=\'\u2661\'}}">' + (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn() && AccountApp.isInWishlist(p.id) ? '\u2665' : '\u2661') + '</button>' : ''}
+            ${typeof AccountApp !== 'undefined' ? '<button class="modal-wishlist-heart' + (typeof AccountApp !== 'undefined' && AccountApp.isLoggedIn() && AccountApp.isInWishlist(p.id) ? ' active' : '') + '" aria-label="Ajouter aux favoris" onclick="if(!AccountApp.isLoggedIn()){SytamApp.navigate(\'account\')}else{AccountApp.toggleWishlist(\'' + p.id + '\');this.classList.toggle(\'active\')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' : ''}
             <p class="modal-price">${promoPriceHtml(p)}</p>
             <div class="modal-desc">${p.description}</div>
             ${html}
