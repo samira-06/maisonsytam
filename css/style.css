@@ -580,7 +580,7 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; }
     border: 2px solid rgba(255,255,255,0.25);
     top: 10px; right: 10px;
   }
-  .modal-wishlist-heart { top: 14px; right: 66px; }
+  .modal-wishlist-heart { top: 14px; right: auto; left: 14px; }
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .product-scroll .product-card { width: 180px; }
   .cart-panel { width: 100%; }
