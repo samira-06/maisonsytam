@@ -142,6 +142,7 @@
       <div class="topbar">
         <div style="display:flex;align-items:center;gap:.5rem;"><div class="hamburger" onclick="SytamAdmin.toggleSidebar()">☰</div><div><h1>Commandes</h1><p>Gestion des commandes boutique</p></div></div>
         <div class="topbar-right" style="display:flex;align-items:center;gap:8px">
+          <span id="sync-indicator" style="font-size:.68rem;color:var(--tl);white-space:nowrap">⏳ Sync…</span>
           <select class="form-input" style="width:auto;padding:.5rem .8rem" id="orderFilter" onchange="SytamAdmin.loadOrders()">
             <option value="all">Toutes</option>
             <option value="en_attente">En attente</option>
@@ -332,6 +333,6 @@
 <script src="js/github-sync.js?v=2"></script>
 <script src="js/products.js?v=8"></script>
 <script src="js/analytics.js?v=7"></script>
-<script src="js/admin.js?v=12"></script>
+<script src="js/admin.js?v=13"></script>
 </body>
 </html>

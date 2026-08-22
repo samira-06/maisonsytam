@@ -53,6 +53,18 @@
       return GhSyncAPI.pushProducts(merged);
     }).catch(function(e) { console.warn('Push produits GitHub échoué:', e); });
   }
+  // PULL commandes depuis GitHub (lecture seule, pas besoin de token)
+  function _syncOrdersFromGitHub() {
+    if (typeof GhSyncAPI === 'undefined') return Promise.resolve();
+    return GhSyncAPI.getOrders().then(function(data) {
+      if (data && data.orders && Array.isArray(data.orders)) {
+        var merged = _mergeOrders(_getLocalOrders(), data.orders);
+        localStorage.setItem('sytam_orders_v2', JSON.stringify(merged));
+        _updateSyncIndicator(new Date());
+        refreshCurrentTab();
+      }
+    }).catch(function(e) { console.warn('Pull commandes GitHub échoué:', e); });
+  }
   // PULL produits au démarrage : union sans écraser les produits propres à cet appareil
   function _syncProductsFromGitHub() {
     if (typeof GhSyncAPI === 'undefined') return Promise.resolve();
@@ -68,7 +80,10 @@
   // PUSH commandes : lire GitHub d'abord, merger, puis écrire
   function _syncOrdersToGitHub() {
     var token = localStorage.getItem('sytam_github_token');
-    if (!token || typeof GhSyncAPI === 'undefined') return Promise.resolve();
+    if (!token || typeof GhSyncAPI === 'undefined') {
+      console.warn('Push commandes impossible : token GitHub manquant');
+      return Promise.resolve();
+    }
     return GhSyncAPI.getOrders().then(function(data) {
       var remote = (data && Array.isArray(data.orders)) ? data.orders : [];
       var merged = _mergeOrders(_getLocalOrders(), remote);
@@ -115,6 +130,23 @@
     }
     pollOrders();
     setInterval(pollOrders, 30000);
+    // Sync auto quand on revient sur l'onglet (mobile ou desktop)
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) {
+        pollOrders();
+        _syncOrdersFromGitHub();
+      }
+    });
+  }
+  function _updateSyncIndicator(date) {
+    var el = $('sync-indicator');
+    var d = date || new Date();
+    localStorage.setItem('sytam_last_sync_orders', d.toISOString());
+    if (!el) return;
+    var time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    el.textContent = '✓ À jour ' + time;
+    el.style.color = 'var(--ok, #7BA888)';
+    setTimeout(function() { el.style.color = ''; }, 3000);
   }
   function refreshCurrentTab() {
     if (_currentTab === 'dashboard') loadDashboard();
@@ -168,6 +200,7 @@
   function _afterPoll() {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
     refreshCurrentTab();
+    _updateSyncIndicator(new Date());
     var pending = orders.filter(function(o) { return o.statut === 'en_attente'; }).length;
     if (pending > _notifLastCount && _notifLastCount > 0) {
       var diff = pending - _notifLastCount;
@@ -221,7 +254,7 @@
       } else {
         console.warn('Sync: mode lecture seule détecté, token absent');
       }
-      setTimeout(function() { loadOrders(); loadProducts(); showToast(token ? '✅' : '⚠️', token ? 'Synchro terminée' : 'Récupéré seulement — token requis pour ENVOYER'); }, 1500);
+      setTimeout(function() { loadOrders(); loadProducts(); _updateSyncIndicator(new Date()); showToast(token ? '✅' : '⚠️', token ? 'Synchro terminée' : 'Récupéré seulement — token requis pour ENVOYER'); }, 1500);
     });
   }
   function sendNtfy(order) {
@@ -1100,6 +1133,15 @@
   // ORDERS
   function loadOrders() {
     var orders = JSON.parse(localStorage.getItem('sytam_orders_v2') || '[]');
+    var el = $('sync-indicator');
+    if (el && orders.length) {
+      var lastSync = localStorage.getItem('sytam_last_sync_orders');
+      if (lastSync) {
+        var d = new Date(lastSync);
+        el.textContent = '✓ À jour ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        el.style.color = '';
+      }
+    }
     var filter = ($('orderFilter') && $('orderFilter').value) || 'all';
     if (filter !== 'all') orders = orders.filter(function (o) { return o.statut === filter; });
     var tbody = $('ordersTable');
@@ -1161,7 +1203,8 @@
     }
     _syncOrdersToGitHub();
     loadOrders(); loadDashboard();
-    showToast('✓ Statut mis à jour');
+    var hasToken = !!localStorage.getItem('sytam_github_token');
+    showToast('✓', hasToken ? 'Statut mis à jour' : 'Statut mis à jour (local — ajoute un token pour synchroniser)');
   }
 
   function deleteOrder(id) {
