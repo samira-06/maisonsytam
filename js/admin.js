@@ -335,10 +335,23 @@
   function saveGithubToken() {
     var token = ($('github-token') && $('github-token').value.trim()) || '';
     localStorage.setItem('sytam_github_token', token);
+    // Vérifier que la sauvegarde a bien marché
+    var verify = localStorage.getItem('sytam_github_token');
     var msg = $('github-msg');
-    if (msg) { msg.textContent = '✓ Token sauvegardé'; setTimeout(function() { msg.textContent = ''; }, 3000); }
-    showToast('✓ Token GitHub sauvegardé');
-    if (token) _syncProductsToGitHub();
+    if (verify) {
+      if (msg) { msg.textContent = '✓ Token sauvegardé (' + verify.substring(0, 10) + '…)' + (verify === token ? '' : ' ⚠️ vérification KO'); msg.style.color = '#7BA888'; setTimeout(function() { msg.textContent = ''; msg.style.color = ''; }, 4000); }
+      showToast('✓', 'Token GitHub sauvegardé — Test en cours…');
+      // Test immédiat de l'API GitHub
+      GhSyncAPI.getOrders().then(function(data) {
+        showToast('✅', 'Token valide ! ' + ((data && data.orders) ? data.orders.length : 0) + ' commandes trouvées sur GitHub');
+        _syncOrdersToGitHub();
+      }).catch(function(e) {
+        showToast('❌', 'Token invalide ou problème réseau — vérifie le token dans Paramètres');
+      });
+    } else {
+      if (msg) { msg.textContent = '❌ Erreur : le token n\'a pas pu être sauvegardé'; msg.style.color = 'var(--danger)'; setTimeout(function() { msg.textContent = ''; msg.style.color = ''; }, 4000); }
+      showToast('❌', 'Échec sauvegarde token');
+    }
   }
   function loadGithubToken() {
     var saved = localStorage.getItem('sytam_github_token');
@@ -1201,10 +1214,17 @@
       });
       _syncProductsToGitHub();
     }
-    _syncOrdersToGitHub();
+    _syncOrdersToGitHub().then(function() {
+      var hasToken = !!localStorage.getItem('sytam_github_token');
+      if (hasToken) {
+        showToast('✓', 'Statut mis à jour + envoyé sur GitHub');
+      } else {
+        showToast('⚠️', 'Statut mis à jour (local — token manquant dans Paramètres)');
+      }
+    }).catch(function() {
+      showToast('⚠️', 'Statut mis à jour localement — envoi GitHub échoué');
+    });
     loadOrders(); loadDashboard();
-    var hasToken = !!localStorage.getItem('sytam_github_token');
-    showToast('✓', hasToken ? 'Statut mis à jour' : 'Statut mis à jour (local — ajoute un token pour synchroniser)');
   }
 
   function deleteOrder(id) {
